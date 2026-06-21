@@ -53,6 +53,12 @@
             <button class="filter" data-filter="downtime">Downtime</button>
           </section>
 
+          <section class="after-hours-mode" id="afterHoursMode" hidden>
+            <span class="after-hours-icon">☾</span>
+            <span><small>AFTER HOURS FOR</small><strong id="afterHoursModeLabel">Solo traveler</strong></span>
+            <button id="changeAfterHoursMode">Change</button>
+          </section>
+
           <section class="refine-section" aria-label="Refine recommendations">
             <div class="refine-heading"><span>REFINE FOR THIS TRIP</span><button id="clearRefinements">Clear</button></div>
             <div class="refine-filters">
@@ -114,6 +120,21 @@
           <button data-budget="40">$40</button><button data-budget="55" class="chosen">$55</button><button data-budget="70">$70</button><button data-budget="90">$90</button>
         </div>
         <button class="primary-action" id="saveBudget">Save budget</button>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" id="afterHoursBackdrop" aria-hidden="true">
+      <section class="modal after-hours-modal" role="dialog" aria-modal="true" aria-labelledby="afterHoursTitle">
+        <button class="close" id="closeAfterHours" aria-label="Close">×</button>
+        <p class="eyebrow">AFTER HOURS</p>
+        <h2 id="afterHoursTitle">What kind of evening are you after?</h2>
+        <p class="modal-copy">We’ll surface bars and grown-up evening plans with the right energy, seating, and conversation level.</p>
+        <div class="after-hours-options" id="afterHoursOptions">
+          <button class="after-hours-option" data-after-hours="solo"><span>◎</span><strong>Solo traveler</strong><small>Comfortable at the bar, easy to settle in or meet people.</small></button>
+          <button class="after-hours-option" data-after-hours="group"><span>◌</span><strong>Group travel</strong><small>Lively spaces, shareable tables, and room for the team.</small></button>
+          <button class="after-hours-option" data-after-hours="client"><span>✦</span><strong>With client</strong><small>Polished, conversation-friendly, and appropriately impressive.</small></button>
+        </div>
+        <button class="primary-action" id="applyAfterHours" disabled>Show the right places</button>
       </section>
     </div>
 
