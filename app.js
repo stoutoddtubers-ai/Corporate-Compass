@@ -9,7 +9,9 @@ const cityData = {
     places: [
       {name:'Lupi & Iris', type:'Dinner · Downtown', price:52, score:'9.1', tags:['Client-friendly','Great service'], icon:'✦', image:'image-dinner'},
       {name:'Colectivo on the Square', type:'Coffee + work · East Side', price:14, score:'8.8', tags:['Strong Wi‑Fi','Solo friendly'], icon:'☕', image:'image-coffee'},
-      {name:'Bryant’s Cocktail Lounge', type:'After hours · Mitchell Park', price:38, score:'9.3', tags:['Quiet booths','Local classic'], icon:'♜', image:'image-bar'},
+      {name:'Bryant’s Cocktail Lounge', type:'After hours · Mitchell Park', price:38, score:'9.3', tags:['Quiet booths','Local classic'], afterHours:['solo','client'], icon:'♜', image:'image-bar'},
+      {name:'The Outsider', type:'After hours · Third Ward', price:48, score:'8.9', tags:['Rooftop energy','Great views'], afterHours:['group','client'], icon:'♜', image:'image-bar'},
+      {name:'Boone & Crockett', type:'After hours · Bay View', price:31, score:'8.7', tags:['Easy to mingle','Late-night'], afterHours:['solo','group'], icon:'♜', image:'image-bar'},
       {name:'Milwaukee Art Museum', type:'Downtime · Lakefront', price:24, score:'8.6', tags:['Walkable','90 min visit'], icon:'▱', image:'image-attraction'},
       {name:'The Pfister Hotel', type:'Hotel · Downtown', price:175, score:'92', tags:['Great for Sales Travel','Airport ready'], icon:'⌂', image:'image-hotel'}
     ]
@@ -24,7 +26,9 @@ const cityData = {
     places: [
       {name:'Carmella’s', type:'Dinner · Downtown', price:38, score:'9.2', tags:['Client-friendly','Walkable'], icon:'✦', image:'image-dinner'},
       {name:'Acoca Coffee', type:'Coffee + work · College Ave', price:12, score:'8.7', tags:['Strong Wi‑Fi','Quiet for calls'], icon:'☕', image:'image-coffee'},
-      {name:'Stone Arch Brewpub', type:'After hours · Riverfront', price:31, score:'8.9', tags:['Local tap list','Easy parking'], icon:'♜', image:'image-bar'},
+      {name:'Stone Arch Brewpub', type:'After hours · Riverfront', price:31, score:'8.9', tags:['Local tap list','Easy parking'], afterHours:['solo','group'], icon:'♜', image:'image-bar'},
+      {name:'McGuinness Irish Pub', type:'After hours · College Ave', price:34, score:'8.6', tags:['Lively crowd','Walkable'], afterHours:['group','client'], icon:'♜', image:'image-bar'},
+      {name:'Lawlss Coffee', type:'After hours · Downtown', price:18, score:'8.5', tags:['Low-key late','Conversation-friendly'], afterHours:['solo','client'], icon:'♜', image:'image-bar'},
       {name:'Trout Museum of Art', type:'Downtime · Downtown', price:10, score:'8.4', tags:['Walkable','Quick reset'], icon:'▱', image:'image-attraction'},
       {name:'CopperLeaf Boutique Hotel', type:'Hotel · Downtown', price:139, score:'88', tags:['Great for Long-Term Stays','Easy parking'], icon:'⌂', image:'image-hotel'}
     ]
@@ -39,7 +43,9 @@ const cityData = {
     places: [
       {name:'The Gage', type:'Dinner · Millennium Park', price:58, score:'9.0', tags:['Client-friendly','Late night'], icon:'✦', image:'image-dinner'},
       {name:'Osmium Coffee Bar', type:'Coffee + work · Lakeview', price:15, score:'8.9', tags:['Strong Wi‑Fi','Solo friendly'], icon:'☕', image:'image-coffee'},
-      {name:'Cindy’s Rooftop', type:'After hours · Loop', price:63, score:'9.1', tags:['Client wow','Hotel adjacent'], icon:'♜', image:'image-bar'},
+      {name:'Cindy’s Rooftop', type:'After hours · Loop', price:63, score:'9.1', tags:['Client wow','Hotel adjacent'], afterHours:['group','client'], icon:'♜', image:'image-bar'},
+      {name:'The Drawing Room', type:'After hours · Gold Coast', price:42, score:'8.8', tags:['Sophisticated','Quiet corners'], afterHours:['solo','client'], icon:'♜', image:'image-bar'},
+      {name:'Federales', type:'After hours · West Loop', price:39, score:'8.7', tags:['Lively groups','Late-night'], afterHours:['group','solo'], icon:'♜', image:'image-bar'},
       {name:'Chicago Architecture Center', type:'Downtime · River North', price:18, score:'8.8', tags:['90 min visit','Worth it'], icon:'▱', image:'image-attraction'},
       {name:'Hyatt Regency Chicago', type:'Hotel · Riverwalk', price:209, score:'91', tags:['Great for Conferences','Loyalty eligible'], icon:'⌂', image:'image-hotel'}
     ]
@@ -79,6 +85,7 @@ const hotelProfiles = {
 let currentCity = 'Milwaukee, WI';
 let budget = 55;
 let currentFilter = 'all';
+let afterHoursContext = null;
 let pulseMode = 'social';
 let checkedIn = false;
 let checkinIntent = 'Open to connect';
@@ -119,8 +126,9 @@ function matchesRefinements(place) {
     return true;
   });
 }
+function matchesAfterHours(place) { return currentFilter !== 'drinks' || !afterHoursContext || (place.afterHours || []).includes(afterHoursContext); }
 function renderPlaces() {
-  const places = cityData[currentCity].places.filter(p => (currentFilter === 'all' || categoryFor(p) === currentFilter) && matchesRefinements(p));
+  const places = cityData[currentCity].places.filter(p => (currentFilter === 'all' || categoryFor(p) === currentFilter) && matchesRefinements(p) && matchesAfterHours(p));
   list.innerHTML = places.map((p,i) => { const hotel = p.type.startsWith('Hotel'); return `<article class="place-card" data-place="${p.name}">
     <div class="place-image ${p.image}"><span>${p.icon}</span></div>
     <div class="place-main"><div class="place-top"><div class="place-name">${p.name}</div><button class="save" aria-label="Save ${p.name}" data-save="${i}">♡</button></div>
@@ -188,10 +196,18 @@ function closeReceiptForm() { $('#receiptBackdrop').classList.remove('open'); $(
 function openBudget() { $('#modalBackdrop').classList.add('open'); $('#modalBackdrop').setAttribute('aria-hidden','false'); }
 function showBudgetSettings() { $('#modalEyebrow').textContent = 'PER DIEM SETTINGS'; $('#modalTitle').textContent = 'Set your dinner budget'; $('#modalCopy').textContent = 'We’ll highlight places that make your expense report easy.'; $('#budgetOptions').style.display = 'grid'; $('#saveBudget').textContent = 'Save budget'; openBudget(); }
 function closeBudget() { $('#modalBackdrop').classList.remove('open'); $('#modalBackdrop').setAttribute('aria-hidden','true'); }
+function renderAfterHoursMode() { const labels = {solo:'Solo traveler',group:'Group travel',client:'With client'}; $('#afterHoursMode').hidden = !afterHoursContext; if (afterHoursContext) $('#afterHoursModeLabel').textContent = labels[afterHoursContext]; }
+function openAfterHours() { $('#afterHoursBackdrop').classList.add('open'); $('#afterHoursBackdrop').setAttribute('aria-hidden','false'); $('#applyAfterHours').disabled = !afterHoursContext; document.querySelectorAll('.after-hours-option').forEach(button => button.classList.toggle('chosen', button.dataset.afterHours === afterHoursContext)); }
+function closeAfterHours() { $('#afterHoursBackdrop').classList.remove('open'); $('#afterHoursBackdrop').setAttribute('aria-hidden','true'); }
 
 $('#cityButton').addEventListener('click', () => { $('#cityMenu').classList.toggle('open'); $('#cityButton').setAttribute('aria-expanded', $('#cityMenu').classList.contains('open')); });
 document.querySelectorAll('#cityMenu button').forEach(button => button.addEventListener('click', () => { currentCity = button.dataset.city; $('#cityMenu').classList.remove('open'); renderCity(); }));
-document.querySelectorAll('.filter').forEach(button => button.addEventListener('click', () => { document.querySelector('.filter.active').classList.remove('active'); button.classList.add('active'); currentFilter = button.dataset.filter; renderPlaces(); }));
+document.querySelectorAll('.filter').forEach(button => button.addEventListener('click', () => { document.querySelector('.filter.active').classList.remove('active'); button.classList.add('active'); currentFilter = button.dataset.filter; if (currentFilter === 'drinks') { afterHoursContext = null; renderAfterHoursMode(); openAfterHours(); } else { afterHoursContext = null; renderAfterHoursMode(); renderPlaces(); } }));
+$('#closeAfterHours').addEventListener('click', closeAfterHours);
+$('#afterHoursBackdrop').addEventListener('click', e => { if (e.target === $('#afterHoursBackdrop')) closeAfterHours(); });
+document.querySelectorAll('.after-hours-option').forEach(button => button.addEventListener('click', () => { afterHoursContext = button.dataset.afterHours; document.querySelectorAll('.after-hours-option').forEach(option => option.classList.toggle('chosen', option === button)); $('#applyAfterHours').disabled = false; }));
+$('#applyAfterHours').addEventListener('click', () => { renderAfterHoursMode(); renderPlaces(); closeAfterHours(); });
+$('#changeAfterHoursMode').addEventListener('click', openAfterHours);
 document.querySelectorAll('.refine-filter').forEach(button => button.addEventListener('click', () => { const refinement = button.dataset.refine; if (activeRefinements.has(refinement)) { activeRefinements.delete(refinement); button.classList.remove('active'); button.setAttribute('aria-pressed','false'); } else { activeRefinements.add(refinement); button.classList.add('active'); button.setAttribute('aria-pressed','true'); } renderPlaces(); }));
 $('#clearRefinements').addEventListener('click', () => { activeRefinements.clear(); document.querySelectorAll('.refine-filter.active').forEach(button => { button.classList.remove('active'); button.setAttribute('aria-pressed','false'); }); renderPlaces(); });
 document.querySelectorAll('.pulse-filter').forEach(button => button.addEventListener('click', () => { document.querySelector('.pulse-filter.active').classList.remove('active'); button.classList.add('active'); pulseMode = button.dataset.pulse; renderPulse(); }));
