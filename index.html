@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Corporate Compass — Business travel, better spent</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="app" aria-label="Corporate Compass app prototype">
+        <header class="topbar">
+          <a class="brand" href="#top" aria-label="Corporate Compass home">
+            <span class="brand-mark">P</span>
+            <span>Corporate Compass</span>
+          </a>
+          <button class="avatar" aria-label="Open profile">AL</button>
+        </header>
+
+        <div class="content" id="top">
+          <section class="hero">
+            <p class="eyebrow">GOOD EVENING, ANTHONY</p>
+            <h1>Make the most of<br />your work trip.</h1>
+            <p class="hero-copy">Local spots that work with your schedule, your standards, and your per diem.</p>
+            <button class="profile-summary" id="profileSummary">✦ Sales traveler profile</button>
+          </section>
+
+          <section class="trip-card" aria-label="Current trip settings">
+            <button class="location-select" id="cityButton" aria-haspopup="listbox" aria-expanded="false">
+              <span class="pin">⌖</span>
+              <span><small>YOUR CURRENT CITY</small><strong id="cityName">Milwaukee, WI</strong></span>
+              <span class="chev">⌄</span>
+            </button>
+            <div class="city-menu" id="cityMenu" role="listbox" aria-label="Choose a city">
+              <button role="option" data-city="Appleton, WI">Appleton, WI</button>
+              <button role="option" data-city="Milwaukee, WI">Milwaukee, WI</button>
+              <button role="option" data-city="Chicago, IL">Chicago, IL</button>
+            </div>
+            <div class="trip-rule"></div>
+            <div class="per-diem-row">
+              <span class="wallet">▣</span>
+              <span><small>DINNER PER DIEM</small><strong id="perDiemValue">$55</strong></span>
+              <button class="edit-budget" id="budgetButton">Edit</button>
+            </div>
+          </section>
+
+          <section class="quick-filters" aria-label="Quick filters">
+            <button class="filter active" data-filter="all">For you</button>
+            <button class="filter" data-filter="dinner">Dinner</button>
+            <button class="filter" data-filter="coffee">Coffee + work</button>
+            <button class="filter" data-filter="drinks">After hours</button>
+            <button class="filter" data-filter="hotels">Hotels</button>
+            <button class="filter" data-filter="downtime">Downtime</button>
+          </section>
+
+          <section class="refine-section" aria-label="Refine recommendations">
+            <div class="refine-heading"><span>REFINE FOR THIS TRIP</span><button id="clearRefinements">Clear</button></div>
+            <div class="refine-filters">
+              <button class="refine-filter" data-refine="under25" aria-pressed="false">Under $25</button>
+              <button class="refine-filter" data-refine="under50" aria-pressed="false">Under $50</button>
+              <button class="refine-filter" data-refine="client" aria-pressed="false">Client dinner</button>
+              <button class="refine-filter" data-refine="value" aria-pressed="false">Best value</button>
+              <button class="refine-filter" data-refine="expense" aria-pressed="false">Expense-friendly</button>
+              <button class="refine-filter" data-refine="premium" aria-pressed="false">Premium but worth it</button>
+            </div>
+          </section>
+
+          <section class="section-heading">
+            <div>
+              <p class="eyebrow">TONIGHT IN <span id="cityLabel">MILWAUKEE</span></p>
+              <h2>Worth the expense report</h2>
+            </div>
+            <button class="text-button" id="viewAll">View all</button>
+          </section>
+
+          <section id="placeList" class="place-list" aria-live="polite"></section>
+
+          <section class="section-heading nearby-heading">
+            <div>
+              <p class="eyebrow">TRAVELER PULSE · LAST 60 MIN</p>
+              <h2>Find your kind of crowd</h2>
+            </div>
+          </section>
+          <p class="pulse-intro">Anonymous check-ins show where fellow business travelers are right now—without sharing anyone’s exact location.</p>
+          <div class="pulse-filters" aria-label="Traveler pulse filters">
+            <button class="pulse-filter active" data-pulse="social">Meet people</button>
+            <button class="pulse-filter" data-pulse="quiet">Quieter spots</button>
+          </div>
+          <section id="pulseList" class="pulse-list" aria-live="polite"></section>
+          <section class="live-card checkin-card">
+            <div class="live-icon">◉</div>
+            <div class="live-copy"><strong id="liveTitle">Hotel Metro Lounge</strong><span id="liveStatus">8 business travelers checked in this hour</span></div>
+            <button id="checkInButton" class="checkin">Check in</button>
+          </section>
+        </div>
+
+        <nav class="bottom-nav" aria-label="Primary navigation">
+          <button class="nav-item selected" data-nav="discover"><span>⌕</span>Discover</button>
+          <button class="nav-item" data-nav="saved"><span>♡</span>Saved</button>
+          <button class="nav-item fab" id="addPlace" aria-label="Add a place">+</button>
+          <button class="nav-item" data-nav="trips"><span>▤</span>Trips</button>
+          <button class="nav-item" data-nav="profile"><span>◌</span>Profile</button>
+        </nav>
+      </section>
+    </main>
+
+    <div class="modal-backdrop" id="modalBackdrop" aria-hidden="true">
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <button class="close" id="closeModal" aria-label="Close">×</button>
+        <p class="eyebrow" id="modalEyebrow">PER DIEM SETTINGS</p>
+        <h2 id="modalTitle">Set your dinner budget</h2>
+        <p class="modal-copy" id="modalCopy">We’ll highlight places that make your expense report easy.</p>
+        <div class="budget-options" id="budgetOptions">
+          <button data-budget="40">$40</button><button data-budget="55" class="chosen">$55</button><button data-budget="70">$70</button><button data-budget="90">$90</button>
+        </div>
+        <button class="primary-action" id="saveBudget">Save budget</button>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" id="checkinBackdrop" aria-hidden="true">
+      <section class="modal checkin-modal" role="dialog" aria-modal="true" aria-labelledby="checkinTitle">
+        <button class="close" id="closeCheckin" aria-label="Close">×</button>
+        <p class="eyebrow">TRAVELER PULSE</p>
+        <h2 id="checkinTitle">Check in at <span id="checkinPlace">Hotel Metro Lounge</span></h2>
+        <p class="modal-copy">Your check-in is counted anonymously for 60 minutes. Your exact location and identity are never shown to other travelers.</p>
+        <p class="checkin-label">WHAT BRINGS YOU HERE?</p>
+        <div class="intent-options" id="intentOptions">
+          <button data-intent="Open to connect" class="chosen">Open to connect</button>
+          <button data-intent="Working quietly">Working quietly</button>
+          <button data-intent="Client dinner">Client dinner</button>
+        </div>
+        <button class="primary-action" id="confirmCheckin">Share my pulse for 60 min</button>
+      </section>
+    </div>
+
+    <div class="modal-backdrop review-backdrop" id="reviewBackdrop" aria-hidden="true">
+      <section class="modal review-modal" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
+        <button class="close" id="closeReview" aria-label="Close review">×</button>
+        <div id="reviewContent"></div>
+      </section>
+    </div>
+
+    <div class="modal-backdrop hotel-backdrop" id="hotelBackdrop" aria-hidden="true">
+      <section class="modal hotel-modal" role="dialog" aria-modal="true" aria-labelledby="hotelTitle">
+        <button class="close" id="closeHotel" aria-label="Close hotel details">×</button>
+        <div id="hotelContent"></div>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" id="profileBackdrop" aria-hidden="true">
+      <section class="modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
+        <button class="close" id="closeProfile" aria-label="Close profile">×</button>
+        <p class="eyebrow">BUSINESS TRAVELER PROFILE</p>
+        <h2 id="profileTitle">How do you travel for work?</h2>
+        <p class="modal-copy">Choose every role that fits. Corporate Compass will prioritize reviews and recommendations from travelers with similar needs.</p>
+        <section class="profile-rewards-card">
+          <div><span class="reward-label">COMPASS REWARDS</span><strong id="profilePointTotal">720 points</strong><small id="profileBadgeSummary">Trusted Traveler · Local Lens</small></div>
+          <button id="viewRewards">View rewards</button>
+        </section>
+        <div class="profile-roles" id="profileRoles">
+          <button class="profile-role chosen" data-role="Sales">Sales</button>
+          <button class="profile-role" data-role="Consultant">Consultant</button>
+          <button class="profile-role" data-role="Executive">Executive</button>
+          <button class="profile-role" data-role="Pilot / airline crew">Pilot / airline crew</button>
+          <button class="profile-role" data-role="Event traveler">Event traveler</button>
+          <button class="profile-role" data-role="Remote worker">Remote worker</button>
+          <button class="profile-role" data-role="Contractor">Contractor</button>
+          <button class="profile-role" data-role="Trade show traveler">Trade show traveler</button>
+        </div>
+        <p class="profile-privacy">Your roles are private. Only anonymous, aggregated traveler-role context is shown with reviews.</p>
+        <button class="primary-action" id="saveProfile">Save profile</button>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" id="rewardsBackdrop" aria-hidden="true">
+      <section class="modal rewards-modal" role="dialog" aria-modal="true" aria-labelledby="rewardsTitle">
+        <button class="close" id="closeRewards" aria-label="Close rewards">×</button>
+        <p class="eyebrow">COMPASS REWARDS</p>
+        <h2 id="rewardsTitle">Your contribution has mileage.</h2>
+        <section class="rewards-balance"><span id="rewardsPointTotal">720</span><strong>Compass Points</strong><small>Earn points for verified reviews and proof photos.</small></section>
+        <section class="badge-section"><p class="form-label">YOUR BADGES</p><div id="badgeList" class="badge-list"></div></section>
+        <section class="earn-section"><p class="form-label">HOW TO EARN</p><div class="earn-row"><span>Verified review</span><strong>+50</strong></div><div class="earn-row"><span>Food or venue photo</span><strong>+25</strong></div></section>
+        <section class="reward-shop"><p class="form-label">REWARDS SHOP</p><div id="rewardsShop"></div></section>
+        <p class="verification-note">Badges appear beside your review byline. Gift cards and discounts are represented as prototype rewards only.</p>
+      </section>
+    </div>
+
+    <div class="modal-backdrop vault-backdrop" id="vaultBackdrop" aria-hidden="true">
+      <section class="modal vault-modal" role="dialog" aria-modal="true" aria-labelledby="vaultTitle">
+        <button class="close" id="closeVault" aria-label="Close expense vault">×</button>
+        <div class="vault-header">
+          <p class="eyebrow">PRIVATE TO YOUR PROFILE</p>
+          <h2 id="vaultTitle">Expense Vault</h2>
+          <p>Save receipts, link them to a trip, and find them when it’s time to file.</p>
+        </div>
+        <section class="vault-summary">
+          <div><strong id="receiptCount">3</strong><span>receipts saved</span></div>
+          <div><strong id="receiptTotal">$124.80</strong><span>tracked this trip</span></div>
+          <span class="private-lock">▣ Private</span>
+        </section>
+        <section class="trip-picker">
+          <p class="eyebrow">YOUR TRIPS</p>
+          <select id="vaultTrip" aria-label="Choose a trip">
+            <option>Milwaukee Sales Visit · Aug 12–14</option>
+            <option>Appleton Client Meetings · Aug 19–20</option>
+            <option>Chicago Trade Show · Sep 4–7</option>
+          </select>
+        </section>
+        <div class="vault-section-heading"><h3>Saved receipts</h3><button id="addReceipt">+ Add receipt</button></div>
+        <section id="receiptList" class="receipt-list" aria-live="polite"></section>
+        <p class="vault-note">Receipts stay private to your profile and are never visible in reviews, traveler pulse, or place recommendations.</p>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" id="receiptBackdrop" aria-hidden="true">
+      <section class="modal receipt-modal" role="dialog" aria-modal="true" aria-labelledby="receiptTitle">
+        <button class="close" id="closeReceipt" aria-label="Close receipt form">×</button>
+        <p class="eyebrow">PRIVATE EXPENSE VAULT</p>
+        <h2 id="receiptTitle">Save a receipt</h2>
+        <p class="modal-copy">Attach it to the trip it belongs to. This information is private to your profile.</p>
+        <form id="receiptForm">
+          <label class="form-label" for="receiptTripInput">TRIP</label>
+          <select class="form-control" id="receiptTripInput">
+            <option>Milwaukee Sales Visit · Aug 12–14</option>
+            <option>Appleton Client Meetings · Aug 19–20</option>
+            <option>Chicago Trade Show · Sep 4–7</option>
+          </select>
+          <label class="form-label" for="receiptPlace">PLACE OR MERCHANT</label>
+          <input class="form-control" id="receiptPlace" placeholder="e.g. Lupi & Iris" required />
+          <label class="form-label" for="receiptAmount">AMOUNT</label>
+          <div class="amount-field"><span>$</span><input id="receiptAmount" type="number" min="0" step="0.01" placeholder="0.00" required /></div>
+          <label class="receipt-attach" for="receiptFile"><span>▧</span><strong id="receiptFileName">Attach receipt image or PDF</strong><small>Optional in this prototype</small></label>
+          <input id="receiptFile" type="file" accept="image/*,.pdf" hidden />
+          <button class="primary-action" type="submit">Save private receipt</button>
+        </form>
+      </section>
+    </div>
+
+    <div class="modal-backdrop" id="reviewSubmissionBackdrop" aria-hidden="true">
+      <section class="modal submit-review-modal" role="dialog" aria-modal="true" aria-labelledby="submitReviewTitle">
+        <button class="close" id="closeReviewSubmission" aria-label="Close review form">×</button>
+        <p class="eyebrow">VERIFIED PLACE REVIEW</p>
+        <h2 id="submitReviewTitle">Review <span id="submissionPlace">this place</span></h2>
+        <p class="modal-copy">A Verified badge requires a location match and one photo showing the venue or what you ordered.</p>
+        <section class="verification-step" id="locationVerification">
+          <div class="verification-icon">⌖</div>
+          <div><strong>Confirm you’re here</strong><span id="locationVerificationText">Check that your location matches this place.</span></div>
+          <button type="button" id="verifyLocation">Verify</button>
+        </section>
+        <label class="receipt-attach review-proof" for="reviewProof"><span>▧</span><strong id="reviewProofName">Add venue or food photo</strong><small>Required for a Verified badge · +25 Compass Points · kept private for validation</small></label>
+        <input id="reviewProof" type="file" accept="image/*" hidden />
+        <form id="submitReviewForm">
+          <section class="rating-panel" aria-labelledby="ratingPanelTitle">
+            <div class="rating-panel-heading"><div><p class="form-label" id="ratingPanelTitle">RATE WHAT MATTERS ON A WORK TRIP</p><span>Eight ratings are required for a Verified review.</span></div><div class="traveler-score"><strong id="travelerScore">—</strong><span>Business<br />Traveler Score</span></div></div>
+            <div id="ratingInputs" class="rating-inputs"></div>
+          </section>
+          <label class="form-label" for="reviewText">OPTIONAL COMMENT</label>
+          <textarea class="review-text" id="reviewText" placeholder="Anything another business traveler should know? (optional)"></textarea>
+          <button class="primary-action" type="submit">Submit verified review</button>
+        </form>
+        <p class="verification-note">Your live location and proof photo are used only to validate the review—they are not public on your profile or in the Traveler Pulse.</p>
+      </section>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
