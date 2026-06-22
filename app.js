@@ -13,7 +13,9 @@ const cityData = {
       {name:'The Outsider', type:'After hours · Third Ward', price:48, score:'8.9', tags:['Rooftop energy','Great views'], afterHours:['group','client'], icon:'♜', image:'image-bar'},
       {name:'Boone & Crockett', type:'After hours · Bay View', price:31, score:'8.7', tags:['Easy to mingle','Late-night'], afterHours:['solo','group'], icon:'♜', image:'image-bar'},
       {name:'Milwaukee Art Museum', type:'Downtime · Lakefront', price:24, score:'8.6', tags:['Walkable','90 min visit'], icon:'▱', image:'image-attraction'},
-      {name:'The Pfister Hotel', type:'Hotel · Downtown', price:175, score:'92', tags:['Great for Sales Travel','Airport ready'], icon:'⌂', image:'image-hotel'}
+      {name:'The Pfister Hotel', type:'Hotel · Downtown', price:175, score:'92', tags:['Independent','Great for Sales Travel','Airport ready'], icon:'⌂', image:'image-hotel'},
+      {name:'Milwaukee Marriott Downtown', type:'Hotel · Downtown', price:189, score:'90', tags:['Marriott Bonvoy','Great for Conferences'], icon:'⌂', image:'image-hotel'},
+      {name:'Hilton Milwaukee City Center', type:'Hotel · Westown', price:159, score:'86', tags:['Hilton Honors','Meeting-ready'], icon:'⌂', image:'image-hotel'}
     ]
   },
   'Appleton, WI': {
@@ -30,7 +32,9 @@ const cityData = {
       {name:'McGuinness Irish Pub', type:'After hours · College Ave', price:34, score:'8.6', tags:['Lively crowd','Walkable'], afterHours:['group','client'], icon:'♜', image:'image-bar'},
       {name:'Lawlss Coffee', type:'After hours · Downtown', price:18, score:'8.5', tags:['Low-key late','Conversation-friendly'], afterHours:['solo','client'], icon:'♜', image:'image-bar'},
       {name:'Trout Museum of Art', type:'Downtime · Downtown', price:10, score:'8.4', tags:['Walkable','Quick reset'], icon:'▱', image:'image-attraction'},
-      {name:'CopperLeaf Boutique Hotel', type:'Hotel · Downtown', price:139, score:'88', tags:['Great for Long-Term Stays','Easy parking'], icon:'⌂', image:'image-hotel'}
+      {name:'CopperLeaf Boutique Hotel', type:'Hotel · Downtown', price:139, score:'88', tags:['Independent','Great for Long-Term Stays','Easy parking'], icon:'⌂', image:'image-hotel'},
+      {name:'Hilton Appleton Paper Valley', type:'Hotel · Downtown', price:149, score:'87', tags:['Hilton Honors','Convention-ready'], icon:'⌂', image:'image-hotel'},
+      {name:'Courtyard Appleton Riverfront', type:'Hotel · Riverfront', price:139, score:'86', tags:['Marriott Bonvoy','Easy parking'], icon:'⌂', image:'image-hotel'}
     ]
   },
   'Chicago, IL': {
@@ -47,7 +51,9 @@ const cityData = {
       {name:'The Drawing Room', type:'After hours · Gold Coast', price:42, score:'8.8', tags:['Sophisticated','Quiet corners'], afterHours:['solo','client'], icon:'♜', image:'image-bar'},
       {name:'Federales', type:'After hours · West Loop', price:39, score:'8.7', tags:['Lively groups','Late-night'], afterHours:['group','solo'], icon:'♜', image:'image-bar'},
       {name:'Chicago Architecture Center', type:'Downtime · River North', price:18, score:'8.8', tags:['90 min visit','Worth it'], icon:'▱', image:'image-attraction'},
-      {name:'Hyatt Regency Chicago', type:'Hotel · Riverwalk', price:209, score:'91', tags:['Great for Conferences','Loyalty eligible'], icon:'⌂', image:'image-hotel'}
+      {name:'Hyatt Regency Chicago', type:'Hotel · Riverwalk', price:209, score:'91', tags:['World of Hyatt','Great for Conferences'], icon:'⌂', image:'image-hotel'},
+      {name:'Marriott Marquis Chicago', type:'Hotel · South Loop', price:239, score:'91', tags:['Marriott Bonvoy','Trade-show ready'], icon:'⌂', image:'image-hotel'},
+      {name:'Hilton Chicago', type:'Hotel · Grant Park', price:219, score:'90', tags:['Hilton Honors','Client meeting-ready'], icon:'⌂', image:'image-hotel'}
     ]
   }
 };
@@ -78,8 +84,71 @@ const restaurantReviews = {
 
 const hotelProfiles = {
   'The Pfister Hotel': { score:92, loyalty:'Marriott Bonvoy', metrics:[['Wi-Fi','9.4'],['Workspace','8.8'],['Quietness','9.1'],['Airport','9.8']], activity:{occupancy:'Moderate', elevator:'Under 2 min', frontDesk:'3–5 min', breakfast:'Moderate', lobby:'Conversation-friendly'}, rooms:['King room','Executive suite','Club-level room'], roomNote:'Large desks, plenty of outlets, quiet HVAC and blackout curtains score especially well.', cost:{hotel:175, breakfast:12, lunch:18, dinner:40, uber:15}, favorites:[['Best dinner','Lupi & Iris'],['Client dinner','Harbor House'],['Coffee + work','Colectivo'],['Hotel bar','Blu'],['Gym','On-site fitness center'],['Remote work','The lobby library']], tags:['Great for Sales Travel','Great for Client Meetings','Great for Conferences'], airport:'15 min to MKE · reliable ride-share · early breakfast', event:'No major event reported tonight.'},
+  'Milwaukee Marriott Downtown': { score:90, loyalty:'Marriott Bonvoy', metrics:[['Wi-Fi','9.2'],['Workspace','8.9'],['Quietness','8.7'],['Airport','9.2']], activity:{occupancy:'Busy', elevator:'2–4 min', frontDesk:'5–8 min', breakfast:'Moderate', lobby:'Professional'}, rooms:['King room','Executive suite','Club-level room'], roomNote:'Reliable desk setups, plentiful charging, and a polished lobby make this an easy chain-hotel work-trip option.', cost:{hotel:189, breakfast:15, lunch:18, dinner:42, uber:15}, favorites:[['Best dinner','Lupi & Iris'],['Client dinner','The Outsider'],['Coffee + work','Colectivo'],['Hotel bar','East Town Kitchen'],['Gym','On-site fitness center'],['Remote work','Lobby lounge']], tags:['Great for Conferences','Great for Client Meetings','Bonvoy eligible'], airport:'16 min to MKE · ride-share available · late check-in', event:'Downtown events can increase lobby activity.'},
+  'Hilton Milwaukee City Center': { score:86, loyalty:'Hilton Honors', metrics:[['Wi-Fi','8.9'],['Workspace','8.4'],['Quietness','8.3'],['Airport','9.0']], activity:{occupancy:'Moderate', elevator:'2–5 min', frontDesk:'4–7 min', breakfast:'Moderate', lobby:'Lively'}, rooms:['King room','Executive suite','Club-level room'], roomNote:'A practical central base with dependable corporate amenities and strong convention-center convenience.', cost:{hotel:159, breakfast:14, lunch:17, dinner:40, uber:16}, favorites:[['Best dinner','Lupi & Iris'],['Client dinner','The Outsider'],['Coffee + work','Colectivo'],['Hotel bar','Monarch Lounge'],['Gym','On-site fitness center'],['Remote work','Lobby seating']], tags:['Great for Conferences','Hilton Honors','Downtown convenience'], airport:'17 min to MKE · frequent ride-share · late arrival support', event:'Convention traffic may increase elevator wait times.'},
   'CopperLeaf Boutique Hotel': { score:88, loyalty:'Independent', metrics:[['Wi-Fi','9.0'],['Workspace','8.6'],['Quietness','9.2'],['Airport','8.4']], activity:{occupancy:'Relaxed', elevator:'No wait', frontDesk:'Under 2 min', breakfast:'Quiet', lobby:'Low noise'}, rooms:['King room','Executive suite','Long-stay room'], roomNote:'A solid quiet-work pick with proper desks, accessible outlets and good lighting for calls.', cost:{hotel:139, breakfast:10, lunch:16, dinner:35, uber:12}, favorites:[['Best dinner','Carmella’s'],['Client dinner','Fratellos Riverfront'],['Coffee + work','Acoca Coffee'],['Hotel bar','Stone Arch Brewpub'],['Gym','YMCA nearby'],['Remote work','CopperLeaf lobby']], tags:['Great for Long-Term Stays','Great for Remote Work','Easy Parking'], airport:'12 min to ATW · easy ride-share · breakfast from 6 AM', event:'No major event reported tonight.'},
+  'Hilton Appleton Paper Valley': { score:87, loyalty:'Hilton Honors', metrics:[['Wi-Fi','9.0'],['Workspace','8.5'],['Quietness','8.5'],['Airport','8.5']], activity:{occupancy:'Moderate', elevator:'Under 3 min', frontDesk:'3–5 min', breakfast:'Moderate', lobby:'Professional'}, rooms:['King room','Executive suite','Club-level room'], roomNote:'A familiar full-service choice for meetings, conventions, and a predictable business-travel stay.', cost:{hotel:149, breakfast:13, lunch:16, dinner:35, uber:12}, favorites:[['Best dinner','Carmella’s'],['Client dinner','Fratellos Riverfront'],['Coffee + work','Acoca Coffee'],['Hotel bar','Clubhouse'],['Gym','On-site fitness center'],['Remote work','Lobby work tables']], tags:['Great for Conferences','Hilton Honors','Client Meetings'], airport:'13 min to ATW · easy ride-share · early breakfast', event:'Check the convention calendar for higher lobby traffic.'},
+  'Courtyard Appleton Riverfront': { score:86, loyalty:'Marriott Bonvoy', metrics:[['Wi-Fi','9.1'],['Workspace','8.4'],['Quietness','8.6'],['Airport','8.3']], activity:{occupancy:'Relaxed', elevator:'No wait', frontDesk:'Under 3 min', breakfast:'Quiet', lobby:'Low noise'}, rooms:['King room','Executive suite','Long-stay room'], roomNote:'A streamlined Marriott option with efficient rooms, good workspace basics, and convenient parking.', cost:{hotel:139, breakfast:11, lunch:16, dinner:35, uber:12}, favorites:[['Best dinner','Carmella’s'],['Client dinner','Fratellos Riverfront'],['Coffee + work','Acoca Coffee'],['Hotel bar','Stone Arch Brewpub'],['Gym','On-site fitness center'],['Remote work','Lobby pods']], tags:['Marriott Bonvoy','Great for Long-Term Stays','Easy Parking'], airport:'14 min to ATW · ride-share available · grab-and-go breakfast', event:'Typically quieter outside local event weekends.'},
   'Hyatt Regency Chicago': { score:91, loyalty:'World of Hyatt', metrics:[['Wi-Fi','9.1'],['Workspace','8.9'],['Quietness','8.5'],['Airport','9.3']], activity:{occupancy:'Busy', elevator:'3–6 min', frontDesk:'8–12 min', breakfast:'Packed', lobby:'Lively'}, rooms:['King room','Executive suite','Club-level room'], roomNote:'Strong desk setups and fast Wi-Fi; request a high floor for less corridor noise during conference weeks.', cost:{hotel:209, breakfast:18, lunch:20, dinner:45, uber:18}, favorites:[['Best dinner','The Gage'],['Client dinner','Cindy’s Rooftop'],['Coffee + work','Osmium Coffee Bar'],['Hotel bar','BIG Bar'],['Gym','On-site fitness center'],['Remote work','Riverwalk seating']], tags:['Great for Conferences','Great for Trade Shows','Great for Client Meetings'], airport:'28 min to ORD · frequent ride-share · late check-in support', event:'Large conference reported: expect heavier elevator and breakfast traffic.'}
+  , 'Marriott Marquis Chicago': { score:91, loyalty:'Marriott Bonvoy', metrics:[['Wi-Fi','9.3'],['Workspace','9.0'],['Quietness','8.5'],['Airport','8.9']], activity:{occupancy:'Busy', elevator:'4–7 min', frontDesk:'6–10 min', breakfast:'Busy', lobby:'Professional'}, rooms:['King room','Executive suite','Club-level room'], roomNote:'Built for convention travel with strong meeting infrastructure, reliable workspace, and familiar Bonvoy benefits.', cost:{hotel:239, breakfast:18, lunch:21, dinner:46, uber:19}, favorites:[['Best dinner','The Gage'],['Client dinner','Cindy’s Rooftop'],['Coffee + work','Hotel lobby café'],['Hotel bar','Showroom Food Hall'],['Gym','On-site fitness center'],['Remote work','Meeting lounge']], tags:['Great for Trade Shows','Marriott Bonvoy','Great for Conferences'], airport:'31 min to ORD · ride-share pickup · late check-in support', event:'Large McCormick Place events can make this hotel exceptionally busy.'},
+  'Hilton Chicago': { score:90, loyalty:'Hilton Honors', metrics:[['Wi-Fi','9.0'],['Workspace','8.8'],['Quietness','8.7'],['Airport','9.1']], activity:{occupancy:'Busy', elevator:'3–6 min', frontDesk:'5–9 min', breakfast:'Busy', lobby:'Professional'}, rooms:['King room','Executive suite','Club-level room'], roomNote:'A classic business-travel base with dependable meeting space, fast connections, and a strong Grant Park location.', cost:{hotel:219, breakfast:17, lunch:20, dinner:45, uber:19}, favorites:[['Best dinner','The Gage'],['Client dinner','Cindy’s Rooftop'],['Coffee + work','Lobby café'],['Hotel bar','Kitty O’Sheas'],['Gym','On-site fitness center'],['Remote work','Lobby seating']], tags:['Hilton Honors','Great for Conferences','Great for Client Meetings'], airport:'29 min to ORD · frequent ride-share · early breakfast', event:'Citywide events can increase activity around Grant Park.'}
+};
+
+const mapData = {
+  'Milwaukee, WI': { hotels: { 'The Pfister Hotel': { x:48, y:51, places:[
+    {name:'Lupi & Iris', distance:0.3, minutes:6, ease:95, safety:94, x:61, y:35},
+    {name:'The Outsider', distance:0.4, minutes:8, ease:91, safety:93, x:72, y:48},
+    {name:'Colectivo on the Square', distance:0.7, minutes:14, ease:86, safety:90, x:39, y:23},
+    {name:'Milwaukee Art Museum', distance:0.8, minutes:16, ease:88, safety:92, x:78, y:21},
+    {name:'Bryant’s Cocktail Lounge', distance:2.3, minutes:46, ease:68, safety:82, x:18, y:70},
+    {name:'Boone & Crockett', distance:3.1, minutes:62, ease:63, safety:80, x:75, y:77}
+  ]}}, 'Milwaukee Marriott Downtown': { x:54, y:44, places:[
+    {name:'Lupi & Iris', distance:0.2, minutes:4, ease:97, safety:95, x:62, y:32},
+    {name:'The Outsider', distance:0.5, minutes:10, ease:91, safety:94, x:74, y:47},
+    {name:'Colectivo on the Square', distance:0.6, minutes:12, ease:87, safety:90, x:36, y:24},
+    {name:'Milwaukee Art Museum', distance:0.9, minutes:18, ease:86, safety:92, x:78, y:20}
+  ]}}, 'Hilton Milwaukee City Center': { x:40, y:57, places:[
+    {name:'Lupi & Iris', distance:0.5, minutes:10, ease:91, safety:93, x:64, y:34},
+    {name:'The Outsider', distance:0.8, minutes:16, ease:86, safety:91, x:75, y:47},
+    {name:'Colectivo on the Square', distance:0.7, minutes:14, ease:84, safety:88, x:35, y:23},
+    {name:'Bryant’s Cocktail Lounge', distance:1.8, minutes:36, ease:71, safety:82, x:18, y:70}
+  ]}}},
+  'Appleton, WI': { hotels: { 'CopperLeaf Boutique Hotel': { x:48, y:51, places:[
+    {name:'Carmella’s', distance:0.2, minutes:4, ease:97, safety:95, x:62, y:35},
+    {name:'Acoca Coffee', distance:0.3, minutes:6, ease:96, safety:94, x:35, y:27},
+    {name:'Trout Museum of Art', distance:0.4, minutes:8, ease:94, safety:93, x:72, y:50},
+    {name:'McGuinness Irish Pub', distance:0.5, minutes:10, ease:93, safety:92, x:28, y:57},
+    {name:'Lawlss Coffee', distance:0.6, minutes:12, ease:91, safety:92, x:64, y:68},
+    {name:'Stone Arch Brewpub', distance:0.8, minutes:16, ease:84, safety:90, x:20, y:75}
+  ]}}, 'Hilton Appleton Paper Valley': { x:52, y:46, places:[
+    {name:'Carmella’s', distance:0.2, minutes:4, ease:97, safety:95, x:63, y:32},
+    {name:'Acoca Coffee', distance:0.3, minutes:6, ease:96, safety:94, x:34, y:26},
+    {name:'McGuinness Irish Pub', distance:0.4, minutes:8, ease:94, safety:93, x:28, y:58},
+    {name:'Stone Arch Brewpub', distance:0.8, minutes:16, ease:84, safety:90, x:20, y:75}
+  ]}}, 'Courtyard Appleton Riverfront': { x:46, y:62, places:[
+    {name:'Carmella’s', distance:0.4, minutes:8, ease:93, safety:94, x:62, y:34},
+    {name:'Acoca Coffee', distance:0.6, minutes:12, ease:89, safety:92, x:34, y:26},
+    {name:'Trout Museum of Art', distance:0.5, minutes:10, ease:91, safety:93, x:72, y:50},
+    {name:'Stone Arch Brewpub', distance:0.3, minutes:6, ease:96, safety:92, x:22, y:75}
+  ]}}},
+  'Chicago, IL': { hotels: { 'Hyatt Regency Chicago': { x:48, y:51, places:[
+    {name:'The Gage', distance:0.3, minutes:6, ease:94, safety:93, x:64, y:32},
+    {name:'Cindy’s Rooftop', distance:0.4, minutes:8, ease:93, safety:92, x:72, y:46},
+    {name:'Chicago Architecture Center', distance:0.4, minutes:8, ease:92, safety:93, x:32, y:29},
+    {name:'The Drawing Room', distance:1.1, minutes:22, ease:81, safety:89, x:24, y:64},
+    {name:'Federales', distance:1.4, minutes:28, ease:78, safety:87, x:73, y:72},
+    {name:'Osmium Coffee Bar', distance:4.4, minutes:88, ease:60, safety:82, x:14, y:78}
+  ]}}, 'Marriott Marquis Chicago': { x:52, y:62, places:[
+    {name:'The Gage', distance:1.1, minutes:22, ease:83, safety:91, x:63, y:31},
+    {name:'Cindy’s Rooftop', distance:1.2, minutes:24, ease:82, safety:90, x:72, y:45},
+    {name:'Federales', distance:1.4, minutes:28, ease:79, safety:88, x:73, y:72},
+    {name:'Chicago Architecture Center', distance:1.2, minutes:24, ease:83, safety:91, x:32, y:29}
+  ]}}, 'Hilton Chicago': { x:43, y:59, places:[
+    {name:'The Gage', distance:0.5, minutes:10, ease:93, safety:93, x:64, y:32},
+    {name:'Cindy’s Rooftop', distance:0.6, minutes:12, ease:91, safety:92, x:72, y:46},
+    {name:'The Drawing Room', distance:1.1, minutes:22, ease:82, safety:89, x:24, y:64},
+    {name:'Chicago Architecture Center', distance:0.7, minutes:14, ease:89, safety:92, x:32, y:29}
+  ]}}}
 };
 
 let currentCity = 'Milwaukee, WI';
@@ -100,6 +169,7 @@ const verifiedReviews = [];
 let reviewSubmissionPlace = null;
 let locationVerified = false;
 let currentHotel = null;
+let currentMapHotel = 'The Pfister Hotel';
 const ratingCategories = ['Food Quality','Value for Per Diem','Client Meeting Friendly','Noise Level','Service Speed','Solo Dining Experience','Wi-Fi & Connectivity','Location & Convenience'];
 let currentRatings = {};
 const rewardProgress = { points:720, verifiedReviews:3, photoProofs:6, redeemed:[] };
@@ -152,7 +222,30 @@ function renderCity() {
   $('#liveStatus').textContent = cityData[currentCity].live[1];
   renderPlaces();
   renderPulse();
+  renderHotelMap();
 }
+function walkingScore(place) { return Math.round((place.ease * .55) + (place.safety * .45)); }
+function walkingLabel(score) { return score >= 90 ? 'Excellent walk' : score >= 82 ? 'Easy walk' : score >= 72 ? 'Mixed route' : 'Ride-share better'; }
+function renderHotelMap() {
+  const cityMap = mapData[currentCity];
+  const hotelNames = Object.keys(cityMap.hotels);
+  if (!cityMap.hotels[currentMapHotel]) currentMapHotel = hotelNames[0];
+  const plan = cityMap.hotels[currentMapHotel];
+  const walkablePlaces = plan.places.filter(place => place.distance <= 1.5);
+  const nearbyCount = walkablePlaces.length;
+  const averageScore = Math.round(walkablePlaces.reduce((total, place) => total + walkingScore(place), 0) / walkablePlaces.length);
+  $('#mapHotelName').textContent = currentMapHotel;
+  const loyalty = hotelProfiles[currentMapHotel]?.loyalty || 'Independent';
+  $('#mapHotelSummary').textContent = `${loyalty} · ${nearbyCount} nearby picks · ${averageScore}/100 average walk score`;
+  $('#mapCityLabel').textContent = currentCity.split(',')[0].toUpperCase();
+  $('#mapHotelSelect').innerHTML = hotelNames.map(name => `<option value="${name}" ${name === currentMapHotel ? 'selected' : ''}>${name} · ${hotelProfiles[name]?.loyalty || 'Independent'}</option>`).join('');
+  $('#walkabilityOverview').innerHTML = `<strong>${averageScore}</strong><div><b>Walking score from ${currentMapHotel}</b><span>Based on route ease + neighborhood safety for places within 1.5 miles.</span></div>`;
+  const places = [...plan.places].sort((a,b) => a.distance - b.distance);
+  $('#prototypeMap').innerHTML = `<div class="map-marker hotel" style="--x:${plan.x}%;--y:${plan.y}%">⌂<span>Your hotel</span></div>${places.filter(place => place.distance <= 1.5).map(place => `<div class="map-marker" style="--x:${place.x}%;--y:${place.y}%">•<span>${place.name.split(' ')[0]}</span></div>`).join('')}`;
+  $('#nearbyMapList').innerHTML = places.map(place => { const score = walkingScore(place); const caution = score < 82 ? 'caution' : ''; return `<article class="map-result"><div><strong>${place.name}</strong><span>${place.distance.toFixed(1)} mi · about ${place.minutes} min on foot · safety ${place.safety}/100</span></div><div class="walk-score ${caution}"><b>${score}/100</b><small>${walkingLabel(score)}</small></div></article>`; }).join('');
+}
+function openHotelMap() { renderHotelMap(); $('#mapBackdrop').classList.add('open'); $('#mapBackdrop').setAttribute('aria-hidden','false'); }
+function closeHotelMap() { $('#mapBackdrop').classList.remove('open'); $('#mapBackdrop').setAttribute('aria-hidden','true'); }
 function roleText() { return [...travelerRoles].join(' + ') || 'business'; }
 function renderProfileSummary() { $('#profileSummary').textContent = `✦ ${roleText()} traveler profile`; }
 function earnedBadges() { const badges = ['Verified Traveler']; if (rewardProgress.photoProofs >= 5) badges.push('Local Lens'); if (rewardProgress.verifiedReviews >= 3) badges.push('Trusted Traveler'); if (rewardProgress.verifiedReviews >= 10) badges.push('Road Warrior'); return badges; }
@@ -202,6 +295,10 @@ function closeAfterHours() { $('#afterHoursBackdrop').classList.remove('open'); 
 
 $('#cityButton').addEventListener('click', () => { $('#cityMenu').classList.toggle('open'); $('#cityButton').setAttribute('aria-expanded', $('#cityMenu').classList.contains('open')); });
 document.querySelectorAll('#cityMenu button').forEach(button => button.addEventListener('click', () => { currentCity = button.dataset.city; $('#cityMenu').classList.remove('open'); renderCity(); }));
+$('#openHotelMap').addEventListener('click', openHotelMap);
+$('#closeMap').addEventListener('click', closeHotelMap);
+$('#mapBackdrop').addEventListener('click', e => { if (e.target === $('#mapBackdrop')) closeHotelMap(); });
+$('#mapHotelSelect').addEventListener('change', e => { currentMapHotel = e.target.value; renderHotelMap(); });
 document.querySelectorAll('.filter').forEach(button => button.addEventListener('click', () => { document.querySelector('.filter.active').classList.remove('active'); button.classList.add('active'); currentFilter = button.dataset.filter; if (currentFilter === 'drinks') { afterHoursContext = null; renderAfterHoursMode(); openAfterHours(); } else { afterHoursContext = null; renderAfterHoursMode(); renderPlaces(); } }));
 $('#closeAfterHours').addEventListener('click', closeAfterHours);
 $('#afterHoursBackdrop').addEventListener('click', e => { if (e.target === $('#afterHoursBackdrop')) closeAfterHours(); });
