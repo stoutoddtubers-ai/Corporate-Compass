@@ -102,12 +102,12 @@ const mapData = {
     {name:'Milwaukee Art Museum', distance:0.8, minutes:16, ease:88, safety:92, x:78, y:21},
     {name:'Bryant’s Cocktail Lounge', distance:2.3, minutes:46, ease:68, safety:82, x:18, y:70},
     {name:'Boone & Crockett', distance:3.1, minutes:62, ease:63, safety:80, x:75, y:77}
-  ]}}, 'Milwaukee Marriott Downtown': { x:54, y:44, places:[
+  ]}, 'Milwaukee Marriott Downtown': { x:54, y:44, places:[
     {name:'Lupi & Iris', distance:0.2, minutes:4, ease:97, safety:95, x:62, y:32},
     {name:'The Outsider', distance:0.5, minutes:10, ease:91, safety:94, x:74, y:47},
     {name:'Colectivo on the Square', distance:0.6, minutes:12, ease:87, safety:90, x:36, y:24},
     {name:'Milwaukee Art Museum', distance:0.9, minutes:18, ease:86, safety:92, x:78, y:20}
-  ]}}, 'Hilton Milwaukee City Center': { x:40, y:57, places:[
+  ]}, 'Hilton Milwaukee City Center': { x:40, y:57, places:[
     {name:'Lupi & Iris', distance:0.5, minutes:10, ease:91, safety:93, x:64, y:34},
     {name:'The Outsider', distance:0.8, minutes:16, ease:86, safety:91, x:75, y:47},
     {name:'Colectivo on the Square', distance:0.7, minutes:14, ease:84, safety:88, x:35, y:23},
@@ -120,12 +120,12 @@ const mapData = {
     {name:'McGuinness Irish Pub', distance:0.5, minutes:10, ease:93, safety:92, x:28, y:57},
     {name:'Lawlss Coffee', distance:0.6, minutes:12, ease:91, safety:92, x:64, y:68},
     {name:'Stone Arch Brewpub', distance:0.8, minutes:16, ease:84, safety:90, x:20, y:75}
-  ]}}, 'Hilton Appleton Paper Valley': { x:52, y:46, places:[
+  ]}, 'Hilton Appleton Paper Valley': { x:52, y:46, places:[
     {name:'Carmella’s', distance:0.2, minutes:4, ease:97, safety:95, x:63, y:32},
     {name:'Acoca Coffee', distance:0.3, minutes:6, ease:96, safety:94, x:34, y:26},
     {name:'McGuinness Irish Pub', distance:0.4, minutes:8, ease:94, safety:93, x:28, y:58},
     {name:'Stone Arch Brewpub', distance:0.8, minutes:16, ease:84, safety:90, x:20, y:75}
-  ]}}, 'Courtyard Appleton Riverfront': { x:46, y:62, places:[
+  ]}, 'Courtyard Appleton Riverfront': { x:46, y:62, places:[
     {name:'Carmella’s', distance:0.4, minutes:8, ease:93, safety:94, x:62, y:34},
     {name:'Acoca Coffee', distance:0.6, minutes:12, ease:89, safety:92, x:34, y:26},
     {name:'Trout Museum of Art', distance:0.5, minutes:10, ease:91, safety:93, x:72, y:50},
@@ -138,12 +138,12 @@ const mapData = {
     {name:'The Drawing Room', distance:1.1, minutes:22, ease:81, safety:89, x:24, y:64},
     {name:'Federales', distance:1.4, minutes:28, ease:78, safety:87, x:73, y:72},
     {name:'Osmium Coffee Bar', distance:4.4, minutes:88, ease:60, safety:82, x:14, y:78}
-  ]}}, 'Marriott Marquis Chicago': { x:52, y:62, places:[
+  ]}, 'Marriott Marquis Chicago': { x:52, y:62, places:[
     {name:'The Gage', distance:1.1, minutes:22, ease:83, safety:91, x:63, y:31},
     {name:'Cindy’s Rooftop', distance:1.2, minutes:24, ease:82, safety:90, x:72, y:45},
     {name:'Federales', distance:1.4, minutes:28, ease:79, safety:88, x:73, y:72},
     {name:'Chicago Architecture Center', distance:1.2, minutes:24, ease:83, safety:91, x:32, y:29}
-  ]}}, 'Hilton Chicago': { x:43, y:59, places:[
+  ]}, 'Hilton Chicago': { x:43, y:59, places:[
     {name:'The Gage', distance:0.5, minutes:10, ease:93, safety:93, x:64, y:32},
     {name:'Cindy’s Rooftop', distance:0.6, minutes:12, ease:91, safety:92, x:72, y:46},
     {name:'The Drawing Room', distance:1.1, minutes:22, ease:82, safety:89, x:24, y:64},
