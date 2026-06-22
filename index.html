@@ -42,6 +42,11 @@
               <span><small>DINNER PER DIEM</small><strong id="perDiemValue">$55</strong></span>
               <button class="edit-budget" id="budgetButton">Edit</button>
             </div>
+            <button class="hotel-map-launch" id="openHotelMap">
+              <span class="hotel-map-icon">⌖</span>
+              <span><small>STAYING AT</small><strong id="mapHotelName">The Pfister Hotel</strong><em id="mapHotelSummary">See nearby places and walking scores</em></span>
+              <b>Map ›</b>
+            </button>
           </section>
 
           <section class="quick-filters" aria-label="Quick filters">
@@ -165,6 +170,22 @@
       <section class="modal hotel-modal" role="dialog" aria-modal="true" aria-labelledby="hotelTitle">
         <button class="close" id="closeHotel" aria-label="Close hotel details">×</button>
         <div id="hotelContent"></div>
+      </section>
+    </div>
+
+    <div class="modal-backdrop map-backdrop" id="mapBackdrop" aria-hidden="true">
+      <section class="modal map-modal" role="dialog" aria-modal="true" aria-labelledby="mapTitle">
+        <button class="close" id="closeMap" aria-label="Close hotel map">×</button>
+        <p class="eyebrow">HOTEL WALKABILITY</p>
+        <h2 id="mapTitle">What’s easy from your hotel?</h2>
+        <p class="modal-copy">Choose where you’re staying and we’ll rank nearby work-trip picks by walk time, route ease, and neighborhood safety.</p>
+        <label class="form-label" for="mapHotelSelect">YOUR HOTEL IN <span id="mapCityLabel">MILWAUKEE</span></label>
+        <select class="form-control" id="mapHotelSelect" aria-label="Choose the hotel where you are staying"></select>
+        <section class="walkability-overview" id="walkabilityOverview"></section>
+        <section class="prototype-map" id="prototypeMap" aria-label="Nearby places map"></section>
+        <section class="map-legend"><span><i class="map-dot hotel-dot"></i>Your hotel</span><span><i class="map-dot place-dot"></i>Business-traveler pick</span></section>
+        <section class="nearby-map-results"><div class="map-results-heading"><h3>Nearby from your hotel</h3><span>Distance · walking score</span></div><div id="nearbyMapList" class="nearby-map-list" aria-live="polite"></div></section>
+        <p class="verification-note">Prototype walking scores combine route ease and neighborhood-safety signals. A live version would use current map, street, and traveler-safety data.</p>
       </section>
     </div>
 
