@@ -76,6 +76,22 @@
             </div>
           </section>
 
+          <section class="food-browse" id="foodBrowse" aria-label="Browse dinner by food type or atmosphere" hidden>
+            <div class="food-browse-heading"><span>FIND THE RIGHT TABLE</span><button id="clearFoodFilters">Clear</button></div>
+            <div class="food-filter-group"><small>FOOD TYPE</small><div class="food-filter-row">
+              <button class="food-filter" data-food="italian" aria-pressed="false">Italian</button>
+              <button class="food-filter" data-food="steak" aria-pressed="false">Steak + supper club</button>
+              <button class="food-filter" data-food="global" aria-pressed="false">Global flavors</button>
+              <button class="food-filter" data-food="casual" aria-pressed="false">Pizza, pub + casual</button>
+            </div></div>
+            <div class="food-filter-group"><small>ATMOSPHERE</small><div class="food-filter-row">
+              <button class="food-filter" data-atmosphere="client" aria-pressed="false">Client-ready</button>
+              <button class="food-filter" data-atmosphere="solo" aria-pressed="false">Easy solo</button>
+              <button class="food-filter" data-atmosphere="quick" aria-pressed="false">Quick + easy</button>
+              <button class="food-filter" data-atmosphere="memorable" aria-pressed="false">Memorable setting</button>
+            </div></div>
+          </section>
+
           <section class="section-heading">
             <div>
               <p class="eyebrow">TONIGHT IN <span id="cityLabel">MILWAUKEE</span></p>
@@ -323,6 +339,6 @@
       </section>
     </div>
 
-  <script src="app.js?v=20260622-appleton-restaurant-guide"></script>
+  <script src="app.js?v=20260623-food-and-atmosphere-filters"></script>
   </body>
 </html>
