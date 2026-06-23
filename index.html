@@ -64,7 +64,7 @@
             <button id="changeAfterHoursMode">Change</button>
           </section>
 
-          <section class="refine-section" aria-label="Refine recommendations">
+          <section class="refine-section" id="reportFilters" aria-label="Refine recommendations">
             <div class="refine-heading"><span>REFINE FOR THIS TRIP</span><button id="clearRefinements">Clear</button></div>
             <div class="refine-filters">
               <button class="refine-filter" data-refine="under25" aria-pressed="false">Under $25</button>
@@ -81,7 +81,7 @@
               <p class="eyebrow">TONIGHT IN <span id="cityLabel">MILWAUKEE</span></p>
               <h2>Worth the expense report</h2>
             </div>
-            <button class="text-button" id="viewAll">View all</button>
+            <div class="section-actions"><button class="text-button filter-tab" id="toggleReportFilters" aria-expanded="true">Filter</button><button class="text-button" id="viewAll">View all</button></div>
           </section>
 
           <section id="placeList" class="place-list" aria-live="polite"></section>
@@ -108,7 +108,7 @@
         <nav class="bottom-nav" aria-label="Primary navigation">
           <button class="nav-item selected" data-nav="discover"><span>⌕</span>Discover</button>
           <button class="nav-item" data-nav="saved"><span>♡</span>Saved</button>
-          <button class="nav-item fab" id="addPlace" aria-label="Add a place">+</button>
+          <button class="nav-item fab" id="addPlace" aria-label="Request a place"><span>＋</span>Request</button>
           <button class="nav-item" data-nav="trips"><span>▤</span>Trips</button>
           <button class="nav-item" data-nav="profile"><span>◌</span>Profile</button>
         </nav>
@@ -176,15 +176,15 @@
     <div class="modal-backdrop map-backdrop" id="mapBackdrop" aria-hidden="true">
       <section class="modal map-modal" role="dialog" aria-modal="true" aria-labelledby="mapTitle">
         <button class="close" id="closeMap" aria-label="Close hotel map">×</button>
-        <p class="eyebrow">HOTEL WALKABILITY</p>
-        <h2 id="mapTitle">What’s easy from your hotel?</h2>
-        <p class="modal-copy">Choose where you’re staying and we’ll rank nearby work-trip picks by walk time, route ease, and neighborhood safety.</p>
+        <p class="eyebrow">AROUND YOUR STAY</p>
+        <h2 id="mapTitle">Make the most of your location.</h2>
+        <p class="modal-copy">Choose your hotel to see the places that are easy, comfortable walks after a day of work.</p>
         <label class="form-label" for="mapHotelSelect">YOUR HOTEL IN <span id="mapCityLabel">MILWAUKEE</span></label>
         <select class="form-control" id="mapHotelSelect" aria-label="Choose the hotel where you are staying"></select>
         <section class="walkability-overview" id="walkabilityOverview"></section>
         <section class="prototype-map" id="prototypeMap" aria-label="Nearby places map"></section>
         <section class="map-legend"><span><i class="map-dot hotel-dot"></i>Your hotel</span><span><i class="map-dot place-dot"></i>Business-traveler pick</span></section>
-        <section class="nearby-map-results"><div class="map-results-heading"><h3>Nearby from your hotel</h3><span>Distance · walking score</span></div><div id="nearbyMapList" class="nearby-map-list" aria-live="polite"></div></section>
+        <section class="nearby-map-results"><div class="map-results-heading"><h3>Good nearby options</h3><span>Distance · walking score</span></div><div id="nearbyMapList" class="nearby-map-list" aria-live="polite"></div></section>
         <p class="verification-note">Prototype walking scores combine route ease and neighborhood-safety signals. A live version would use current map, street, and traveler-safety data.</p>
       </section>
     </div>
@@ -304,6 +304,25 @@
       </section>
     </div>
 
-    <script src="app.js?v=20260621-map-hotels-fix1"></script>
+    <div class="modal-backdrop" id="placeRequestBackdrop" aria-hidden="true">
+      <section class="modal request-place-modal" role="dialog" aria-modal="true" aria-labelledby="placeRequestTitle">
+        <button class="close" id="closePlaceRequest" aria-label="Close place request">×</button>
+        <p class="eyebrow">COMMUNITY PICKS</p>
+        <h2 id="placeRequestTitle">Request a place</h2>
+        <p class="modal-copy">Requests are screened before they appear in Corporate Compass, keeping recommendations useful for work trips.</p>
+        <form id="placeRequestForm">
+          <label class="form-label" for="requestPlaceName">PLACE NAME</label><input class="form-control" id="requestPlaceName" required placeholder="e.g. The Copper Room" />
+          <label class="form-label" for="requestAddress">ADDRESS</label><input class="form-control" id="requestAddress" required placeholder="Street address, city, state" />
+          <label class="form-label" for="requestCategory">CATEGORY</label><select class="form-control" id="requestCategory" required><option value="">Choose a category</option><option>Restaurant</option><option>Hotel</option><option>Bar</option><option>Coffee + work</option><option>Downtime</option></select>
+          <label class="form-label" for="requestReason">WHY IT HELPS BUSINESS TRAVELERS</label><textarea class="review-text" id="requestReason" required placeholder="What makes it convenient, work-friendly, expense-friendly, or a good use of downtime?"></textarea>
+          <label class="receipt-attach" for="requestProof"><span>▧</span><strong id="requestProofName">Add a photo or receipt</strong><small>Optional proof of a recent visit</small></label><input id="requestProof" type="file" accept="image/*,.pdf" hidden />
+          <section class="screening-note"><strong>Automatic screening</strong><span>We check for duplicates, active businesses, excluded types (fast food, gas stations, and off-theme chains), and business-travel relevance.</span></section>
+          <button class="primary-action" type="submit">Submit for review</button>
+        </form>
+        <p class="verification-note" id="placeRequestStatus">Approved requests earn Compass Points and help strengthen the city guide.</p>
+      </section>
+    </div>
+
+  <script src="app.js?v=20260622-appleton-restaurant-guide"></script>
   </body>
 </html>
