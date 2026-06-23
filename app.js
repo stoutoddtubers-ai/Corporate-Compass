@@ -85,6 +85,35 @@ const cityData = {
   }
 };
 
+const foodProfiles = {
+  'Lupi & Iris': {type:'global', atmosphere:['client','memorable']},
+  'The Gage': {type:'casual', atmosphere:['client','memorable']},
+  'Carmella’s': {type:'italian', atmosphere:['client','solo']},
+  'VIA Pizza Napoletana': {type:'italian', atmosphere:['solo','quick']},
+  'Apollon': {type:'global', atmosphere:['client','memorable']},
+  'Rye': {type:'casual', atmosphere:['client','memorable']},
+  'Ellinor': {type:'casual', atmosphere:['client','memorable']},
+  'Fratellos Riverfront Restaurant': {type:'italian', atmosphere:['client','memorable']},
+  'Bowl 91': {type:'global', atmosphere:['solo','quick']},
+  'Sai Ram Indian Cuisine': {type:'global', atmosphere:['solo','quick']},
+  'Antojitos Mexicanos': {type:'global', atmosphere:['solo','quick']},
+  'Author’s Kitchen + Bar': {type:'casual', atmosphere:['solo','quick']},
+  'SAP Brunch, Brown Bag & Bakery': {type:'casual', atmosphere:['solo','quick']},
+  'Mark’s East Side': {type:'steak', atmosphere:['client','memorable']},
+  'George’s Steakhouse': {type:'steak', atmosphere:['client','memorable']},
+  'Red Ox Seafood & Steakhouse': {type:'steak', atmosphere:['client','memorable']},
+  'Dick & Joan’s 220 Club': {type:'steak', atmosphere:['client','memorable']},
+  'Stuc’s Pizza': {type:'casual', atmosphere:['solo','quick']},
+  'Good Company': {type:'casual', atmosphere:['solo','quick']},
+  'Pullmans at Trolley Square': {type:'casual', atmosphere:['client','memorable']},
+  'Home Burger Bar': {type:'casual', atmosphere:['solo','quick']},
+  'Thai Ginger Bistro': {type:'global', atmosphere:['solo','quick']},
+  'Nakashima of Japan': {type:'global', atmosphere:['client','memorable']},
+  'Victoria’s Italian Cuisine': {type:'italian', atmosphere:['client','solo']},
+  'Basil Café': {type:'global', atmosphere:['solo','quick']},
+  'Wilder’s Bistro': {type:'global', atmosphere:['client','memorable']}
+};
+
 const restaurantReviews = {
   'Lupi & Iris': {
     verdict: 'A polished downtown dinner for a client conversation that still feels distinctly Milwaukee.',
@@ -186,6 +215,8 @@ let pulseMode = 'social';
 let checkedIn = false;
 let checkinIntent = 'Open to connect';
 const activeRefinements = new Set();
+let selectedFoodType = null;
+let selectedAtmosphere = null;
 const travelerRoles = new Set(['Sales']);
 const privateReceipts = [
   {trip:'Milwaukee Sales Visit · Aug 12–14', place:'Lupi & Iris', amount:52.00, file:'Receipt attached'},
@@ -223,9 +254,31 @@ function matchesRefinements(place) {
     return true;
   });
 }
+function matchesFoodFilters(place) {
+  if (!selectedFoodType && !selectedAtmosphere) return true;
+  if (categoryFor(place) !== 'dinner') return false;
+  const profile = foodProfiles[place.name];
+  if (!profile) return false;
+  return (!selectedFoodType || profile.type === selectedFoodType) && (!selectedAtmosphere || profile.atmosphere.includes(selectedAtmosphere));
+}
+function renderFoodBrowse() {
+  const isDinner = currentFilter === 'dinner';
+  $('#foodBrowse').hidden = !isDinner;
+  if (!isDinner) return;
+  document.querySelectorAll('[data-food]').forEach(button => {
+    const active = button.dataset.food === selectedFoodType;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  document.querySelectorAll('[data-atmosphere]').forEach(button => {
+    const active = button.dataset.atmosphere === selectedAtmosphere;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+}
 function matchesAfterHours(place) { return currentFilter !== 'drinks' || !afterHoursContext || (place.afterHours || []).includes(afterHoursContext); }
 function renderPlaces() {
-  const places = cityData[currentCity].places.filter(p => (currentFilter === 'all' || categoryFor(p) === currentFilter) && matchesRefinements(p) && matchesAfterHours(p));
+  const places = cityData[currentCity].places.filter(p => (currentFilter === 'all' || categoryFor(p) === currentFilter) && matchesRefinements(p) && matchesFoodFilters(p) && matchesAfterHours(p));
   list.innerHTML = places.map((p,i) => { const hotel = p.type.startsWith('Hotel'); return `<article class="place-card" data-place="${p.name}">
     <div class="place-image ${p.image}"><span>${p.icon}</span></div>
     <div class="place-main"><div class="place-top"><div class="place-name">${p.name}</div><button class="save" aria-label="Save ${p.name}" data-save="${i}">♡</button></div>
@@ -247,6 +300,7 @@ function renderCity() {
   $('#cityLabel').textContent = currentCity.split(',')[0].toUpperCase();
   $('#liveTitle').textContent = cityData[currentCity].live[0];
   $('#liveStatus').textContent = cityData[currentCity].live[1];
+  renderFoodBrowse();
   renderPlaces();
   renderPulse();
   renderHotelMap();
@@ -325,7 +379,7 @@ $('#openHotelMap').addEventListener('click', openHotelMap);
 $('#closeMap').addEventListener('click', closeHotelMap);
 $('#mapBackdrop').addEventListener('click', e => { if (e.target === $('#mapBackdrop')) closeHotelMap(); });
 $('#mapHotelSelect').addEventListener('change', e => { currentMapHotel = e.target.value; renderHotelMap(); });
-document.querySelectorAll('.filter').forEach(button => button.addEventListener('click', () => { document.querySelector('.filter.active').classList.remove('active'); button.classList.add('active'); currentFilter = button.dataset.filter; if (currentFilter === 'drinks') { afterHoursContext = null; renderAfterHoursMode(); openAfterHours(); } else { afterHoursContext = null; renderAfterHoursMode(); renderPlaces(); } }));
+document.querySelectorAll('.filter').forEach(button => button.addEventListener('click', () => { document.querySelector('.filter.active').classList.remove('active'); button.classList.add('active'); currentFilter = button.dataset.filter; renderFoodBrowse(); if (currentFilter === 'drinks') { afterHoursContext = null; renderAfterHoursMode(); openAfterHours(); } else { afterHoursContext = null; renderAfterHoursMode(); renderPlaces(); } }));
 $('#closeAfterHours').addEventListener('click', closeAfterHours);
 $('#afterHoursBackdrop').addEventListener('click', e => { if (e.target === $('#afterHoursBackdrop')) closeAfterHours(); });
 document.querySelectorAll('.after-hours-option').forEach(button => button.addEventListener('click', () => { afterHoursContext = button.dataset.afterHours; document.querySelectorAll('.after-hours-option').forEach(option => option.classList.toggle('chosen', option === button)); $('#applyAfterHours').disabled = false; }));
@@ -334,6 +388,9 @@ $('#changeAfterHoursMode').addEventListener('click', openAfterHours);
 $('#toggleReportFilters').addEventListener('click', () => { const filters = $('#reportFilters'); filters.hidden = !filters.hidden; $('#toggleReportFilters').setAttribute('aria-expanded', String(!filters.hidden)); });
 document.querySelectorAll('.refine-filter').forEach(button => button.addEventListener('click', () => { const refinement = button.dataset.refine; if (activeRefinements.has(refinement)) { activeRefinements.delete(refinement); button.classList.remove('active'); button.setAttribute('aria-pressed','false'); } else { activeRefinements.add(refinement); button.classList.add('active'); button.setAttribute('aria-pressed','true'); } renderPlaces(); }));
 $('#clearRefinements').addEventListener('click', () => { activeRefinements.clear(); document.querySelectorAll('.refine-filter.active').forEach(button => { button.classList.remove('active'); button.setAttribute('aria-pressed','false'); }); renderPlaces(); });
+document.querySelectorAll('[data-food]').forEach(button => button.addEventListener('click', () => { selectedFoodType = selectedFoodType === button.dataset.food ? null : button.dataset.food; renderFoodBrowse(); renderPlaces(); }));
+document.querySelectorAll('[data-atmosphere]').forEach(button => button.addEventListener('click', () => { selectedAtmosphere = selectedAtmosphere === button.dataset.atmosphere ? null : button.dataset.atmosphere; renderFoodBrowse(); renderPlaces(); }));
+$('#clearFoodFilters').addEventListener('click', () => { selectedFoodType = null; selectedAtmosphere = null; renderFoodBrowse(); renderPlaces(); });
 document.querySelectorAll('.pulse-filter').forEach(button => button.addEventListener('click', () => { document.querySelector('.pulse-filter.active').classList.remove('active'); button.classList.add('active'); pulseMode = button.dataset.pulse; renderPulse(); }));
 list.addEventListener('click', e => { if (e.target.matches('[data-save]')) { e.target.classList.toggle('saved'); e.target.textContent = e.target.classList.contains('saved') ? '♥' : '♡'; return; } const card = e.target.closest('.place-card'); if (!card) return; const place = cityData[currentCity].places.find(p => p.name === card.dataset.place); if (!place) return; if (place.type.startsWith('Hotel')) openHotel(place); else openReview(place); });
 $('#closeReview').addEventListener('click', closeReview);
