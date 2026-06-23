@@ -27,8 +27,35 @@ const cityData = {
     ],
     places: [
       {name:'Carmella’s', type:'Dinner · Downtown', price:38, score:'9.2', tags:['Client-friendly','Walkable'], icon:'✦', image:'image-dinner'},
+      {name:'VIA Pizza Napoletana', type:'Dinner · Downtown', price:26, score:'8.8', tags:['Solo-friendly','Best value'], icon:'✦', image:'image-dinner'},
+      {name:'Apollon', type:'Dinner · Downtown', price:52, score:'9.1', tags:['Client-friendly','Premium'], icon:'✦', image:'image-dinner'},
+      {name:'Rye', type:'Dinner · Downtown', price:48, score:'9.2', tags:['Client-friendly','Walkable'], icon:'✦', image:'image-dinner'},
+      {name:'Ellinor', type:'Dinner · Downtown', price:46, score:'9.0', tags:['Client-friendly','Local favorite'], icon:'✦', image:'image-dinner'},
+      {name:'Fratellos Riverfront Restaurant', type:'Dinner · Riverfront', price:42, score:'9.0', tags:['Client-friendly','River views'], icon:'✦', image:'image-dinner'},
+      {name:'Bowl 91', type:'Dinner · Downtown', price:19, score:'8.7', tags:['Under $25','Solo-friendly'], icon:'✦', image:'image-dinner'},
+      {name:'Sai Ram Indian Cuisine', type:'Dinner · Appleton', price:24, score:'8.6', tags:['Per diem friendly','Quick lunch'], icon:'✦', image:'image-dinner'},
+      {name:'Antojitos Mexicanos', type:'Dinner · Downtown', price:22, score:'8.7', tags:['Under $25','Walkable'], icon:'✦', image:'image-dinner'},
+      {name:'Author’s Kitchen + Bar', type:'Dinner · Downtown', price:24, score:'8.8', tags:['Per diem friendly','Breakfast + lunch'], icon:'✦', image:'image-dinner'},
+      {name:'SAP Brunch, Brown Bag & Bakery', type:'Dinner · Downtown', price:18, score:'8.8', tags:['Under $25','Best value'], icon:'✦', image:'image-dinner'},
+      {name:'Mark’s East Side', type:'Dinner · Appleton', price:48, score:'9.0', tags:['Client-friendly','Wisconsin supper club'], icon:'✦', image:'image-dinner'},
+      {name:'George’s Steakhouse', type:'Dinner · Appleton', price:58, score:'9.0', tags:['Client-friendly','Premium'], icon:'✦', image:'image-dinner'},
+      {name:'Red Ox Seafood & Steakhouse', type:'Dinner · Appleton', price:52, score:'8.9', tags:['Client-friendly','Group-ready'], icon:'✦', image:'image-dinner'},
+      {name:'Dick & Joan’s 220 Club', type:'Dinner · Appleton', price:45, score:'8.9', tags:['Client-friendly','Classic supper club'], icon:'✦', image:'image-dinner'},
+      {name:'Stuc’s Pizza', type:'Dinner · Appleton', price:20, score:'8.6', tags:['Under $25','Casual'], icon:'✦', image:'image-dinner'},
+      {name:'Good Company', type:'Dinner · Appleton', price:28, score:'8.7', tags:['Best value','Group-ready'], icon:'✦', image:'image-dinner'},
+      {name:'Pullmans at Trolley Square', type:'Dinner · Riverfront', price:34, score:'8.7', tags:['Patio','Business casual'], icon:'✦', image:'image-dinner'},
+      {name:'Home Burger Bar', type:'Dinner · Downtown', price:22, score:'8.6', tags:['Under $25','Casual'], icon:'✦', image:'image-dinner'},
+      {name:'Thai Ginger Bistro', type:'Dinner · Appleton', price:25, score:'8.6', tags:['Per diem friendly','Solo-friendly'], icon:'✦', image:'image-dinner'},
+      {name:'Nakashima of Japan', type:'Dinner · Appleton', price:39, score:'8.7', tags:['Group-ready','Client-friendly'], icon:'✦', image:'image-dinner'},
+      {name:'Victoria’s Italian Cuisine', type:'Dinner · Appleton', price:30, score:'8.6', tags:['Casual','Per diem friendly'], icon:'✦', image:'image-dinner'},
+      {name:'Basil Café', type:'Dinner · Appleton', price:23, score:'8.6', tags:['Under $25','Quick lunch'], icon:'✦', image:'image-dinner'},
+      {name:'Wilder’s Bistro', type:'Dinner · Downtown', price:36, score:'8.8', tags:['Local favorite','Business casual'], icon:'✦', image:'image-dinner'},
       {name:'Acoca Coffee', type:'Coffee + work · College Ave', price:12, score:'8.7', tags:['Strong Wi‑Fi','Quiet for calls'], icon:'☕', image:'image-coffee'},
+      {name:'Copper Rock Coffee', type:'Coffee + work · Downtown', price:14, score:'8.8', tags:['Strong Wi‑Fi','Remote work'], icon:'☕', image:'image-coffee'},
+      {name:'Draft Gastropub', type:'After hours · Downtown', price:36, score:'8.9', tags:['Client-friendly','Business casual'], afterHours:['solo','group','client'], icon:'♜', image:'image-bar'},
       {name:'Stone Arch Brewpub', type:'After hours · Riverfront', price:31, score:'8.9', tags:['Local tap list','Easy parking'], afterHours:['solo','group'], icon:'♜', image:'image-bar'},
+      {name:'Appleton Beer Factory', type:'After hours · Downtown', price:30, score:'8.7', tags:['Local tap list','Walkable'], afterHours:['solo','group'], icon:'♜', image:'image-bar'},
+      {name:'Clubhouse Kitchen & Bar', type:'After hours · Downtown', price:33, score:'8.6', tags:['Group-ready','Late-night'], afterHours:['group','client'], icon:'♜', image:'image-bar'},
       {name:'McGuinness Irish Pub', type:'After hours · College Ave', price:34, score:'8.6', tags:['Lively crowd','Walkable'], afterHours:['group','client'], icon:'♜', image:'image-bar'},
       {name:'Lawlss Coffee', type:'After hours · Downtown', price:18, score:'8.5', tags:['Low-key late','Conversation-friendly'], afterHours:['solo','client'], icon:'♜', image:'image-bar'},
       {name:'Trout Museum of Art', type:'Downtime · Downtown', price:10, score:'8.4', tags:['Walkable','Quick reset'], icon:'▱', image:'image-attraction'},
@@ -235,8 +262,7 @@ function renderHotelMap() {
   const nearbyCount = walkablePlaces.length;
   const averageScore = Math.round(walkablePlaces.reduce((total, place) => total + walkingScore(place), 0) / walkablePlaces.length);
   $('#mapHotelName').textContent = currentMapHotel;
-  const loyalty = hotelProfiles[currentMapHotel]?.loyalty || 'Independent';
-  $('#mapHotelSummary').textContent = `${loyalty} · ${nearbyCount} nearby picks · ${averageScore}/100 average walk score`;
+  $('#mapHotelSummary').textContent = `${nearbyCount} worthwhile places nearby · ${averageScore}/100 walking score`;
   $('#mapCityLabel').textContent = currentCity.split(',')[0].toUpperCase();
   $('#mapHotelSelect').innerHTML = hotelNames.map(name => `<option value="${name}" ${name === currentMapHotel ? 'selected' : ''}>${name} · ${hotelProfiles[name]?.loyalty || 'Independent'}</option>`).join('');
   $('#walkabilityOverview').innerHTML = `<strong>${averageScore}</strong><div><b>Walking score from ${currentMapHotel}</b><span>Based on route ease + neighborhood safety for places within 1.5 miles.</span></div>`;
@@ -305,6 +331,7 @@ $('#afterHoursBackdrop').addEventListener('click', e => { if (e.target === $('#a
 document.querySelectorAll('.after-hours-option').forEach(button => button.addEventListener('click', () => { afterHoursContext = button.dataset.afterHours; document.querySelectorAll('.after-hours-option').forEach(option => option.classList.toggle('chosen', option === button)); $('#applyAfterHours').disabled = false; }));
 $('#applyAfterHours').addEventListener('click', () => { renderAfterHoursMode(); renderPlaces(); closeAfterHours(); });
 $('#changeAfterHoursMode').addEventListener('click', openAfterHours);
+$('#toggleReportFilters').addEventListener('click', () => { const filters = $('#reportFilters'); filters.hidden = !filters.hidden; $('#toggleReportFilters').setAttribute('aria-expanded', String(!filters.hidden)); });
 document.querySelectorAll('.refine-filter').forEach(button => button.addEventListener('click', () => { const refinement = button.dataset.refine; if (activeRefinements.has(refinement)) { activeRefinements.delete(refinement); button.classList.remove('active'); button.setAttribute('aria-pressed','false'); } else { activeRefinements.add(refinement); button.classList.add('active'); button.setAttribute('aria-pressed','true'); } renderPlaces(); }));
 $('#clearRefinements').addEventListener('click', () => { activeRefinements.clear(); document.querySelectorAll('.refine-filter.active').forEach(button => { button.classList.remove('active'); button.setAttribute('aria-pressed','false'); }); renderPlaces(); });
 document.querySelectorAll('.pulse-filter').forEach(button => button.addEventListener('click', () => { document.querySelector('.pulse-filter.active').classList.remove('active'); button.classList.add('active'); pulseMode = button.dataset.pulse; renderPulse(); }));
@@ -348,7 +375,13 @@ $('#closeCheckin').addEventListener('click', closeCheckin);
 $('#checkinBackdrop').addEventListener('click', e => { if (e.target === $('#checkinBackdrop')) closeCheckin(); });
 document.querySelectorAll('#intentOptions button').forEach(button => button.addEventListener('click', () => { document.querySelector('#intentOptions .chosen').classList.remove('chosen'); button.classList.add('chosen'); checkinIntent = button.dataset.intent; }));
 $('#confirmCheckin').addEventListener('click', () => { if (checkedIn) return; const destination = cityData[currentCity].pulse[0]; destination.count += 1; if (checkinIntent === 'Open to connect') destination.open += 1; cityData[currentCity].live[1] = `You + ${destination.count - 1} business travelers checked in this hour`; $('#checkInButton').textContent = 'Live for 60 min'; $('#checkInButton').disabled = true; checkedIn = true; closeCheckin(); renderCity(); });
-$('#addPlace').addEventListener('click', () => { $('#modalEyebrow').textContent = 'COMMUNITY PICKS'; $('#modalTitle').textContent = 'Know a work-trip gem?'; $('#modalCopy').textContent = 'Place submissions will be part of the next prototype round. For now, tell us what city deserves to be next.'; $('#budgetOptions').style.display='none'; $('#saveBudget').textContent='Sounds good'; openBudget(); });
+function openPlaceRequest() { $('#placeRequestBackdrop').classList.add('open'); $('#placeRequestBackdrop').setAttribute('aria-hidden','false'); }
+function closePlaceRequest() { $('#placeRequestBackdrop').classList.remove('open'); $('#placeRequestBackdrop').setAttribute('aria-hidden','true'); }
+$('#addPlace').addEventListener('click', openPlaceRequest);
+$('#closePlaceRequest').addEventListener('click', closePlaceRequest);
+$('#placeRequestBackdrop').addEventListener('click', e => { if (e.target === $('#placeRequestBackdrop')) closePlaceRequest(); });
+$('#requestProof').addEventListener('change', e => { $('#requestProofName').textContent = e.target.files[0] ? e.target.files[0].name : 'Add a photo or receipt'; });
+$('#placeRequestForm').addEventListener('submit', e => { e.preventDefault(); const name = $('#requestPlaceName').value.trim(); const reason = $('#requestReason').value.trim(); const excluded = /fast food|gas station|convenience store/i.test(`${name} ${reason}`); $('#placeRequestStatus').textContent = excluded ? 'This request needs a closer review because it may fall outside Corporate Compass’s business-travel focus.' : `Request received for ${name}. We’ll check duplicates, verify the business is active, and review its business-travel fit before publishing.`; if (!excluded) { rewardProgress.points += 10; renderRewards(); } $('#placeRequestForm').reset(); $('#requestProofName').textContent = 'Add a photo or receipt'; });
 document.querySelectorAll('.nav-item:not(.fab)').forEach(b => b.addEventListener('click', () => { document.querySelector('.nav-item.selected').classList.remove('selected'); b.classList.add('selected'); if (b.dataset.nav === 'profile') openProfile(); if (b.dataset.nav === 'trips') openVault(); }));
 $('#viewAll').addEventListener('click', () => { document.querySelector('[data-filter="all"]').click(); list.scrollIntoView({behavior:'smooth',block:'start'}); });
 renderCity();
