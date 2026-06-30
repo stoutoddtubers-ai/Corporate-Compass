@@ -9,10 +9,12 @@ const cityData = {
     places: [
       {name:'Lupi & Iris', type:'Dinner · Downtown', price:52, score:'9.1', tags:['Client-friendly','Great service'], icon:'✦', image:'image-dinner'},
       {name:'Colectivo on the Square', type:'Coffee + work · East Side', price:14, score:'8.8', tags:['Strong Wi‑Fi','Solo friendly'], icon:'☕', image:'image-coffee'},
-      {name:'Bryant’s Cocktail Lounge', type:'After hours · Mitchell Park', price:38, score:'9.3', tags:['Quiet booths','Local classic'], afterHours:['solo','client'], icon:'♜', image:'image-bar'},
-      {name:'The Outsider', type:'After hours · Third Ward', price:48, score:'8.9', tags:['Rooftop energy','Great views'], afterHours:['group','client'], icon:'♜', image:'image-bar'},
-      {name:'Boone & Crockett', type:'After hours · Bay View', price:31, score:'8.7', tags:['Easy to mingle','Late-night'], afterHours:['solo','group'], icon:'♜', image:'image-bar'},
-      {name:'Milwaukee Art Museum', type:'Downtime · Lakefront', price:24, score:'8.6', tags:['Walkable','90 min visit'], icon:'▱', image:'image-attraction'},
+      {name:'Bryant’s Cocktail Lounge', type:'After hours · Drinks & Nightlife', price:38, score:'9.3', tags:['Cocktail bar','Solo friendly','Noise: low'], afterHoursCategory:'drinks', icon:'♜', image:'image-bar'},
+      {name:'The Outsider', type:'After hours · Drinks & Nightlife', price:48, score:'8.9', tags:['Rooftop bar','Outdoor seating','Client-friendly'], afterHoursCategory:'drinks', icon:'♜', image:'image-bar'},
+      {name:'Boone & Crockett', type:'After hours · Drinks & Nightlife', price:31, score:'8.7', tags:['Late-night','Networking-friendly','Value'], afterHoursCategory:'drinks', icon:'♜', image:'image-bar'},
+      {name:'Lake Park Golf Course', type:'After hours · Golf', price:22, score:'8.5', tags:['Public course','Quick round','Rental clubs'], afterHoursCategory:'golf', icon:'⛳', image:'image-golf'},
+      {name:'Milwaukee Art Museum', type:'After hours · Local Attraction', price:24, score:'8.6', tags:['Indoor','90 min visit','Walkable'], afterHoursCategory:'attractions', icon:'▱', image:'image-attraction'},
+      {name:'Milwaukee Lakefront Trail', type:'After hours · Fitness & Wellness', price:0, score:'8.8', tags:['Running route','Free','Outdoor'], afterHoursCategory:'wellness', icon:'◎', image:'image-wellness'},
       {name:'The Pfister Hotel', type:'Hotel · Downtown', price:175, score:'92', tags:['Independent','Great for Sales Travel','Airport ready'], icon:'⌂', image:'image-hotel'},
       {name:'Milwaukee Marriott Downtown', type:'Hotel · Downtown', price:189, score:'90', tags:['Marriott Bonvoy','Great for Conferences'], icon:'⌂', image:'image-hotel'},
       {name:'Hilton Milwaukee City Center', type:'Hotel · Westown', price:159, score:'86', tags:['Hilton Honors','Meeting-ready'], icon:'⌂', image:'image-hotel'}
@@ -52,13 +54,15 @@ const cityData = {
       {name:'Wilder’s Bistro', type:'Dinner · Downtown', price:36, score:'8.8', tags:['Local favorite','Business casual'], icon:'✦', image:'image-dinner'},
       {name:'Acoca Coffee', type:'Coffee + work · College Ave', price:12, score:'8.7', tags:['Strong Wi‑Fi','Quiet for calls'], icon:'☕', image:'image-coffee'},
       {name:'Copper Rock Coffee', type:'Coffee + work · Downtown', price:14, score:'8.8', tags:['Strong Wi‑Fi','Remote work'], icon:'☕', image:'image-coffee'},
-      {name:'Draft Gastropub', type:'After hours · Downtown', price:36, score:'8.9', tags:['Client-friendly','Business casual'], afterHours:['solo','group','client'], icon:'♜', image:'image-bar'},
-      {name:'Stone Arch Brewpub', type:'Dinner · Brewpub', price:31, score:'8.9', tags:['Per diem friendly','Craft beer','Team dinner','Events'], afterHours:['solo','group'], icon:'✦', image:'image-dinner', logoText:'SA'},
-      {name:'Appleton Beer Factory', type:'After hours · Downtown', price:30, score:'8.7', tags:['Local tap list','Walkable'], afterHours:['solo','group'], icon:'♜', image:'image-bar'},
-      {name:'Clubhouse Kitchen & Bar', type:'After hours · Downtown', price:33, score:'8.6', tags:['Group-ready','Late-night'], afterHours:['group','client'], icon:'♜', image:'image-bar'},
-      {name:'McGuinness Irish Pub', type:'After hours · College Ave', price:34, score:'8.6', tags:['Lively crowd','Walkable'], afterHours:['group','client'], icon:'♜', image:'image-bar'},
-      {name:'Lawlss Coffee', type:'After hours · Downtown', price:18, score:'8.5', tags:['Low-key late','Conversation-friendly'], afterHours:['solo','client'], icon:'♜', image:'image-bar'},
-      {name:'Trout Museum of Art', type:'Downtime · Downtown', price:10, score:'8.4', tags:['Walkable','Quick reset'], icon:'▱', image:'image-attraction'},
+      {name:'Draft Gastropub', type:'After hours · Drinks & Nightlife', price:36, score:'8.9', tags:['Client-friendly','Business casual','Networking'], afterHoursCategory:'drinks', icon:'♜', image:'image-bar'},
+      {name:'Stone Arch Brewpub', type:'After hours · Drinks & Nightlife', price:31, score:'8.9', tags:['Craft beer','Team-friendly','Events'], afterHoursCategory:'drinks', icon:'✦', image:'image-dinner', logoText:'SA'},
+      {name:'Appleton Beer Factory', type:'After hours · Drinks & Nightlife', price:30, score:'8.7', tags:['Brewery','Walkable','Value'], afterHoursCategory:'drinks', icon:'♜', image:'image-bar'},
+      {name:'Clubhouse Kitchen & Bar', type:'After hours · Drinks & Nightlife', price:33, score:'8.6', tags:['Group-ready','Late-night','Service'], afterHoursCategory:'drinks', icon:'♜', image:'image-bar'},
+      {name:'McGuinness Irish Pub', type:'After hours · Drinks & Nightlife', price:34, score:'8.6', tags:['Lively crowd','Walkable','Live music potential'], afterHoursCategory:'drinks', icon:'♜', image:'image-bar'},
+      {name:'Lawlss Coffee', type:'After hours · Drinks & Nightlife', price:18, score:'8.5', tags:['Low-key late','Conversation-friendly','Solo friendly'], afterHoursCategory:'drinks', icon:'♜', image:'image-bar'},
+      {name:'Reid Golf Course', type:'After hours · Golf', price:28, score:'8.4', tags:['Public course','Twilight potential','Corporate friendly'], afterHoursCategory:'golf', icon:'⛳', image:'image-golf'},
+      {name:'Trout Museum of Art', type:'After hours · Local Attraction', price:10, score:'8.4', tags:['Indoor','Quick reset','Walkable'], afterHoursCategory:'attractions', icon:'▱', image:'image-attraction'},
+      {name:'Fox River Trail', type:'After hours · Fitness & Wellness', price:0, score:'8.7', tags:['Running trail','Free','Walkable'], afterHoursCategory:'wellness', icon:'◎', image:'image-wellness'},
       {name:'Hilton Appleton Paper Valley', type:'Hotel · Downtown convention hub', price:149, score:'95', tags:['Hilton Honors','Convention center','Walkable downtown'], icon:'⌂', image:'image-hotel'},
       {name:'DoubleTree by Hilton Appleton', type:'Hotel · Airport / west business district', price:139, score:'93', tags:['Hilton Honors','Airport shuttle','Free parking'], icon:'⌂', image:'image-hotel'},
       {name:'Residence Inn Appleton', type:'Hotel · Extended stay / airport district', price:139, score:'94', tags:['Marriott Bonvoy','Full kitchens','Long stays'], icon:'⌂', image:'image-hotel'},
@@ -80,10 +84,12 @@ const cityData = {
     places: [
       {name:'The Gage', type:'Dinner · Millennium Park', price:58, score:'9.0', tags:['Client-friendly','Late night'], icon:'✦', image:'image-dinner'},
       {name:'Osmium Coffee Bar', type:'Coffee + work · Lakeview', price:15, score:'8.9', tags:['Strong Wi‑Fi','Solo friendly'], icon:'☕', image:'image-coffee'},
-      {name:'Cindy’s Rooftop', type:'After hours · Loop', price:63, score:'9.1', tags:['Client wow','Hotel adjacent'], afterHours:['group','client'], icon:'♜', image:'image-bar'},
-      {name:'The Drawing Room', type:'After hours · Gold Coast', price:42, score:'8.8', tags:['Sophisticated','Quiet corners'], afterHours:['solo','client'], icon:'♜', image:'image-bar'},
-      {name:'Federales', type:'After hours · West Loop', price:39, score:'8.7', tags:['Lively groups','Late-night'], afterHours:['group','solo'], icon:'♜', image:'image-bar'},
-      {name:'Chicago Architecture Center', type:'Downtime · River North', price:18, score:'8.8', tags:['90 min visit','Worth it'], icon:'▱', image:'image-attraction'},
+      {name:'Cindy’s Rooftop', type:'After hours · Drinks & Nightlife', price:63, score:'9.1', tags:['Rooftop bar','Client wow','Reservations'], afterHoursCategory:'drinks', icon:'♜', image:'image-bar'},
+      {name:'The Drawing Room', type:'After hours · Drinks & Nightlife', price:42, score:'8.8', tags:['Hotel bar','Quiet corners','Solo friendly'], afterHoursCategory:'drinks', icon:'♜', image:'image-bar'},
+      {name:'Federales', type:'After hours · Drinks & Nightlife', price:39, score:'8.7', tags:['Lively groups','Late-night','Networking'], afterHoursCategory:'drinks', icon:'♜', image:'image-bar'},
+      {name:'Five Iron Golf Chicago', type:'After hours · Golf', price:45, score:'8.7', tags:['Indoor simulator','Group-friendly','Rental clubs'], afterHoursCategory:'golf', icon:'⛳', image:'image-golf'},
+      {name:'Chicago Architecture Center', type:'After hours · Local Attraction', price:18, score:'8.8', tags:['90 min visit','Indoor','Worth it'], afterHoursCategory:'attractions', icon:'▱', image:'image-attraction'},
+      {name:'Chicago Lakefront Trail', type:'After hours · Fitness & Wellness', price:0, score:'8.9', tags:['Running route','Free','Outdoor'], afterHoursCategory:'wellness', icon:'◎', image:'image-wellness'},
       {name:'Hyatt Regency Chicago', type:'Hotel · Riverwalk', price:209, score:'91', tags:['World of Hyatt','Great for Conferences'], icon:'⌂', image:'image-hotel'},
       {name:'Marriott Marquis Chicago', type:'Hotel · South Loop', price:239, score:'91', tags:['Marriott Bonvoy','Trade-show ready'], icon:'⌂', image:'image-hotel'},
       {name:'Hilton Chicago', type:'Hotel · Grant Park', price:219, score:'90', tags:['Hilton Honors','Client meeting-ready'], icon:'⌂', image:'image-hotel'}
@@ -344,7 +350,7 @@ let currentCity = 'Milwaukee, WI';
 let budget = 55;
 let currentTripDate = new Date().toISOString().slice(0, 10);
 let currentFilter = 'all';
-let afterHoursContext = null;
+let afterHoursCategory = null;
 let pulseMode = 'social';
 let checkedIn = false;
 let checkinIntent = 'Open to connect';
@@ -352,6 +358,14 @@ const activeRefinements = new Set();
 let selectedFoodType = null;
 let selectedAtmosphere = null;
 const travelerRoles = new Set(['Sales']);
+const travelerProfile = {
+  hotelProgram: 'Hilton Honors',
+  airlineProgram: 'Delta SkyMiles',
+  expenseTool: 'Concur',
+  receiptPreference: 'Auto-save receipts',
+  needs: new Set(['Client-ready dinners','Strong Wi-Fi','GSA per diem']),
+  priorities: new Set(['Stay under policy','Host clients well'])
+};
 const privateReceipts = [
   {trip:'Milwaukee Sales Visit · Aug 12–14', place:'Lupi & Iris', amount:52.00, file:'Receipt attached'},
   {trip:'Milwaukee Sales Visit · Aug 12–14', place:'Colectivo on the Square', amount:14.80, file:'Receipt attached'},
@@ -381,8 +395,35 @@ const gsaFY2026Rates = {
   'Milwaukee, WI': {label:'Milwaukee County, WI', county:'Milwaukee County', mie:80, lodging:140, standard:false},
   'Chicago, IL': {label:'Chicago, IL · Cook / Lake County', county:'Cook / Lake County', mie:92, standard:false, lodgingByMonth:{1:142,2:142,3:142,4:234,5:234,6:234,7:202,8:202,9:223,10:223,11:223,12:142}}
 };
+const afterHoursCategories = {
+  drinks: {
+    label:'Drinks & Nightlife', icon:'🍸',
+    summary:'Cocktail bars, wine bars, whiskey bars, rooftops, breweries, speakeasies, hotel bars, piano bars, live music, and comedy.',
+    ratings:['Atmosphere','Drink Quality','Service','Business Networking Friendly','Solo Traveler Friendly','Noise Level','Value','Location & Accessibility'],
+    data:['Happy Hour','Dress Code','Live Music','Outdoor Seating','Reservations Recommended','Last Call','Walking Distance from Major Hotels','Private Meeting Areas']
+  },
+  golf: {
+    label:'Golf', icon:'⛳',
+    summary:'Public courses, resort courses, indoor simulators, driving ranges, Topgolf-style venues, and executive par-3 options.',
+    ratings:['Course Conditions','Pace of Play','Staff & Service','Business Meeting Friendly','Rental Club Quality','Practice Facilities','Value','Overall Experience'],
+    data:['Rental Clubs Available','Clubhouse Restaurant','Walking Allowed','Cart Included','Twilight Rates','Tee Time Availability','Executive Course','Corporate Event Friendly']
+  },
+  attractions: {
+    label:'Local Attractions', icon:'🏙️',
+    summary:'Museums, observation decks, waterfronts, public markets, historic districts, gardens, landmarks, and practical walking tours.',
+    ratings:['Overall Experience','Time Required','Value','Accessibility','Business Traveler Friendly','Crowd Level','Walkability','Family Friendly'],
+    data:['Average Visit Time','Indoor / Outdoor','Admission Price','Free Attraction','Evening Hours','Parking','Public Transit Access']
+  },
+  wellness: {
+    label:'Fitness & Wellness', icon:'💪',
+    summary:'Gyms, CrossFit boxes, yoga, Pilates, running trails, parks, massage, recovery centers, cryotherapy, sauna, and spa facilities.',
+    ratings:['Equipment Quality','Cleanliness','Staff','Day Pass Value','Traveler Friendly','Shower Facilities','Crowd Level','Overall Experience'],
+    data:['Day Pass Available','24 Hours','Locker Rooms','Towels Provided','Sauna','Cold Plunge','Parking','Hotel Partnerships']
+  }
+};
 
 function categoryFor(place) {
+  if (place.afterHoursCategory) return 'drinks';
   if (place.type.startsWith('Hotel')) return 'hotels';
   if (place.type.startsWith('Dinner')) return 'dinner';
   if (place.type.startsWith('Coffee')) return 'coffee';
@@ -457,7 +498,7 @@ function renderFoodBrowse() {
     button.setAttribute('aria-pressed', String(active));
   });
 }
-function matchesAfterHours(place) { return currentFilter !== 'drinks' || !afterHoursContext || (place.afterHours || []).includes(afterHoursContext); }
+function matchesAfterHours(place) { return currentFilter !== 'drinks' || !afterHoursCategory || place.afterHoursCategory === afterHoursCategory; }
 function logoMarkup(place) {
   const label = place.logoText || place.icon;
   const fallback = `<span class="place-logo-text">${label}</span>`;
@@ -495,27 +536,63 @@ function renderCity() {
 }
 function walkingScore(place) { return Math.round((place.ease * .55) + (place.safety * .45)); }
 function walkingLabel(score) { return score >= 90 ? 'Excellent walk' : score >= 82 ? 'Easy walk' : score >= 72 ? 'Mixed route' : 'Ride-share better'; }
+function mapQueryFor(hotelName) { return `${hotelName}, ${currentCity}`; }
+function renderLiveMap(hotelName) {
+  const query = mapQueryFor(hotelName);
+  const embedUrl = `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+  const fullUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+  $('#liveMapHotel').textContent = hotelName;
+  $('#liveMapFrame').src = embedUrl;
+  $('#openLiveMap').href = fullUrl;
+}
+function hotelNamesForCurrentCity() { return cityData[currentCity].places.filter(place => place.type.startsWith('Hotel')).map(place => place.name); }
+function fallbackMapPlan(hotelName) {
+  const positions = [[62,34],[32,30],[72,52],[25,68],[58,75],[43,58]];
+  const hotel = hotelProfiles[hotelName];
+  const favoriteNames = (hotel?.favorites || []).map(favorite => favorite[1]).filter(Boolean);
+  const nearby = favoriteNames.length ? favoriteNames : cityData[currentCity].places.filter(place => !place.type.startsWith('Hotel')).slice(0,5).map(place => place.name);
+  return { x:50, y:50, approximate:true, places: nearby.slice(0,6).map((name,i) => ({name, distance:Number((0.4 + i * .35).toFixed(1)), minutes:8 + i * 5, ease:Math.max(70, 90 - i * 4), safety:Math.max(76, 92 - i * 3), x:positions[i % positions.length][0], y:positions[i % positions.length][1], approximate:true})) };
+}
 function renderHotelMap() {
   const cityMap = mapData[currentCity];
-  const hotelNames = Object.keys(cityMap.hotels);
-  if (!cityMap.hotels[currentMapHotel]) currentMapHotel = hotelNames[0];
-  const plan = cityMap.hotels[currentMapHotel];
+  const hotelNames = hotelNamesForCurrentCity();
+  if (!hotelNames.includes(currentMapHotel)) currentMapHotel = hotelNames[0];
+  const plan = cityMap.hotels[currentMapHotel] || fallbackMapPlan(currentMapHotel);
   const walkablePlaces = plan.places.filter(place => place.distance <= 1.5);
   const nearbyCount = walkablePlaces.length;
-  const averageScore = Math.round(walkablePlaces.reduce((total, place) => total + walkingScore(place), 0) / walkablePlaces.length);
-  $('#mapHotelName').textContent = currentMapHotel;
+  const averageScore = walkablePlaces.length ? Math.round(walkablePlaces.reduce((total, place) => total + walkingScore(place), 0) / walkablePlaces.length) : 0;
+  if ($('#mapHotelName')) $('#mapHotelName').textContent = currentMapHotel;
   $('#mapHotelSummary').textContent = `${nearbyCount} worthwhile places nearby · ${averageScore}/100 walking score`;
   $('#mapCityLabel').textContent = currentCity.split(',')[0].toUpperCase();
   $('#mapHotelSelect').innerHTML = hotelNames.map(name => `<option value="${name}" ${name === currentMapHotel ? 'selected' : ''}>${name} · ${hotelProfiles[name]?.loyalty || 'Independent'}</option>`).join('');
+  $('#stayHotelSelect').innerHTML = hotelNames.map(name => `<option value="${name}" ${name === currentMapHotel ? 'selected' : ''}>${name}</option>`).join('');
+  renderLiveMap(currentMapHotel);
   $('#walkabilityOverview').innerHTML = `<strong>${averageScore}</strong><div><b>Walking score from ${currentMapHotel}</b><span>Based on route ease + neighborhood safety for places within 1.5 miles.</span></div>`;
   const places = [...plan.places].sort((a,b) => a.distance - b.distance);
-  $('#prototypeMap').innerHTML = `<div class="map-marker hotel" style="--x:${plan.x}%;--y:${plan.y}%">⌂<span>Your hotel</span></div>${places.filter(place => place.distance <= 1.5).map(place => `<div class="map-marker" style="--x:${place.x}%;--y:${place.y}%">•<span>${place.name.split(' ')[0]}</span></div>`).join('')}`;
-  $('#nearbyMapList').innerHTML = places.map(place => { const score = walkingScore(place); const caution = score < 82 ? 'caution' : ''; return `<article class="map-result"><div><strong>${place.name}</strong><span>${place.distance.toFixed(1)} mi · about ${place.minutes} min on foot · safety ${place.safety}/100</span></div><div class="walk-score ${caution}"><b>${score}/100</b><small>${walkingLabel(score)}</small></div></article>`; }).join('');
+  $('#nearbyMapList').innerHTML = places.map(place => { const score = walkingScore(place); const caution = score < 82 ? 'caution' : ''; const descriptor = place.approximate ? `${place.distance.toFixed(1)} mi estimate · recommended nearby · safety ${place.safety}/100` : `${place.distance.toFixed(1)} mi · about ${place.minutes} min on foot · safety ${place.safety}/100`; return `<article class="map-result"><div><strong>${place.name}</strong><span>${descriptor}</span></div><div class="walk-score ${caution}"><b>${score}/100</b><small>${walkingLabel(score)}</small></div></article>`; }).join('');
 }
 function openHotelMap() { renderHotelMap(); $('#mapBackdrop').classList.add('open'); $('#mapBackdrop').setAttribute('aria-hidden','false'); }
 function closeHotelMap() { $('#mapBackdrop').classList.remove('open'); $('#mapBackdrop').setAttribute('aria-hidden','true'); }
 function roleText() { return [...travelerRoles].join(' + ') || 'business'; }
-function renderProfileSummary() { $('#profileSummary').textContent = `✦ ${roleText()} traveler profile`; }
+function profileListText(values, fallback = 'business travel') { const list = [...values]; return list.length ? list.slice(0, 3).join(' · ') : fallback; }
+function syncProfileControls() {
+  if (!$('#profileHotelProgram')) return;
+  $('#profileHotelProgram').value = travelerProfile.hotelProgram;
+  $('#profileAirlineProgram').value = travelerProfile.airlineProgram;
+  $('#profileExpenseTool').value = travelerProfile.expenseTool;
+  $('#profileReceiptPreference').value = travelerProfile.receiptPreference;
+  document.querySelectorAll('[data-profile-chip]').forEach(button => button.classList.toggle('chosen', travelerProfile.needs.has(button.dataset.profileChip)));
+  document.querySelectorAll('[data-priority]').forEach(button => button.classList.toggle('chosen', travelerProfile.priorities.has(button.dataset.priority)));
+}
+function renderProfileSummary() {
+  const roles = roleText();
+  const needs = profileListText(travelerProfile.needs, 'trip basics');
+  $('#profileSummary').textContent = `✦ ${roles} · ${travelerProfile.hotelProgram}`;
+  if ($('#profileCommandSummary')) $('#profileCommandSummary').textContent = `${roles} traveler · ${travelerProfile.hotelProgram} · ${travelerProfile.expenseTool}`;
+  if ($('#profileCommandDetail')) $('#profileCommandDetail').textContent = `Watching for ${needs}. Receipts: ${travelerProfile.receiptPreference}.`;
+  if ($('#profileOneStopSummary')) $('#profileOneStopSummary').textContent = `One-stop setup: hotels tuned to ${travelerProfile.hotelProgram}, dining tuned to ${profileListText(travelerProfile.priorities, 'your trip priorities')}, receipts routed for ${travelerProfile.expenseTool}.`;
+  syncProfileControls();
+}
 function earnedBadges() { const badges = ['Verified Traveler']; if (rewardProgress.photoProofs >= 5) badges.push('Local Lens'); if (rewardProgress.verifiedReviews >= 3) badges.push('Trusted Traveler'); if (rewardProgress.verifiedReviews >= 10) badges.push('Road Warrior'); return badges; }
 function renderRewards() { const badges = earnedBadges(); $('#profilePointTotal').textContent = `${rewardProgress.points} points`; $('#profileBadgeSummary').textContent = badges.slice(-2).join(' · '); $('#rewardsPointTotal').textContent = rewardProgress.points; $('#badgeList').innerHTML = badges.map((badge, i) => `<span class="badge"><span>${['✦','◉','◆','▲'][i]}</span>${badge}</span>`).join(''); const offers = [{name:'$5 coffee gift card', cost:500, detail:'Use with a participating coffee partner'},{name:'10% local dining discount', cost:750, detail:'One dinner at a participating restaurant'}]; $('#rewardsShop').innerHTML = offers.map(offer => { const claimed = rewardProgress.redeemed.includes(offer.name); return `<article class="reward-offer"><div><strong>${offer.name}</strong><span>${offer.cost} points · ${offer.detail}</span></div><button data-reward="${offer.name}" data-cost="${offer.cost}" ${claimed || rewardProgress.points < offer.cost ? 'disabled' : ''}>${claimed ? 'Claimed' : 'Redeem'}</button></article>`; }).join(''); }
 function addContributionRewards() { rewardProgress.verifiedReviews += 1; rewardProgress.photoProofs += 1; rewardProgress.points += 75; renderRewards(); }
@@ -544,8 +621,21 @@ function renderRestaurantDetails(review) {
   if (!details) return '';
   return `<section class="intel-section"><h3 class="review-section-title">Restaurant snapshot</h3><p class="intel-copy">${details.snapshot}</p><p class="intel-copy">${details.businessSummary}</p></section>${detailPairs('Contact + operations', details.contact)}${detailList('Food + menu notes', details.menu)}<section class="intel-section warning"><h3 class="review-section-title">Dietary note</h3><p class="intel-copy">${details.dietary}</p></section><section class="intel-section perdiem-intel"><h3 class="review-section-title">Per diem meter</h3><p class="intel-copy">${details.perDiem}</p></section>${detailPairs('Best business traveler use cases', details.useCases)}<section class="intel-section"><h3 class="review-section-title">Check-in prompts</h3><p class="intel-copy"><b>Busy risk:</b> ${details.busyRisk}</p><div class="prompt-chips">${details.prompts.map(prompt => `<span>${prompt}</span>`).join('')}</div></section><section class="intel-section"><h3 class="review-section-title">App tags</h3><div class="intel-tags">${details.tags.map(tag => `<span>${tag}</span>`).join('')}</div></section>${detailPairs('Data confidence', details.confidence)}`;
 }
+function renderAfterHoursDetails(place) {
+  const category = afterHoursCategories[place.afterHoursCategory];
+  if (!category) return '';
+  const crossCategory = ['Distance from downtown','Distance from airport','Nearby hotels','Parking availability','Walkable from major hotels','Typical cost per person','Business Traveler Score','Peak hours','Live check-in count','Good for client meetings','Good for networking','Good for solo travelers'];
+  return `<section class="intel-section"><h3 class="review-section-title">${category.label} profile</h3><p class="intel-copy">${category.summary}</p></section><section class="intel-section"><h3 class="review-section-title">Rating categories</h3><div class="criteria-grid">${category.ratings.map((rating,i) => `<div class="criterion"><span class="criterion-label">${rating}</span><span class="criterion-value ${i < 4 ? 'good' : 'okay'}">${(4.8 - i * .12).toFixed(1)} / 5</span></div>`).join('')}</div></section><section class="intel-section"><h3 class="review-section-title">Data to collect</h3><div class="intel-tags">${category.data.map(item => `<span>${item}</span>`).join('')}</div></section><section class="intel-section perdiem-intel"><h3 class="review-section-title">Business-travel fields</h3><div class="intel-tags">${crossCategory.map(item => `<span>${item}</span>`).join('')}</div></section>`;
+}
 function openReview(place) {
   const review = restaurantReviews[place.name];
+  if (!review && place.afterHoursCategory) {
+    const category = afterHoursCategories[place.afterHoursCategory];
+    $('#reviewContent').innerHTML = `<header class="review-hero"><p class="eyebrow">AFTER HOURS · ${category.label.toUpperCase()}</p><h2 id="reviewTitle">${place.name}</h2><p class="review-meta">${place.type} · Typical cost $${place.price}/person</p><p class="review-profile-context">Built for business travelers, not general nightlife browsing</p><div class="review-score-row"><span class="review-big-score">${place.score}</span><span class="review-score-copy">Business Traveler<br />Score</span></div></header><div class="review-body"><p class="review-verdict">${category.icon} ${place.name} is categorized under ${category.label}, with business-travel scoring focused on practicality, access, solo comfort, and company-money fit.</p><div class="review-detail-grid"><div class="review-detail"><strong>Nearby hotels</strong><span>Shown in map layer</span></div><div class="review-detail"><strong>Peak hours</strong><span>Needs traveler check-ins</span></div><div class="review-detail"><strong>Wi‑Fi</strong><span>Tracked where relevant</span></div></div>${renderPhotoGallery(place.name, 'restaurant')}${renderAfterHoursDetails(place)}<button class="review-submit" id="writeReview">Add after-hours intel · Earn 75 points</button><p class="review-note">Prototype after-hours category model. Real data would be collected from verified business travelers and current check-ins.</p></div>`;
+    $('#reviewBackdrop').classList.add('open');
+    $('#reviewBackdrop').setAttribute('aria-hidden','false');
+    return;
+  }
   if (!review) return;
   $('#reviewContent').innerHTML = `<header class="review-hero"><p class="eyebrow">BUSINESS TRAVELER REVIEW</p><h2 id="reviewTitle">${place.name}</h2><p class="review-meta">${place.type} · Avg. $${place.price}/person</p><p class="review-profile-context">Most relevant to ${roleText()} travelers</p><div class="review-score-row"><span class="review-big-score">${review.score}</span><span class="review-score-copy">Stretch Score<br />${review.count}</span></div></header><div class="review-body"><p class="review-verdict">${review.verdict}</p><div class="review-detail-grid"><div class="review-detail"><strong>${review.walk}</strong><span>from nearby hotels</span></div><div class="review-detail"><strong>${review.airport}</strong><span>from airport</span></div><div class="review-detail"><strong>${review.best}</strong><span>best arrival window</span></div></div>${renderPhotoGallery(place.name, 'restaurant')}<h3 class="review-section-title">Business traveler breakdown</h3><div class="criteria-grid">${review.metrics.map(m => `<div class="criterion"><span class="criterion-label">${m[0]}</span><span class="criterion-value ${m[2]}">${m[1]}</span></div>`).join('')}</div>${renderRestaurantDetails(review)}<blockquote class="review-quote">${review.quote}<strong>— ${review.author}<span class="reviewer-badge">✦ Trusted Traveler</span></strong></blockquote><button class="review-submit" id="writeReview">Add a verified review · Earn 75 points</button><p class="review-note">Sample prototype data. In the live app, these signals would be aggregated from verified business-traveler reviews.</p></div>`;
   $('#reviewBackdrop').classList.add('open');
@@ -588,7 +678,7 @@ function addGalleryPhoto(file) {
 function renderRatingInputs() { $('#ratingInputs').innerHTML = ratingCategories.map(category => `<div class="rating-row"><span>${category}</span><div class="rating-stars">${[1,2,3,4,5].map(value => `<button class="rating-star ${currentRatings[category] >= value ? 'active' : ''}" type="button" data-category="${category}" data-value="${value}" aria-label="${category}: ${value} stars" aria-pressed="${currentRatings[category] === value}">★</button>`).join('')}</div></div>`).join(''); const values = Object.values(currentRatings).filter(Boolean); $('#travelerScore').textContent = values.length ? `${(values.reduce((sum,value) => sum + value, 0) / values.length).toFixed(1)} / 5` : '—'; }
 function openReviewSubmission(place) { reviewSubmissionPlace = place; locationVerified = false; currentRatings = {}; $('#submissionPlace').textContent = place.name; $('#locationVerification').classList.remove('verified'); $('#locationVerificationText').textContent = 'Check that your location matches this place.'; $('#verifyLocation').textContent = 'Verify'; $('#reviewProofName').textContent = 'Add venue or food photo'; $('#submitReviewForm').reset(); renderRatingInputs(); $('#reviewSubmissionBackdrop').classList.add('open'); $('#reviewSubmissionBackdrop').setAttribute('aria-hidden','false'); }
 function closeReviewSubmission() { $('#reviewSubmissionBackdrop').classList.remove('open'); $('#reviewSubmissionBackdrop').setAttribute('aria-hidden','true'); }
-function openProfile() { $('#profileBackdrop').classList.add('open'); $('#profileBackdrop').setAttribute('aria-hidden','false'); }
+function openProfile() { renderProfileSummary(); $('#profileBackdrop').classList.add('open'); $('#profileBackdrop').setAttribute('aria-hidden','false'); }
 function closeProfile() { $('#profileBackdrop').classList.remove('open'); $('#profileBackdrop').setAttribute('aria-hidden','true'); }
 function openVault() { $('#vaultBackdrop').classList.add('open'); $('#vaultBackdrop').setAttribute('aria-hidden','false'); renderReceipts(); }
 function closeVault() { $('#vaultBackdrop').classList.remove('open'); $('#vaultBackdrop').setAttribute('aria-hidden','true'); }
@@ -597,8 +687,13 @@ function closeReceiptForm() { $('#receiptBackdrop').classList.remove('open'); $(
 function openBudget() { $('#modalBackdrop').classList.add('open'); $('#modalBackdrop').setAttribute('aria-hidden','false'); }
 function showBudgetSettings() { $('#modalEyebrow').textContent = 'PER DIEM SETTINGS'; $('#modalTitle').textContent = 'Set your dinner budget'; $('#modalCopy').textContent = 'We’ll highlight places that make your expense report easy.'; $('#budgetOptions').style.display = 'grid'; $('#saveBudget').textContent = 'Save budget'; const matchingOption = document.querySelector(`#budgetOptions button[data-budget="${budget}"]`); document.querySelectorAll('#budgetOptions button').forEach(button => button.classList.toggle('chosen', button === matchingOption)); $('#customBudget').value = matchingOption ? '' : budget; $('#tripDate').value = currentTripDate; renderGovernmentRate(); openBudget(); }
 function closeBudget() { $('#modalBackdrop').classList.remove('open'); $('#modalBackdrop').setAttribute('aria-hidden','true'); }
-function renderAfterHoursMode() { const labels = {solo:'Solo traveler',group:'Group travel',client:'With client'}; $('#afterHoursMode').hidden = !afterHoursContext; if (afterHoursContext) $('#afterHoursModeLabel').textContent = labels[afterHoursContext]; }
-function openAfterHours() { $('#afterHoursBackdrop').classList.add('open'); $('#afterHoursBackdrop').setAttribute('aria-hidden','false'); $('#applyAfterHours').disabled = !afterHoursContext; document.querySelectorAll('.after-hours-option').forEach(button => button.classList.toggle('chosen', button.dataset.afterHours === afterHoursContext)); }
+function renderAfterHoursPreview() {
+  const category = afterHoursCategories[afterHoursCategory];
+  if (!category) { $('#afterHoursCategoryPreview').innerHTML = '<p>Choose a category to see the business-traveler rating fields and data points we’ll track.</p>'; return; }
+  $('#afterHoursCategoryPreview').innerHTML = `<div class="after-hours-preview-heading"><span>${category.icon}</span><div><strong>${category.label}</strong><small>${category.summary}</small></div></div><div class="after-hours-preview-grid"><div><b>Rating categories</b>${category.ratings.map(item => `<em>${item}</em>`).join('')}</div><div><b>Business-travel data</b>${category.data.map(item => `<em>${item}</em>`).join('')}</div></div>`;
+}
+function renderAfterHoursMode() { $('#afterHoursMode').hidden = !afterHoursCategory; if (afterHoursCategory) $('#afterHoursModeLabel').textContent = afterHoursCategories[afterHoursCategory].label; }
+function openAfterHours() { $('#afterHoursBackdrop').classList.add('open'); $('#afterHoursBackdrop').setAttribute('aria-hidden','false'); $('#applyAfterHours').disabled = !afterHoursCategory; document.querySelectorAll('.after-hours-option').forEach(button => button.classList.toggle('chosen', button.dataset.afterHoursCategory === afterHoursCategory)); renderAfterHoursPreview(); }
 function closeAfterHours() { $('#afterHoursBackdrop').classList.remove('open'); $('#afterHoursBackdrop').setAttribute('aria-hidden','true'); }
 
 $('#cityButton').addEventListener('click', () => { $('#cityMenu').classList.toggle('open'); $('#cityButton').setAttribute('aria-expanded', $('#cityMenu').classList.contains('open')); });
@@ -607,10 +702,11 @@ $('#openHotelMap').addEventListener('click', openHotelMap);
 $('#closeMap').addEventListener('click', closeHotelMap);
 $('#mapBackdrop').addEventListener('click', e => { if (e.target === $('#mapBackdrop')) closeHotelMap(); });
 $('#mapHotelSelect').addEventListener('change', e => { currentMapHotel = e.target.value; renderHotelMap(); });
-document.querySelectorAll('.filter').forEach(button => button.addEventListener('click', () => { document.querySelector('.filter.active').classList.remove('active'); button.classList.add('active'); currentFilter = button.dataset.filter; renderFoodBrowse(); if (currentFilter === 'drinks') { afterHoursContext = null; renderAfterHoursMode(); openAfterHours(); } else { afterHoursContext = null; renderAfterHoursMode(); renderPlaces(); } }));
+$('#stayHotelSelect').addEventListener('change', e => { currentMapHotel = e.target.value; renderHotelMap(); });
+document.querySelectorAll('.filter').forEach(button => button.addEventListener('click', () => { document.querySelector('.filter.active').classList.remove('active'); button.classList.add('active'); currentFilter = button.dataset.filter; renderFoodBrowse(); if (currentFilter === 'drinks') { afterHoursCategory = null; renderAfterHoursMode(); openAfterHours(); } else { afterHoursCategory = null; renderAfterHoursMode(); renderPlaces(); } }));
 $('#closeAfterHours').addEventListener('click', closeAfterHours);
 $('#afterHoursBackdrop').addEventListener('click', e => { if (e.target === $('#afterHoursBackdrop')) closeAfterHours(); });
-document.querySelectorAll('.after-hours-option').forEach(button => button.addEventListener('click', () => { afterHoursContext = button.dataset.afterHours; document.querySelectorAll('.after-hours-option').forEach(option => option.classList.toggle('chosen', option === button)); $('#applyAfterHours').disabled = false; }));
+document.querySelectorAll('.after-hours-option').forEach(button => button.addEventListener('click', () => { afterHoursCategory = button.dataset.afterHoursCategory; document.querySelectorAll('.after-hours-option').forEach(option => option.classList.toggle('chosen', option === button)); $('#applyAfterHours').disabled = false; renderAfterHoursPreview(); }));
 $('#applyAfterHours').addEventListener('click', () => { renderAfterHoursMode(); renderPlaces(); closeAfterHours(); });
 $('#changeAfterHoursMode').addEventListener('click', openAfterHours);
 $('#toggleReportFilters').addEventListener('click', () => { const filters = $('#reportFilters'); filters.hidden = !filters.hidden; $('#toggleReportFilters').setAttribute('aria-expanded', String(!filters.hidden)); });
@@ -638,7 +734,12 @@ $('#submitReviewForm').addEventListener('submit', e => { e.preventDefault(); con
 $('#profileSummary').addEventListener('click', openProfile);
 $('#closeProfile').addEventListener('click', closeProfile);
 $('#profileBackdrop').addEventListener('click', e => { if (e.target === $('#profileBackdrop')) closeProfile(); });
-document.querySelectorAll('.profile-role').forEach(button => button.addEventListener('click', () => { const role = button.dataset.role; if (travelerRoles.has(role)) { travelerRoles.delete(role); button.classList.remove('chosen'); } else { travelerRoles.add(role); button.classList.add('chosen'); } }));
+document.querySelectorAll('.profile-role').forEach(button => button.addEventListener('click', () => { const role = button.dataset.role; if (travelerRoles.has(role)) { travelerRoles.delete(role); button.classList.remove('chosen'); } else { travelerRoles.add(role); button.classList.add('chosen'); } renderProfileSummary(); }));
+document.querySelectorAll('[data-profile-chip]').forEach(button => button.addEventListener('click', () => { const need = button.dataset.profileChip; travelerProfile.needs.has(need) ? travelerProfile.needs.delete(need) : travelerProfile.needs.add(need); renderProfileSummary(); }));
+document.querySelectorAll('[data-priority]').forEach(button => button.addEventListener('click', () => { const priority = button.dataset.priority; travelerProfile.priorities.has(priority) ? travelerProfile.priorities.delete(priority) : travelerProfile.priorities.add(priority); renderProfileSummary(); }));
+['HotelProgram','AirlineProgram','ExpenseTool','ReceiptPreference'].forEach(field => { const control = $(`#profile${field}`); if (control) control.addEventListener('change', e => { const key = field.charAt(0).toLowerCase() + field.slice(1); travelerProfile[key] = e.target.value; renderProfileSummary(); }); });
+$('#profileVaultShortcut').addEventListener('click', () => { closeProfile(); openVault(); });
+$('#profileBudgetShortcut').addEventListener('click', () => { closeProfile(); showBudgetSettings(); });
 $('#saveProfile').addEventListener('click', () => { renderProfileSummary(); closeProfile(); });
 $('#viewRewards').addEventListener('click', () => { renderRewards(); $('#rewardsBackdrop').classList.add('open'); $('#rewardsBackdrop').setAttribute('aria-hidden','false'); });
 $('#closeRewards').addEventListener('click', () => { $('#rewardsBackdrop').classList.remove('open'); $('#rewardsBackdrop').setAttribute('aria-hidden','true'); });

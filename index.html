@@ -42,11 +42,11 @@
               <span><small>DINNER PER DIEM</small><strong id="perDiemValue">$55</strong></span>
               <button class="edit-budget" id="budgetButton">Edit</button>
             </div>
-            <button class="hotel-map-launch" id="openHotelMap">
+            <section class="hotel-stay-card" aria-label="Selected hotel">
               <span class="hotel-map-icon">⌖</span>
-              <span><small>STAYING AT</small><strong id="mapHotelName">The Pfister Hotel</strong><em id="mapHotelSummary">See nearby places and walking scores</em></span>
-              <b>Map ›</b>
-            </button>
+              <span class="hotel-stay-copy"><small>STAYING AT</small><select id="stayHotelSelect" aria-label="Choose the hotel where you are staying"></select><em id="mapHotelSummary">See nearby places and walking scores</em></span>
+              <button class="hotel-map-button" id="openHotelMap" type="button">Map ›</button>
+            </section>
           </section>
 
           <section class="quick-filters" aria-label="Quick filters">
@@ -55,7 +55,6 @@
             <button class="filter" data-filter="coffee">Coffee + work</button>
             <button class="filter" data-filter="drinks">After hours</button>
             <button class="filter" data-filter="hotels">Hotels</button>
-            <button class="filter" data-filter="downtime">Downtime</button>
           </section>
 
           <section class="after-hours-mode" id="afterHoursMode" hidden>
@@ -168,13 +167,15 @@
       <section class="modal after-hours-modal" role="dialog" aria-modal="true" aria-labelledby="afterHoursTitle">
         <button class="close" id="closeAfterHours" aria-label="Close">×</button>
         <p class="eyebrow">AFTER HOURS</p>
-        <h2 id="afterHoursTitle">What kind of evening are you after?</h2>
-        <p class="modal-copy">We’ll surface bars and grown-up evening plans with the right energy, seating, and conversation level.</p>
+        <h2 id="afterHoursTitle">What do you want after work?</h2>
+        <p class="modal-copy">After Hours stays focused on the four things business travelers actually use on the road: drinks, golf, local attractions, and fitness or wellness.</p>
         <div class="after-hours-options" id="afterHoursOptions">
-          <button class="after-hours-option" data-after-hours="solo"><span>◎</span><strong>Solo traveler</strong><small>Comfortable at the bar, easy to settle in or meet people.</small></button>
-          <button class="after-hours-option" data-after-hours="group"><span>◌</span><strong>Group travel</strong><small>Lively spaces, shareable tables, and room for the team.</small></button>
-          <button class="after-hours-option" data-after-hours="client"><span>✦</span><strong>With client</strong><small>Polished, conversation-friendly, and appropriately impressive.</small></button>
+          <button class="after-hours-option" data-after-hours-category="drinks"><span>🍸</span><strong>Drinks & Nightlife</strong><small>Cocktail bars, breweries, hotel bars, live music, comedy, and networking-friendly rooms.</small></button>
+          <button class="after-hours-option" data-after-hours-category="golf"><span>⛳</span><strong>Golf</strong><small>Public courses, simulators, driving ranges, and corporate-event friendly golf.</small></button>
+          <button class="after-hours-option" data-after-hours-category="attractions"><span>🏙️</span><strong>Local Attractions</strong><small>Museums, markets, waterfronts, landmarks, and quick free-evening stops.</small></button>
+          <button class="after-hours-option" data-after-hours-category="wellness"><span>💪</span><strong>Fitness & Wellness</strong><small>Gyms, running routes, yoga, massage, recovery, sauna, and healthy resets.</small></button>
         </div>
+        <section class="after-hours-category-preview" id="afterHoursCategoryPreview"></section>
         <button class="primary-action" id="applyAfterHours" disabled>Show the right places</button>
       </section>
     </div>
@@ -218,9 +219,17 @@
         <p class="modal-copy">Choose your hotel to see the places that are easy, comfortable walks after a day of work.</p>
         <label class="form-label" for="mapHotelSelect">YOUR HOTEL IN <span id="mapCityLabel">MILWAUKEE</span></label>
         <select class="form-control" id="mapHotelSelect" aria-label="Choose the hotel where you are staying"></select>
+        <section class="live-map-card" aria-label="Live hotel proximity map">
+          <div class="live-map-heading">
+            <div>
+              <strong id="liveMapHotel">Selected hotel</strong>
+              <span>Live map centered near your stay</span>
+            </div>
+            <a id="openLiveMap" href="#" target="_blank" rel="noopener">Open map</a>
+          </div>
+          <iframe id="liveMapFrame" title="Live map around selected hotel" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        </section>
         <section class="walkability-overview" id="walkabilityOverview"></section>
-        <section class="prototype-map" id="prototypeMap" aria-label="Nearby places map"></section>
-        <section class="map-legend"><span><i class="map-dot hotel-dot"></i>Your hotel</span><span><i class="map-dot place-dot"></i>Business-traveler pick</span></section>
         <section class="nearby-map-results"><div class="map-results-heading"><h3>Good nearby options</h3><span>Distance · walking score</span></div><div id="nearbyMapList" class="nearby-map-list" aria-live="polite"></div></section>
         <p class="verification-note">Prototype walking scores combine route ease and neighborhood-safety signals. A live version would use current map, street, and traveler-safety data.</p>
       </section>
@@ -230,12 +239,25 @@
       <section class="modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
         <button class="close" id="closeProfile" aria-label="Close profile">×</button>
         <p class="eyebrow">BUSINESS TRAVELER PROFILE</p>
-        <h2 id="profileTitle">How do you travel for work?</h2>
-        <p class="modal-copy">Choose every role that fits. Corporate Compass will prioritize reviews and recommendations from travelers with similar needs.</p>
+        <h2 id="profileTitle">Your business travel command center.</h2>
+        <p class="modal-copy">Tell Corporate Compass how you travel, what your company needs, and what makes a trip easier. We’ll use this to shape hotels, dining, receipts, and after-hours recommendations around you.</p>
         <section class="profile-rewards-card">
           <div><span class="reward-label">COMPASS REWARDS</span><strong id="profilePointTotal">720 points</strong><small id="profileBadgeSummary">Trusted Traveler · Local Lens</small></div>
           <button id="viewRewards">View rewards</button>
         </section>
+        <section class="profile-command-card">
+          <div>
+            <span>PROFILE SNAPSHOT</span>
+            <strong id="profileCommandSummary">Sales traveler · Hilton Honors · Concur</strong>
+            <small id="profileCommandDetail">Optimized for client dinners, strong Wi-Fi, and easy receipts.</small>
+          </div>
+          <div class="profile-shortcuts">
+            <button id="profileVaultShortcut" type="button">Expense vault</button>
+            <button id="profileBudgetShortcut" type="button">Per diem</button>
+          </div>
+        </section>
+        <section class="profile-section">
+          <p class="form-label">TRAVELER ROLES</p>
         <div class="profile-roles" id="profileRoles">
           <button class="profile-role chosen" data-role="Sales">Sales</button>
           <button class="profile-role" data-role="Consultant">Consultant</button>
@@ -246,6 +268,39 @@
           <button class="profile-role" data-role="Contractor">Contractor</button>
           <button class="profile-role" data-role="Trade show traveler">Trade show traveler</button>
         </div>
+        </section>
+        <section class="profile-section">
+          <p class="form-label">LOYALTY + COMPANY SETUP</p>
+          <div class="profile-field-grid">
+            <label>Hotel program<select id="profileHotelProgram"><option>Hilton Honors</option><option>Marriott Bonvoy</option><option>World of Hyatt</option><option>IHG One Rewards</option><option>Choice Privileges</option><option>Independent / no preference</option></select></label>
+            <label>Airline program<select id="profileAirlineProgram"><option>Delta SkyMiles</option><option>American AAdvantage</option><option>United MileagePlus</option><option>Southwest Rapid Rewards</option><option>Alaska Mileage Plan</option><option>No preference</option></select></label>
+            <label>Expense tool<select id="profileExpenseTool"><option>Concur</option><option>Expensify</option><option>Ramp</option><option>Navan</option><option>Manual reimbursement</option><option>Company card only</option></select></label>
+            <label>Receipt style<select id="profileReceiptPreference"><option>Auto-save receipts</option><option>Remind me after meals</option><option>Weekly expense roundup</option><option>Only track big purchases</option></select></label>
+          </div>
+        </section>
+        <section class="profile-section">
+          <p class="form-label">WHAT SHOULD THE APP WATCH FOR?</p>
+          <div class="profile-chip-grid" id="profileNeedChips">
+            <button class="profile-chip chosen" data-profile-chip="Client-ready dinners">Client-ready dinners</button>
+            <button class="profile-chip chosen" data-profile-chip="Strong Wi-Fi">Strong Wi-Fi</button>
+            <button class="profile-chip chosen" data-profile-chip="GSA per diem">GSA per diem</button>
+            <button class="profile-chip" data-profile-chip="Quiet workspaces">Quiet workspaces</button>
+            <button class="profile-chip" data-profile-chip="Airport shuttle">Airport shuttle</button>
+            <button class="profile-chip" data-profile-chip="Free parking">Free parking</button>
+            <button class="profile-chip" data-profile-chip="Fitness center">Fitness center</button>
+            <button class="profile-chip" data-profile-chip="Late check-out">Late check-out</button>
+          </div>
+        </section>
+        <section class="profile-section">
+          <p class="form-label">TRIP PRIORITIES</p>
+          <div class="profile-priority-list" id="profilePriorities">
+            <button class="profile-priority chosen" data-priority="Stay under policy"><strong>Stay under policy</strong><span>Surface GSA rates, per-diem friendly meals, and receipt prompts.</span></button>
+            <button class="profile-priority chosen" data-priority="Host clients well"><strong>Host clients well</strong><span>Prioritize polished restaurants, reservations, and conversation-friendly rooms.</span></button>
+            <button class="profile-priority" data-priority="Move fast"><strong>Move fast</strong><span>Favor quick meals, parking, airport access, and short walks.</span></button>
+            <button class="profile-priority" data-priority="Work quietly"><strong>Work quietly</strong><span>Highlight quiet coffee shops, lobby work zones, and Wi-Fi confidence.</span></button>
+          </div>
+        </section>
+        <p class="profile-one-stop" id="profileOneStopSummary">Your profile is ready to connect restaurants, hotels, receipts, rewards, and trip planning in one place.</p>
         <p class="profile-privacy">Your roles are private. Only anonymous, aggregated traveler-role context is shown with reviews.</p>
         <button class="primary-action" id="saveProfile">Save profile</button>
       </section>
@@ -350,7 +405,7 @@
         <form id="placeRequestForm">
           <label class="form-label" for="requestPlaceName">PLACE NAME</label><input class="form-control" id="requestPlaceName" required placeholder="e.g. The Copper Room" />
           <label class="form-label" for="requestAddress">ADDRESS</label><input class="form-control" id="requestAddress" required placeholder="Street address, city, state" />
-          <label class="form-label" for="requestCategory">CATEGORY</label><select class="form-control" id="requestCategory" required><option value="">Choose a category</option><option>Restaurant</option><option>Hotel</option><option>Bar</option><option>Coffee + work</option><option>Downtime</option></select>
+          <label class="form-label" for="requestCategory">CATEGORY</label><select class="form-control" id="requestCategory" required><option value="">Choose a category</option><option>Restaurant</option><option>Hotel</option><option>Coffee + work</option><option>Drinks & Nightlife</option><option>Golf</option><option>Local Attraction</option><option>Fitness & Wellness</option></select>
           <label class="form-label" for="requestReason">WHY IT HELPS BUSINESS TRAVELERS</label><textarea class="review-text" id="requestReason" required placeholder="What makes it convenient, work-friendly, expense-friendly, or a good use of downtime?"></textarea>
           <label class="receipt-attach" for="requestProof"><span>▧</span><strong id="requestProofName">Add a photo or receipt</strong><small>Optional proof of a recent visit</small></label><input id="requestProof" type="file" accept="image/*,.pdf" hidden />
           <section class="screening-note"><strong>Automatic screening</strong><span>We check for duplicates, active businesses, excluded types (fast food, gas stations, and off-theme chains), and business-travel relevance.</span></section>
