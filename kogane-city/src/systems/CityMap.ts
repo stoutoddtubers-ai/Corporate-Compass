@@ -207,21 +207,40 @@ export class CityMap {
     return { x: (x + 0.5) * TS, y: (y + 0.5) * TS };
   }
 
-  /** Paints the whole city once into a single picture, so it costs one draw per frame. */
+  /** Street lamps and glowing vending machines, filled in by bake(). */
+  readonly lamps: { x: number; y: number }[] = [];
+  readonly vending: { x: number; y: number; color: number }[] = [];
+
+  /** Paints the ground of the whole city once into a single picture, so it costs one draw per frame. */
   bake(scene: Phaser.Scene, key: string): void {
     const tex = scene.textures.createCanvas(key, this.widthPx, this.heightPx)!;
     const g = tex.getContext();
     const C = MAP.colors;
+    const rnd = seeded(7);
+    const at = (x: number, y: number) => (x < 0 || y < 0 || x >= W || y >= H ? Tile.Building : this.tiles[y * W + x]);
+    const isRoad = (t: number) => t === Tile.Road || t === Tile.Crossing;
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
-        const t = this.tiles[y * W + x];
-        g.fillStyle = t === Tile.Road || t === Tile.Crossing ? C.road : t === Tile.Walk ? C.walk : t === Tile.Lot ? C.lot : C.building;
-        g.fillRect(x * TS, y * TS, TS, TS);
-        if (t === Tile.Walk) { g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(x * TS, y * TS, TS, 1); g.fillRect(x * TS, y * TS, 1, TS); }
+        const t = at(x, y), px = x * TS, py = y * TS;
+        g.fillStyle = isRoad(t) ? C.road : t === Tile.Walk ? C.walk : t === Tile.Lot ? C.lot : C.wall;
+        g.fillRect(px, py, TS, TS);
+        if (isRoad(t) || t === Tile.Lot) { // asphalt speckle and the odd patch
+          for (let k = 0; k < 5; k++) { g.fillStyle = rnd() < 0.5 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.10)'; g.fillRect(px + rnd() * 30, py + rnd() * 30, 2, 2); }
+          if (rnd() < 0.04) { g.fillStyle = 'rgba(0,0,0,0.10)'; g.fillRect(px + 4, py + 6, 20, 14); }
+        }
+        if (t === Tile.Walk) { // paving slabs, and a pale kerb where it meets the road
+          g.fillStyle = C.walkLine;
+          g.fillRect(px, py, TS, 1); g.fillRect(px, py + 16, TS, 1); g.fillRect(px + ((y & 1) ? 8 : 0), py, 1, 16); g.fillRect(px + ((y & 1) ? 24 : 16), py + 16, 1, 16);
+          g.fillStyle = C.kerb;
+          if (isRoad(at(x - 1, y))) g.fillRect(px, py, 3, TS);
+          if (isRoad(at(x + 1, y))) g.fillRect(px + TS - 3, py, 3, TS);
+          if (isRoad(at(x, y - 1))) g.fillRect(px, py, TS, 3);
+          if (isRoad(at(x, y + 1))) g.fillRect(px, py + TS - 3, TS, 3);
+        }
         if (t === Tile.Crossing) {
           g.fillStyle = C.crossing;
-          const vertical = this.tiles[y * W + x - 1] !== Tile.Crossing && this.tiles[y * W + x + 1] !== Tile.Crossing;
-          for (let k = 2; k < TS; k += 8) vertical ? g.fillRect(x * TS + 4, y * TS + k, TS - 8, 4) : g.fillRect(x * TS + k, y * TS + 4, 4, TS - 8);
+          const vertical = at(x - 1, y) !== Tile.Crossing && at(x + 1, y) !== Tile.Crossing;
+          for (let k = 2; k < TS; k += 8) vertical ? g.fillRect(px + 4, py + k, TS - 8, 4) : g.fillRect(px + k, py + 4, 4, TS - 8);
         }
       }
     }
@@ -234,19 +253,119 @@ export class CityMap {
         g.fillRect(p, band + rw / 2 - 1, 16, 2);
       }
     // parking bays
-    g.fillStyle = 'rgba(255,255,255,0.18)';
+    g.fillStyle = 'rgba(255,255,255,0.22)';
     for (const l of this.lots) for (let x = l.x + 32; x < l.x + l.w; x += 48) g.fillRect(x, l.y + 24, 2, l.h - 48);
-    // rooftops
+
+    // street lamps along the kerbs
+    const sp = MAP.lampSpacing * TS;
+    for (const band of b) for (let j = 0; j < 2; j++)
+      for (let p = b[j] + rw + sp / 2; p < b[j + 1] - 16; p += sp)
+        for (const side of [-12, rw + 12]) { this.lamps.push({ x: band + side, y: p }); this.lamps.push({ x: p, y: band + side }); }
+    for (const l of this.lamps) { g.fillStyle = '#1c1a18'; g.beginPath(); g.arc(l.x, l.y, 3.5, 0, 7); g.fill(); g.fillStyle = '#ffd9a0'; g.beginPath(); g.arc(l.x, l.y, 1.5, 0, 7); g.fill(); }
+
+    // building shadows on the ground, then the wall footprints
+    g.fillStyle = 'rgba(0,0,0,0.30)';
+    for (const r of this.buildings) g.fillRect(r.x + 10, r.y + 12, r.w, r.h);
     for (const r of this.buildings) {
-      g.fillStyle = C.roofEdge; g.fillRect(r.x, r.y, r.w, r.h);
-      g.fillStyle = C.roof; g.fillRect(r.x + 5, r.y + 5, r.w - 10, r.h - 10);
-      g.fillStyle = 'rgba(255,255,255,0.05)';
-      for (let y = r.y + 20; y < r.y + r.h - 20; y += 36) for (let x = r.x + 20; x < r.x + r.w - 20; x += 36) g.fillRect(x, y, 14, 14);
+      g.fillStyle = C.wall; g.fillRect(r.x, r.y, r.w, r.h);
+      g.fillStyle = 'rgba(255,220,170,0.10)'; g.fillRect(r.x, r.y, r.w, 3); g.fillRect(r.x, r.y, 3, r.h);
     }
-    for (const [spot, color] of [[MAP.policeBox, C.policeBox], [MAP.hospital, C.hospital]] as const) {
-      const [x, y, w, h] = spot.tile;
-      g.fillStyle = color; g.fillRect(x * TS + 5, y * TS + 5, w * TS - 10, h * TS - 10);
+    // shop awnings and vending machines where a building faces a sidewalk
+    for (const r of this.buildings) {
+      const tx0 = r.x / TS, ty0 = r.y / TS, tw = r.w / TS, th = r.h / TS;
+      const sides: [number, number, number, number, boolean][] = [];
+      for (let i = 0; i < tw; i++) { sides.push([tx0 + i, ty0 - 1, 0, 1, true]); sides.push([tx0 + i, ty0 + th, 0, -1, true]); }
+      for (let i = 0; i < th; i++) { sides.push([tx0 - 1, ty0 + i, 1, 0, false]); sides.push([tx0 + tw, ty0 + i, -1, 0, false]); }
+      let run = 0, color: string = C.awnings[0];
+      for (const [x, y, dx, dy, horiz] of sides) {
+        if (at(x, y) !== Tile.Walk) { run = 0; continue; }
+        if (run <= 0) { run = 2 + Math.floor(rnd() * 3); color = rnd() < 0.3 ? '' : C.awnings[Math.floor(rnd() * C.awnings.length)]; }
+        run--;
+        const px = x * TS, py = y * TS;
+        if (color) {
+          const ax = dx > 0 ? px + TS - 7 : px, ay = dy > 0 ? py + TS - 7 : py;
+          g.fillStyle = color; horiz ? g.fillRect(px + 1, ay, TS - 2, 7) : g.fillRect(ax, py + 1, 7, TS - 2);
+          g.fillStyle = 'rgba(255,255,255,0.22)';
+          for (let k = 3; k < TS - 3; k += 6) horiz ? g.fillRect(px + k, ay, 2, 7) : g.fillRect(ax, py + k, 7, 2);
+        } else if (rnd() < 0.45) {
+          const vc = [0xe04a4a, 0x4a9ae0, 0xf2f2f2][Math.floor(rnd() * 3)];
+          const vx = dx > 0 ? px + TS - 10 : dx < 0 ? px + 1 : px + 10, vy = dy > 0 ? py + TS - 10 : dy < 0 ? py + 1 : py + 10;
+          g.fillStyle = '#' + vc.toString(16).padStart(6, '0'); g.fillRect(vx, vy, horiz ? 12 : 9, horiz ? 9 : 12);
+          g.fillStyle = 'rgba(255,255,255,0.8)'; g.fillRect(vx + 2, vy + 2, horiz ? 8 : 5, horiz ? 5 : 8);
+          this.vending.push({ x: vx + 5, y: vy + 5, color: vc });
+        }
+      }
     }
+    // Hozuki-mon temple gate pillars on the sidewalks (the beam and lantern float above, see makeRoofs)
+    const gate = MAP.places.asagiri.door;
+    g.fillStyle = C.lanternRed;
+    for (const tx of [MAP.roadBands[1] - 1, MAP.roadBands[1] + MAP.roadWidth]) g.fillRect(tx * TS + 8, (gate[1] - 6) * TS, 16, 16);
     tex.refresh();
   }
+
+  /**
+   * One rooftop picture per building. The world slides them slightly away from the
+   * middle of the screen, which makes flat buildings look tall (the GTA 2 trick).
+   */
+  makeRoofs(scene: Phaser.Scene): { img: Phaser.GameObjects.Image; x: number; y: number; h: number }[] {
+    const C = MAP.colors, out: { img: Phaser.GameObjects.Image; x: number; y: number; h: number }[] = [];
+    const rnd = seeded(21);
+    this.buildings.forEach((r, i) => {
+      const key = 'roof' + i;
+      const tex = scene.textures.createCanvas(key, r.w, r.h)!;
+      const g = tex.getContext();
+      const st = C.roofs[Math.floor(rnd() * C.roofs.length)], kind = C.roofs.indexOf(st);
+      g.fillStyle = st.base; g.fillRect(0, 0, r.w, r.h);
+      g.fillStyle = st.line;
+      if (kind === 0 || kind === 3) { // tiled roof: rows of tiles and a ridge beam
+        for (let y = 4; y < r.h; y += 5) g.fillRect(0, y, r.w, 1);
+        for (let x = 6; x < r.w; x += 12) g.fillRect(x, 0, 1, r.h);
+        g.fillStyle = st.trim; r.w > r.h ? g.fillRect(6, r.h / 2 - 3, r.w - 12, 6) : g.fillRect(r.w / 2 - 3, 6, 6, r.h - 12);
+      } else if (kind === 2) { // wooden planks
+        for (let x = 0; x < r.w; x += 7) g.fillRect(x, 0, 1, r.h);
+      }
+      if (kind === 1 || kind === 2) { // flat roofs get clutter: AC units, a water tank
+        for (let n = 0; n < Math.round((r.w * r.h) / 14000); n++) {
+          const x = 14 + rnd() * (r.w - 50), y = 14 + rnd() * (r.h - 50);
+          if (rnd() < 0.3) { g.fillStyle = '#6f7f8a'; g.beginPath(); g.arc(x + 12, y + 12, 12, 0, 7); g.fill(); g.fillStyle = '#8fa0aa'; g.beginPath(); g.arc(x + 11, y + 11, 8, 0, 7); g.fill(); }
+          else { g.fillStyle = '#8f9498'; g.fillRect(x, y, 22, 16); g.fillStyle = '#5a5f63'; g.beginPath(); g.arc(x + 11, y + 8, 5, 0, 7); g.fill(); g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x + 2, y + 16, 22, 3); }
+        }
+      }
+      // parapet: light on the top/left edges, dark on the bottom/right
+      g.fillStyle = st.trim; g.fillRect(0, 0, r.w, 4); g.fillRect(0, 0, 4, r.h);
+      g.fillStyle = 'rgba(0,0,0,0.38)'; g.fillRect(0, r.h - 4, r.w, 4); g.fillRect(r.w - 4, 0, 4, r.h);
+      for (const [spot, color] of [[MAP.policeBox, C.policeBox], [MAP.hospital, C.hospital]] as const) {
+        const [tx, ty, tw, th] = spot.tile;
+        const x = tx * TS - r.x, y = ty * TS - r.y;
+        if (x >= 0 && y >= 0 && x < r.w && y < r.h) { g.fillStyle = color; g.fillRect(x + 4, y + 4, tw * TS - 8, th * TS - 8); }
+      }
+      tex.refresh();
+      out.push({ img: scene.add.image(r.x + r.w / 2, r.y + r.h / 2, key).setDepth(20), x: r.x + r.w / 2, y: r.y + r.h / 2, h: MAP.roofHeight });
+    });
+    // the temple gate: a red beam across the road with one giant lantern
+    const gate = MAP.places.asagiri.door, gw = (MAP.roadWidth + 2) * TS;
+    const tex = scene.textures.createCanvas('gate', gw, 40)!;
+    const g = tex.getContext();
+    g.fillStyle = '#3a2a22'; g.fillRect(0, 8, gw, 8);
+    g.fillStyle = C.lanternRed; g.fillRect(0, 12, gw, 12); g.fillStyle = '#8a1f22'; g.fillRect(0, 22, gw, 3);
+    g.fillStyle = '#1c1a18'; g.fillRect(4, 6, 20, 24); g.fillRect(gw - 24, 6, 20, 24);
+    g.fillStyle = C.lanternRed; g.beginPath(); g.ellipse(gw / 2, 20, 22, 19, 0, 0, 7); g.fill();
+    g.fillStyle = '#1c1a18'; g.fillRect(gw / 2 - 12, 0, 24, 4); g.fillRect(gw / 2 - 12, 36, 24, 4);
+    g.fillStyle = 'rgba(0,0,0,0.25)'; for (let y = 8; y < 34; y += 6) g.fillRect(gw / 2 - 20, y, 40, 1);
+    tex.refresh();
+    const gx = (MAP.roadBands[1] + MAP.roadWidth / 2) * TS, gy = (gate[1] - 5.75) * TS;
+    out.push({ img: scene.add.image(gx, gy, 'gate').setDepth(20), x: gx, y: gy, h: MAP.roofHeight * 0.6 });
+    return out;
+  }
+}
+
+/** Small repeatable random number generator, so the city looks the same every time. */
+function seeded(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }

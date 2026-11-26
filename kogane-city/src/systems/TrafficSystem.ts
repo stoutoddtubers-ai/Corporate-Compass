@@ -21,8 +21,8 @@ export class TrafficSystem {
       if (s.toJ !== CENTER_JUNCTION) continue;
       // a lamp on the kerb at each stop line (left side of the lane)
       const lx = s.bx - s.dx * TRAFFIC.stopBeforeLine + s.dy * 40, ly = s.by - s.dy * TRAFFIC.stopBeforeLine - s.dx * 40;
-      world.add.rectangle(lx, ly, 12, 12, 0x111111).setDepth(2);
-      this.lamps.push({ r: world.add.rectangle(lx, ly, 8, 8, 0xff0000).setDepth(2.1), axis: s.axis });
+      world.add.rectangle(lx, ly, 12, 12, 0x111111).setDepth(31.9);
+      this.lamps.push({ r: world.add.rectangle(lx, ly, 8, 8, 0xff0000).setDepth(32), axis: s.axis });
     }
     for (let i = 0; i < TRAFFIC.count; i++) this.spawn(false);
     this.paintLamps();

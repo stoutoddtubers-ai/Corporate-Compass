@@ -24,7 +24,7 @@ export class Projectiles {
     let b = this.pool.find((q) => !q.active);
     if (!b) {
       if (this.pool.length >= MAX_PROJECTILES) return;
-      b = { img: this.world.add.image(0, 0, 'bullet').setDepth(5), x: 0, y: 0, vx: 0, vy: 0, left: 0, dmg: 0, owner, active: false, skip: null };
+      b = { img: this.world.add.image(0, 0, 'bullet').setDepth(32), x: 0, y: 0, vx: 0, vy: 0, left: 0, dmg: 0, owner, active: false, skip: null };
       this.pool.push(b);
     }
     b.x = x; b.y = y;
@@ -60,7 +60,7 @@ export class Projectiles {
         const cx = b.x + (nx - b.x) * along, cy = b.y + (ny - b.y) * along;
         if ((a.x - cx) ** 2 + (a.y - cy) ** 2 < 81 && along < best) { best = along; hit = a; }
       };
-      if (b.owner === 'player') { for (const a of w.peds.list) test(a); for (const a of w.police.cops) test(a); }
+      if (b.owner === 'player') { for (const a of w.npcs()) test(a); }
       else if (!w.player.car && !w.player.invulnerable) test(w.player.actor);
 
       // cars

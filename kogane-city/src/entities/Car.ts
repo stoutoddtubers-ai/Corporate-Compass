@@ -16,11 +16,18 @@ const approach = (v: number, target: number, step: number) => (v < target ? Math
 export class Car {
   readonly sprite: Phaser.GameObjects.Image;
   readonly lightbar: Phaser.GameObjects.Rectangle | null = null;
+  private shadow: Phaser.GameObjects.Image;
+  private beam: Phaser.GameObjects.Image;
+  colorIndex: number;
+  /** Sideways slide in px/s (used for drifting and for spilling soup). */
+  slip = 0;
+  /** Hardest bump against another car this frame. */
+  bump = 0;
   x: number; y: number; heading: number;
   vx = 0; vy = 0;
   hp: number;
   nitro = 0;
-  driver: 'none' | 'player' | 'traffic' | 'cop' = 'none';
+  driver: 'none' | 'player' | 'traffic' | 'cop' | 'gang' = 'none';
   /** True once the player has broken in, so getting back in is instant. */
   unlocked = false;
   burning = false;
@@ -41,18 +48,22 @@ export class Car {
   reverseT = 0;
   waitT = 0;
   roadblock = false;
+  /** Line this car's driver shouts while chasing (mission riders). */
+  data_bark = '';
   age = 0;
   input: CarInput = { ...NO_INPUT };
   private fxT = 0;
   private safe = { x: 0, y: 0, h: 0 };
 
-  constructor(scene: Phaser.Scene, readonly def: VehicleDef, x: number, y: number, heading: number, readonly isPolice = false) {
+  constructor(scene: Phaser.Scene, readonly def: VehicleDef, x: number, y: number, heading: number, readonly isPolice = false, colorIndex = -1) {
     this.x = x; this.y = y; this.heading = heading;
     this.hp = def.hp;
-    const color = def.colors[Math.floor(Math.random() * def.colors.length)];
-    this.sprite = scene.add.image(x, y, isPolice ? 'carPolice' : 'car').setTint(color).setDepth(3);
-    this.sprite.setDisplaySize(def.length, def.width);
-    if (isPolice) this.lightbar = scene.add.rectangle(x, y, 5, def.width - 6, 0xff2a2a).setDepth(3.1);
+    // random traffic avoids the last (black) colour slot, which the story uses
+    this.colorIndex = colorIndex >= 0 ? colorIndex : Math.floor(Math.random() * Math.max(1, def.colors.length - (def.colors.length > 2 ? 1 : 0)));
+    this.shadow = scene.add.image(x, y, 'carShadow').setDepth(2.8).setDisplaySize(def.length, def.width);
+    this.sprite = scene.add.image(x, y, `car_${def.id}_${this.colorIndex}`).setDepth(3);
+    this.beam = scene.add.image(x, y, 'beam').setOrigin(0, 0.5).setDepth(31).setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
+    if (isPolice) this.lightbar = scene.add.rectangle(x, y, 4, def.width - 8, 0xff2a2a).setDepth(32);
     this.safe = { x, y, h: heading };
     this.sync();
   }
@@ -114,6 +125,7 @@ export class Car {
       const turn = inp.steer * d.turnRate * steerPower * (inp.handbrake ? 1.35 : 1) * dt;
       if (turn && !this.hitsWall(map, this.x, this.y, this.heading + turn)) this.heading += turn;
 
+      this.slip = Math.abs(vl);
       this.drifting = Math.abs(vl) > NITRO.driftMinSlip && sp > NITRO.driftMinSpeed;
       if (this.nitroOn) this.nitro = Math.max(0, this.nitro - NITRO.drainPerSecond * dt);
       else if (this.drifting) this.nitro = Math.min(1, this.nitro + NITRO.fillPerSecond * dt);
@@ -160,7 +172,8 @@ export class Car {
       if (this.burnTimer <= 0) {
         this.wreck = true; this.burning = false; this.wreckTimer = CAR_DAMAGE.wreckTime;
         this.driver = 'none';
-        this.sprite.setTint(0x1c1c1c);
+        this.sprite.setTint(0x2a2a2a);
+        this.beam.setVisible(false);
         this.lightbar?.setVisible(false);
         return true;
       }
@@ -171,8 +184,22 @@ export class Car {
     return false;
   }
 
+  /** New paint: pick a different colour. */
+  respray(): void {
+    const n = this.def.colors.length - 1;
+    this.colorIndex = (this.colorIndex + 1 + Math.floor(Math.random() * Math.max(1, n - 1))) % Math.max(1, n);
+    this.sprite.setTexture(`car_${this.def.id}_${this.colorIndex}`);
+  }
+
+  /** How bright headlights should be (0 = daytime). Set by the world's time of day. */
+  static lights = 1;
+
   sync(): void {
     this.sprite.setPosition(this.x, this.y).setRotation(this.heading);
+    this.shadow.setPosition(this.x + 3, this.y + 4).setRotation(this.heading);
+    const lit = Car.lights > 0.2 && this.driver !== 'none' && !this.wreck;
+    this.beam.setVisible(lit);
+    if (lit) this.beam.setPosition(this.x + Math.cos(this.heading) * this.def.length * 0.45, this.y + Math.sin(this.heading) * this.def.length * 0.45).setRotation(this.heading).setAlpha(0.55 * Car.lights);
     if (this.lightbar) {
       this.lightbar.setPosition(this.x, this.y).setRotation(this.heading);
       const on = this.driver === 'cop' || this.roadblock;
@@ -183,6 +210,8 @@ export class Car {
   destroy(): void {
     this.removed = true;
     this.sprite.destroy();
+    this.shadow.destroy();
+    this.beam.destroy();
     this.lightbar?.destroy();
   }
 }

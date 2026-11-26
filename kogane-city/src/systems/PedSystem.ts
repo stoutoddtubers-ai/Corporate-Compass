@@ -22,7 +22,7 @@ export class PedSystem {
     }
     if (!p) return null;
     const arch = Math.floor(Math.random() * PEDS.archetypes.length);
-    const a = new Actor(this.world, 'ped', p.x, p.y, PEDS.archetypes[arch].color, PEDS.hp);
+    const a = new Actor(this.world, 'ped', p.x, p.y, PEDS.archetypes[arch].id, PEDS.hp);
     a.data.arch = arch;
     a.state = 'wander'; a.timer = 0;
     this.list.push(a);

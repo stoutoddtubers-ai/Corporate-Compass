@@ -10,7 +10,7 @@ export const PLAYER = {
   startCash: 5000, // PLACEHOLDER
   deathCashLoss: 0.1, // 10% hospital bill (bible)
   arrestCashLoss: 0.05, // 5% fine (bible)
-  startWeapons: ['fists', 'kitsune9', 'suzume', 'sawnoff'],
+  startWeapons: ['fists'], // the story starts you with nothing; guns are pickups in the car parks
   enterRange: 52, // px from a car to use E
   breakInTime: 1.5, // seconds to break into a parked car (bible)
   dragOutTime: 0.5, // PLACEHOLDER: seconds to drag a driver out

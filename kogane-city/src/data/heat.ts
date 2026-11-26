@@ -4,7 +4,7 @@ export const HEAT = {
   maxLevel: 3,
   lanternSlots: 5, // the full game has 5 lanterns
   /** Lantern level each crime raises you to. (bible "Triggered by") */
-  crimes: { punch: 1, breakIn: 1, carjack: 2, assault: 2, hitOfficer: 2, kill: 3, sustainedFire: 3 },
+  crimes: { runRed: 1, punch: 1, breakIn: 1, carjack: 2, assault: 2, hitOfficer: 2, kill: 3, sustainedFire: 3 },
   sustainedFire: { shots: 12, window: 6 }, // PLACEHOLDER: 12 witnessed shots in 6 s
   witnessRadius: 380, // PLACEHOLDER
   /** How to lose each level. (bible "How to lose it") needZone = must also be outside the circle. */

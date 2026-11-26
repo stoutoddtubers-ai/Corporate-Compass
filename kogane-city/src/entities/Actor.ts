@@ -2,7 +2,7 @@ import * as Phaser from 'phaser';
 import { PLAYER } from '../data/player';
 import type { WorldScene } from '../scenes/WorldScene';
 
-export type ActorKind = 'player' | 'ped' | 'cop';
+export type ActorKind = 'player' | 'ped' | 'cop' | 'thug';
 
 /**
  * A person on foot: the player, a pedestrian or a police officer.
@@ -22,8 +22,8 @@ export class Actor {
   tx = 0; ty = 0;
   data: Record<string, number | string | boolean> = {};
 
-  constructor(scene: WorldScene, readonly kind: ActorKind, x: number, y: number, color: number, hp: number) {
-    this.sprite = scene.physics.add.image(x, y, 'person').setTint(color).setDepth(4);
+  constructor(scene: WorldScene, readonly kind: ActorKind, x: number, y: number, look: string, hp: number) {
+    this.sprite = scene.physics.add.image(x, y, 'p_' + look).setDepth(4);
     this.sprite.setCircle(PLAYER.radius, 1, 1);
     this.sprite.setCollideWorldBounds(true);
     scene.people.add(this.sprite); // everyone in this group bumps into buildings

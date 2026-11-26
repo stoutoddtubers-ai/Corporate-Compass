@@ -32,14 +32,14 @@ export class Player {
   private lowBarked = false;
 
   constructor(private world: WorldScene, x: number, y: number) {
-    this.actor = new Actor(world, 'player', x, y, 0xe8b923, PLAYER.maxHp);
+    this.actor = new Actor(world, 'player', x, y, 'jun', PLAYER.maxHp);
     this.actor.sprite.setDepth(4.5);
     this.resetWeapons(PLAYER.startWeapons);
   }
 
   resetWeapons(ids: readonly string[]): void {
     this.weapons = ids.map((id) => ({ def: WEAPONS[id], mag: WEAPONS[id].mag, reserve: WEAPONS[id].startReserve }));
-    this.current = Math.min(1, this.weapons.length - 1);
+    this.current = this.weapons.length - 1;
     this.reloadT = 0;
   }
 
@@ -139,6 +139,7 @@ export class Player {
         s.mag += n; s.reserve -= n;
       }
     }
+    if (k.V.isDown && this.fireT <= 0 && !this.entering) this.punch(); // V always punches (bible controls)
     if (ptr.leftButtonDown() && this.fireT <= 0 && this.reloadT <= 0 && !this.entering) this.fire();
 
     // cars: E to steal / enter
@@ -150,7 +151,7 @@ export class Player {
     } else if (eDown) {
       const c = w.nearestCar(a.x, a.y, PLAYER.enterRange);
       if (c) {
-        const occupied = c.driver === 'traffic' || c.driver === 'cop';
+        const occupied = c.driver !== 'none';
         this.entering = { car: c, t: 0, need: occupied ? PLAYER.dragOutTime : c.unlocked ? 0 : PLAYER.breakInTime };
       }
     }
@@ -159,24 +160,7 @@ export class Player {
   private fire(): void {
     const w = this.world, s = this.weapon, d = s.def, a = this.actor;
     const ox = a.x + Math.cos(this.aim) * 12, oy = a.y + Math.sin(this.aim) * 12;
-    if (d.weaponClass === 'melee') {
-      this.fireT = 1 / d.rate;
-      w.fx.puff(a.x + Math.cos(this.aim) * 16, a.y + Math.sin(this.aim) * 16, 0xffffff, 8, 0.12, 0, 0, 2, 0.6);
-      let best: Actor | null = null, bd = d.range + PLAYER.radius;
-      for (const t of [...w.peds.list, ...w.police.cops]) {
-        if (!t.alive) continue;
-        const dist = Math.hypot(t.x - a.x, t.y - a.y);
-        const off = Math.abs(Phaser.Math.Angle.Wrap(Math.atan2(t.y - a.y, t.x - a.x) - this.aim));
-        if (dist < bd && off < Phaser.Math.DegToRad(MELEE.arcDegrees)) { bd = dist; best = t; }
-      }
-      if (best) {
-        this.combo++; this.comboT = MELEE.comboWindow;
-        if (this.combo >= MELEE.comboHits) { best.stun = MELEE.knockdownTime; this.combo = 0; }
-        w.hurtActor(best, d.damage, true, 'melee');
-        w.fx.spark(best.x, best.y, 0xffffff);
-      }
-      return;
-    }
+    if (d.weaponClass === 'melee') { this.punch(); return; }
     if (s.mag <= 0) { this.startReload(); return; }
     s.mag--;
     this.fireT = 1 / d.rate;
@@ -189,6 +173,27 @@ export class Player {
     if (s.mag <= 0) this.startReload();
   }
 
+  private punch(): void {
+    const w = this.world, d = WEAPONS.fists, a = this.actor;
+    {
+      this.fireT = 1 / d.rate;
+      w.fx.puff(a.x + Math.cos(this.aim) * 16, a.y + Math.sin(this.aim) * 16, 0xffffff, 8, 0.12, 0, 0, 2, 0.6);
+      let best: Actor | null = null, bd = d.range + PLAYER.radius;
+      for (const t of w.npcs()) {
+        if (!t.alive) continue;
+        const dist = Math.hypot(t.x - a.x, t.y - a.y);
+        const off = Math.abs(Phaser.Math.Angle.Wrap(Math.atan2(t.y - a.y, t.x - a.x) - this.aim));
+        if (dist < bd && off < Phaser.Math.DegToRad(MELEE.arcDegrees)) { bd = dist; best = t; }
+      }
+      if (best) {
+        this.combo++; this.comboT = MELEE.comboWindow;
+        if (this.combo >= MELEE.comboHits) { best.stun = MELEE.knockdownTime; this.combo = 0; }
+        w.hurtActor(best, d.damage, true, 'melee');
+        w.fx.spark(best.x, best.y, 0xffffff);
+      }
+    }
+  }
+
   private enterCar(c: Car): void {
     const w = this.world;
     if (c.driver === 'traffic') {
@@ -198,14 +203,17 @@ export class Player {
     } else if (c.driver === 'cop') {
       w.heat.crime('hitOfficer');
       w.police.spawnCopAt(w.sidePoint(c, -1), false);
-    } else if (!c.unlocked && w.witnessed(c.x, c.y)) w.heat.crime('breakIn'); // the alarm
+    } else if (c.driver === 'gang') {
+      w.gang.spawnThug(w.sidePoint(c, -1).x, w.sidePoint(c, -1).y, 'raijin', 'chase');
+    } else if (!c.unlocked && !w.story.flags.quietBreakIn && w.witnessed(c.x, c.y)) w.heat.crime('breakIn'); // the alarm
     c.driver = 'player'; c.unlocked = true; c.seg = null; c.roadblock = false;
     this.car = c;
     this.reloadT = 0;
     this.actor.body.setVelocity(0, 0);
     this.actor.body.enable = false;
     this.actor.sprite.setVisible(false);
-    w.fx.bark(c, pick(BARKS.junSteal), '#e8b923', 'jun', 4);
+    w.fx.bark(c, w.story.junCarLine ?? pick(BARKS.junSteal), '#e8b923', 'jun', w.story.junCarLine ? 0 : 4);
+    w.story.junCarLine = null;
   }
 
   exitCar(): void {

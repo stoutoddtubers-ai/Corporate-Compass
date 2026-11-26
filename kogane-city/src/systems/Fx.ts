@@ -15,7 +15,7 @@ export class Fx {
     let p = this.parts.find((q) => q.life <= 0);
     if (!p) {
       if (this.parts.length >= 220) return;
-      p = { img: this.scene.add.image(0, 0, 'dot').setDepth(6), vx: 0, vy: 0, life: 0, max: 1, grow: 1, a: 1 };
+      p = { img: this.scene.add.image(0, 0, 'dot').setDepth(32), vx: 0, vy: 0, life: 0, max: 1, grow: 1, a: 1 };
       this.parts.push(p);
     }
     p.img.setPosition(x, y).setTint(color).setScale(size / 16).setAlpha(alpha).setVisible(true);
@@ -47,7 +47,7 @@ export class Fx {
       if (this.barks.length >= 10) return;
       const txt = this.scene.add.text(0, 0, '', {
         fontFamily: 'monospace', fontSize: '11px', color: '#fff', stroke: '#000', strokeThickness: 3,
-      }).setOrigin(0.5, 1).setDepth(8);
+      }).setOrigin(0.5, 1).setDepth(40);
       b = { txt, life: 0, follow: null, dy: 0 };
       this.barks.push(b);
     }

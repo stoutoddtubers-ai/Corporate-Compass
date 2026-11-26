@@ -9,8 +9,6 @@ import { BARKS, DISTRICT, pick } from '../data/strings';
 import { TILE_SIZE, MAP_TILES_W, MAP_TILES_H } from '../data/config';
 import type { WorldScene } from '../scenes/WorldScene';
 
-const COP_COLOR = 0x2f5fd0;
-
 /**
  * The police response for each Heat level:
  *  1 lantern: officers on foot who try to grab (arrest) you
@@ -49,7 +47,7 @@ export class PoliceSystem {
   }
 
   spawnCopAt(p: { x: number; y: number }, footPatrol: boolean): Actor {
-    const a = new Actor(this.world, 'cop', p.x, p.y, COP_COLOR, HEAT.cop.hp);
+    const a = new Actor(this.world, 'cop', p.x, p.y, 'cop', HEAT.cop.hp);
     a.data.foot = footPatrol;
     a.state = 'chase'; a.timer = 0.5 + Math.random() * 0.5;
     this.cops.push(a);
