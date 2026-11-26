@@ -1,0 +1,11 @@
+<title>Kogane City Prototype</title>
+<style>
+  /* Layout: one full-window game canvas, centred, single dark look by design. */
+  :root { --bg: #0b0b10; --fg: #e8e6f0; color-scheme: dark; }
+  html, body { height: 100%; }
+  body { background: var(--bg); color: var(--fg); overflow: hidden; }
+  #game { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+  canvas { image-rendering: pixelated; }
+</style>
+<div id="game"></div>
+<script type="module" src="assets/game.js"></script>
