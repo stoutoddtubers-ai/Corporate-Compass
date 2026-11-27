@@ -85,7 +85,7 @@ export class WorldScene extends Phaser.Scene {
   /** The street door he last walked in by (the way out leads back here). */
   lastDoor: { x: number; y: number } | null = null;
   private roomMask!: Phaser.GameObjects.Graphics;
-  private rail!: Rail;
+  rail!: Rail;
   /** The third-person 3D view (C switches between it and the three-quarter view). */
   view3d: View3D | null = null;
   /** The rooftops and street furniture as the 2.5D view draws them (the 3D view builds from these). */
@@ -211,6 +211,7 @@ export class WorldScene extends Phaser.Scene {
     this.input.on('pointermove', (ptr: Phaser.Input.Pointer) => { if (this.view3d?.active && this.input.mouse?.locked) this.view3d.look(ptr.movementX, ptr.movementY); });
     this.scene.launch('Hud');
     (window as unknown as { __kc: WorldScene }).__kc = this; // handy for testing from the browser console
+    (window as unknown as { __kcVehicles: typeof VEHICLES }).__kcVehicles = VEHICLES; // (for tests: spawn any vehicle)
   }
 
   /** Switches between the third-person 3D view and the three-quarter view. */

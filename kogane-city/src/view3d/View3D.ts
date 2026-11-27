@@ -8,6 +8,10 @@ import { Actor } from '../entities/Actor';
 import type { Car } from '../entities/Car';
 import type { Roof, Furniture, Plot } from '../systems/CityMap';
 import type { WorldScene } from '../scenes/WorldScene';
+import { VEHICLES } from '../data/vehicles';
+import { Tile } from '../systems/CityMap';
+import { loadModel, scaled, unitVehicle, asIs } from './Models';
+void scaled;
 
 /*
  * The third-person view. The game itself (missions, people, cars, police, collisions) still runs
@@ -70,7 +74,11 @@ export class View3D {
   private carMeshes = new Map<string, { body: THREE.InstancedMesh; lights: THREE.InstancedMesh }>();
   private lightbars!: THREE.InstancedMesh;
   private shadows!: THREE.InstancedMesh;
-  private furn: { list: Furniture[]; parts: THREE.InstancedMesh[]; rot: number[] }[] = [];
+  private furn: { kind: string; list: Furniture[]; parts: THREE.InstancedMesh[]; rot: number[] }[] = [];
+  private signals: { x: number; y: number; a: number; axis: 'v' | 'h'; j: import('../systems/CityMap').Junction }[] = [];
+  private bulbs: THREE.InstancedMesh | null = null;
+  private trainMesh: THREE.InstancedMesh | null = null;
+  private vertexLambert = new THREE.MeshLambertMaterial({ vertexColors: true });
   private furnGone = new Set<Furniture>();
   private furnScan = 0;
   private puffs!: THREE.Points;
@@ -110,6 +118,7 @@ export class View3D {
     this.buildCars();
     this.buildFx();
     this.buildLabels();
+    void this.loadModels();
   }
 
   setActive(on: boolean): void {
@@ -198,7 +207,7 @@ export class View3D {
     const plot = r.rect as Plot;
     if (plot.roof === 'room') return (plot.height ?? 1) * V.roomScale;
     if (plot.roof) return V.low[plot.roof] ?? 40;
-    const floors = Math.max(V.minFloors, Math.min(V.maxFloors, Math.round((r.h - 0.04) * 90)));
+    const floors = Math.max(V.minFloors, Math.min(plot.district === 'asagiri' ? V.oldTownMaxFloors : V.maxFloors, Math.round((r.h - 0.04) * 90)));
     return floors * V.floor;
   }
 
@@ -219,7 +228,10 @@ export class View3D {
       const wall = col(r.wall ?? 0x777777), top = col(r.top ?? 0x555555);
       const windows = !plot.roof && !r.noWin ? 1 : 0, seed = ((b.x * 7 + b.y * 13) % 997) / 997;
       // room furniture gets a pattern by what it is: 1 pachinko machine, 2 shelves, 3 lockers
-      const pat = plot.roof === 'room' && plot.tint ? ({ '#c8405e': 1, '#7d8791': 2, '#5f6f7c': 3 } as Record<string, number>)[plot.tint[0]] ?? 0 : 0;
+      // old-town buildings (four storeys or fewer) get wooden fronts and a tiled roof: pattern 4
+      const oldTown = !plot.roof && plot.district === 'asagiri' && h <= 4 * V.floor;
+      const pat = oldTown ? 4 : plot.roof === 'room' && plot.tint ? ({ '#c8405e': 1, '#7d8791': 2, '#5f6f7c': 3 } as Record<string, number>)[plot.tint[0]] ?? 0 : 0;
+      if (oldTown) { const along = b.w >= b.h; this.oldRoofs.push({ x: b.x + b.w / 2, y: b.y + b.h / 2, h, len: (along ? b.w : b.h) + 10, wid: (along ? b.h : b.w) + 10, rot: along ? 0 : Math.PI / 2, top: r.top ?? 0x4a5661 }); }
       const aw = r.awn?.length ? col(r.awn[Math.floor(seed * r.awn.length)]) : wall.clone().multiplyScalar(0.7);
       const ins = plot.roof === 'room' ? 0 : 0.4 + seed * 1.2; // neighbours that touch are pulled apart a hair, so their walls do not flicker
       const x0 = b.x + ins, x1 = b.x + b.w - ins, z0 = b.y + ins, z1 = b.y + b.h - ins;
@@ -254,7 +266,24 @@ export class View3D {
           }
           vec3 base = vCol; vec3 emit = vec3(0.0);
           float FL = ${V.floor}.0;
-          if (vInfo.x < 0.5 && vInfo.y > 0.5) { // a wall with windows
+          if (vInfo.x < 0.5 && vInfo.y > 0.5 && vInfo.w > 3.5) { // the old town: wooden shophouse fronts
+            float fl = floor(vUv.y / FL), cell = floor(vUv.x / 32.0);
+            vec2 f = vec2(fract(vUv.x / 32.0), fract(vUv.y / FL));
+            float h = hash(vec2(cell + vInfo.z * 91.0, fl));
+            vec3 paper = vec3(0.93, 0.88, 0.76);
+            base = vCol * (0.9 + 0.1 * step(0.5, fract(vUv.x / 4.0))); // vertical boards
+            if (fl < 0.5) {
+              if (f.y > 0.62 && f.y < 0.86) { if (h > 0.4 && f.x > 0.1 && f.x < 0.9) base = vAwn * (0.82 + 0.18 * step(0.5, fract(vUv.x / 6.0))); } // noren curtains over the doors
+              else if (f.y < 0.6 && f.x > 0.08 && f.x < 0.92) { // sliding lattice doors with paper behind
+                float slat = clamp(step(0.8, fract(vUv.x / 5.0)) + step(0.85, fract(vUv.y / 7.0)), 0.0, 1.0);
+                base = mix(paper * 0.72, vCol * 0.5, slat); emit = paper * 0.5 * uLit * (1.0 - slat) * step(0.35, h);
+              }
+              if (f.y > 0.88) base *= 0.55; // the eave line
+            } else {
+              if (f.x > 0.15 && f.x < 0.85 && f.y > 0.25 && f.y < 0.8) { float slat = step(0.75, fract(vUv.x / 4.0)); base = mix(paper * 0.7, vCol * 0.45, slat); emit = paper * 0.55 * uLit * (1.0 - slat) * step(0.55, h); }
+              if (f.y < 0.08) base = vCol * 0.55;
+            }
+          } else if (vInfo.x < 0.5 && vInfo.y > 0.5) { // a wall with windows
             float fl = floor(vUv.y / FL), cell = floor(vUv.x / 32.0);
             vec2 f = vec2(fract(vUv.x / 32.0), fract(vUv.y / FL));
             float h = hash(vec2(cell + vInfo.z * 91.0, fl));
@@ -267,7 +296,7 @@ export class View3D {
             }
           }
           if (vInfo.x > 0.5) base *= 0.9 + 0.1 * hash(floor(vWorld.xz / 8.0)); // roofs: a little texture
-          if (vInfo.x < 0.5 && vInfo.w > 0.5) { // room furniture
+          if (vInfo.x < 0.5 && vInfo.w > 0.5 && vInfo.w < 3.5) { // room furniture
             vec2 q = vec2(vUv.x, vUv.y);
             if (vInfo.w < 1.5) { // pachinko machines: a lit screen and a tray of balls on each
               vec2 f = vec2(fract(q.x / 16.0), q.y / 36.0);
@@ -314,6 +343,7 @@ export class View3D {
     }
   }
   private viaductH = 73;
+  private oldRoofs: { x: number; y: number; h: number; len: number; wid: number; rot: number; top: number }[] = [];
 
   /** Kogane Castle's keep: a stone base and three white storeys under green copper roofs. */
   private buildCastle(r: { x: number; y: number; w: number; h: number }): void {
@@ -341,16 +371,16 @@ export class View3D {
     const map = this.world.map;
     const box = (w: number, h: number, d: number, y: number, x = 0, z = 0) => new THREE.BoxGeometry(w, h, d).translate(x, y, z);
     const lambert = (c: number) => new THREE.MeshLambertMaterial({ color: c });
-    const glow = (c: number) => { const m = new THREE.MeshBasicMaterial({ color: c }); this.lampHeads.push(m); return m; };
+    const glow = (c: number) => { const m = new THREE.MeshBasicMaterial({ color: c }); m.userData.base = c; this.lampHeads.push(m); return m; };
     // gate orientation: posts either side of the road it stands over
     const gate = map.furniture.find((f) => f.key === 'prop_gate');
     const roadNS = gate ? map.tileAt(gate.x, gate.y - 90) === 1 && map.tileAt(gate.x, gate.y + 90) === 1 : false;
-    const kinds: { test: (k: string) => boolean; parts: { geo: THREE.BufferGeometry; mat: THREE.Material; tint?: (f: Furniture) => number }[]; spin?: boolean }[] = [
+    const kinds: { name?: string; test: (k: string) => boolean; parts: { geo: THREE.BufferGeometry; mat: THREE.Material; tint?: (f: Furniture) => number }[]; spin?: boolean }[] = [
       { test: (k) => k.startsWith('prop_tree'), spin: true, parts: [
         { geo: new THREE.CylinderGeometry(1.4, 2, 16, 6).translate(0, 8, 0), mat: lambert(0x5a4030) },
         { geo: new THREE.IcosahedronGeometry(11, 0).scale(1, 0.85, 1).translate(0, 24, 0), mat: lambert(0xffffff), tint: (f) => (f.key.endsWith('2') ? 0xe8a6c0 : f.key.endsWith('1') ? 0x3d6a3a : 0x55803e) },
       ] },
-      { test: (k) => k === 'prop_lamp', parts: [
+      { name: 'lamp', test: (k) => k === 'prop_lamp', parts: [
         { geo: mergeGeometries([new THREE.CylinderGeometry(0.9, 1.2, 48, 6).translate(0, 24, 0), box(10, 1.5, 1.5, 47.5, 5)]), mat: lambert(0x6a6e74) },
         { geo: box(5, 2, 4, 46.5, 9), mat: glow(0xfff1c8) },
       ] },
@@ -383,7 +413,7 @@ export class View3D {
         this.scene.add(im);
         return im;
       });
-      this.furn.push({ list, parts, rot: list.map(() => (k.spin ? rnd() * Math.PI * 2 : 0)) });
+      this.furn.push({ kind: k.name ?? '', list, parts, rot: list.map(() => (k.spin ? rnd() * Math.PI * 2 : 0)) });
       }
     }
   }
@@ -533,6 +563,164 @@ export class View3D {
   }
 
   // =====================================================================================
+  // Models made in Blender (public/models). Each one replaces its block version when it arrives.
+  // =====================================================================================
+
+  private async loadModels(): Promise<void> {
+    const files: Record<string, string> = { car: 'car_sedan', sports: 'car_sports', police: 'car_police', truck: 'car_truck', scooter: 'car_scooter', bike: 'car_bike' };
+    for (const [shape, file] of Object.entries(files)) {
+      void loadModel(file).then((m) => {
+        const mesh = this.carMeshes.get(shape), def = Object.values(VEHICLES).find((v) => v.shape === shape);
+        if (!m || !mesh || !def) return;
+        mesh.body.geometry = unitVehicle(m.body, m, def.length);
+        mesh.body.material = this.vertexLambert;
+        if (m.lights) mesh.lights.geometry = unitVehicle(m.lights, m, def.length);
+        if (m.lightbar) this.lightbars.geometry = unitVehicle(m.lightbar, m, def.length);
+      });
+    }
+    const k = V.pxPerMetre;
+    void loadModel('lamp').then((m) => {
+      if (!m) return;
+      const pole = asIs(m.body, k), glow = m.lights ? asIs(m.lights, k) : null;
+      for (const f of this.furn) if (f.kind === 'lamp') { f.parts[0].geometry = pole; f.parts[0].material = this.vertexLambert; if (glow) f.parts[1].geometry = glow; }
+    });
+    void loadModel('roof_hip').then((m) => {
+      if (!m || !this.oldRoofs.length) return;
+      // a unit roof stretched over each old-town building, in that building's roof colour
+      const g = m.body.clone(), c = m.min.clone().addScaledVector(m.size, 0.5);
+      g.translate(-c.x, 0, -c.z).scale(1 / m.size.x, 1 / (m.size.y - 0.05), 1 / m.size.z);
+      const sq = new Map<string, typeof this.oldRoofs>();
+      for (const r of this.oldRoofs) { const key = `${Math.floor(r.x / 2048)},${Math.floor(r.y / 2048)}`; if (!sq.has(key)) sq.set(key, []); sq.get(key)!.push(r); }
+      for (const list of sq.values()) {
+        const im = new THREE.InstancedMesh(g, this.vertexLambert, list.length);
+        list.forEach((r, i) => {
+          im.setMatrixAt(i, this.m.makeRotationY(r.rot).scale(this.v3.set(r.len, Math.min(r.wid * 0.38, 46), r.wid)).setPosition(r.x, r.h, r.y));
+          im.setColorAt(i, this.tmpC.setHex(r.top));
+        });
+        const cx = list.reduce((a, r) => a + r.x, 0) / list.length, cz = list.reduce((a, r) => a + r.y, 0) / list.length;
+        im.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, 100, cz), 1700);
+        this.scene.add(im);
+      }
+    });
+    void loadModel('traffic_light').then((m) => { if (m) this.buildSignals(m, k); });
+    void loadModel('utility_pole').then((m) => { if (m) this.buildPoles(m, k); });
+    void loadModel('train').then((m) => {
+      if (!m) return;
+      const R = MAP.rail, g = m.body.clone(), c = m.min.clone().addScaledVector(m.size, 0.5);
+      g.translate(-c.x, -m.min.y, -c.z).scale(R.carLength / m.size.x, R.carLength / m.size.x, V.trainWidth / m.size.z);
+      this.trainMesh = new THREE.InstancedMesh(g, this.vertexLambert, R.trains * R.cars);
+      this.trainMesh.frustumCulled = false;
+      this.scene.add(this.trainMesh);
+    });
+  }
+
+  /** Traffic signals on the four corners of every junction with lights, each over the road it controls. */
+  private buildSignals(m: import('./Models').Model, k: number): void {
+    const map = this.world.map;
+    for (const j of map.junctions) {
+      if (!j.lit || j.y > MAP.cityH * TS) continue;
+      const ox = j.hw + 14, oy = j.hh + 14;
+      this.signals.push({ x: j.x + ox, y: j.y + oy, a: 0, axis: 'h', j }, { x: j.x - ox, y: j.y - oy, a: Math.PI, axis: 'h', j },
+        { x: j.x - ox, y: j.y + oy, a: Math.PI / 2, axis: 'v', j }, { x: j.x + ox, y: j.y - oy, a: -Math.PI / 2, axis: 'v', j });
+    }
+    const poles = new THREE.InstancedMesh(asIs(m.body, k), this.vertexLambert, this.signals.length);
+    this.signals.forEach((s, i) => poles.setMatrixAt(i, this.m.makeRotationY(-s.a).setPosition(s.x, 0, s.y)));
+    poles.frustumCulled = false;
+    this.scene.add(poles);
+    this.bulbs = new THREE.InstancedMesh(new THREE.CircleGeometry(0.13 * k, 12).rotateY(Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffffff }), this.signals.length);
+    this.bulbs.setColorAt(0, this.tmpC.setRGB(1, 1, 1));
+    this.bulbs.frustumCulled = false;
+    this.scene.add(this.bulbs);
+  }
+
+  private drawSignals(): void {
+    if (!this.bulbs) return;
+    const k = V.pxPerMetre, tr = this.world.traffic;
+    let n = 0;
+    for (const s of this.signals) {
+      if (Math.abs(s.x - this.camPos.x) + Math.abs(s.y - this.camPos.z) > 1500) continue;
+      const ph = tr.phase(s.j), mine = s.axis === 'v' ? ph : (ph + 3) % 6; // 0 green, 1 amber, else red
+      const lamp = mine === 0 ? 0 : mine === 1 ? 1 : 2;
+      // lamps sit along the arm (Blender y 2.2, 2.6, 3.0 = three.js z -2.2, -2.6, -3.0), just in front of the head
+      this.m.makeRotationY(-s.a).setPosition(s.x, 0, s.y).multiply(this.m2.makeTranslation(0.14 * k, 4.55 * k, -(2.2 + lamp * 0.4) * k));
+      this.bulbs.setMatrixAt(n, this.m);
+      this.bulbs.setColorAt(n, this.tmpC.setHex(lamp === 0 ? 0x38e0a0 : lamp === 1 ? 0xffb020 : 0xff3030));
+      n++;
+    }
+    this.bulbs.count = n;
+    this.bulbs.instanceMatrix.needsUpdate = true;
+    if (this.bulbs.instanceColor) this.bulbs.instanceColor.needsUpdate = true;
+  }
+
+  /** Concrete utility poles down one side of every side street, with sagging wires between them. */
+  private buildPoles(m: import('./Models').Model, k: number): void {
+    const map = this.world.map, every = V.poleEvery, sw = MAP.sideWidth, cityY = (MAP.interiorBand.y - 4) * TS;
+    const runs: { x: number; y: number; a: number }[][] = [];
+    const walk = (tx: number, ty: number) => map.tileAt(tx * TS + 16, ty * TS + 16) === Tile.Walk;
+    for (const t of MAP.vSide) { // streets running north-south: poles on the west kerb, cross arms east-west
+      let run: { x: number; y: number; a: number }[] = [];
+      for (let ty = 2; ty * TS < cityY; ty += every) {
+        if (walk(t - 1, ty) && map.tileAt(t * TS + 16, ty * TS + 16) === Tile.Road) run.push({ x: (t - 0.6) * TS, y: (ty + 0.5) * TS, a: Math.PI / 2 });
+        else { if (run.length > 1) runs.push(run); run = []; }
+      }
+      if (run.length > 1) runs.push(run);
+    }
+    for (const t of MAP.hSide) { // streets running east-west: poles on the north kerb
+      let run: { x: number; y: number; a: number }[] = [];
+      for (let tx = 5; tx < W - 2; tx += every) {
+        if (walk(tx, t - 1) && map.tileAt(tx * TS + 16, t * TS + 16) === Tile.Road) run.push({ x: (tx + 0.5) * TS, y: (t - 0.6) * TS, a: 0 });
+        else { if (run.length > 1) runs.push(run); run = []; }
+      }
+      if (run.length > 1) runs.push(run);
+    }
+    void sw;
+    // group by 2048 px square so far squares are skipped, like the street furniture
+    const sq = new Map<string, { poles: { x: number; y: number; a: number }[]; wires: number[] }>();
+    const get = (x: number, y: number) => { const key = `${Math.floor(x / 2048)},${Math.floor(y / 2048)}`; let g = sq.get(key); if (!g) sq.set(key, (g = { poles: [], wires: [] })); return g; };
+    const ends = [[-0.75, 8.3], [0.75, 8.3], [-0.75, 7.7], [0.75, 7.7]].map(([z, y]) => [z * k, y * k]);
+    for (const run of runs) run.forEach((p, i) => {
+      const g = get(p.x, p.y);
+      g.poles.push(p);
+      const q = run[i + 1];
+      if (!q) return;
+      // the cross arm points across the street: local +Z turns to world (-sin a, cos a)
+      const ax = -Math.sin(p.a), ay = Math.cos(p.a);
+      for (const [off, h] of ends) {
+        const x0 = p.x + ax * off, y0 = p.y + ay * off, x1 = q.x + ax * off, y1 = q.y + ay * off;
+        let px = x0, py = h, pz = y0;
+        for (let s = 1; s <= 6; s++) {
+          const t = s / 6, nx = x0 + (x1 - x0) * t, nz = y0 + (y1 - y0) * t, ny = h - V.wireSag * 4 * t * (1 - t);
+          g.wires.push(px, py, pz, nx, ny, nz);
+          px = nx; py = ny; pz = nz;
+        }
+      }
+    });
+    const geo = asIs(m.body, k), wireMat = new THREE.LineBasicMaterial({ color: 0x1a1a1c });
+    for (const g of sq.values()) {
+      const im = new THREE.InstancedMesh(geo, this.vertexLambert, g.poles.length);
+      g.poles.forEach((p, i) => im.setMatrixAt(i, this.m.makeRotationY(-p.a).setPosition(p.x, 0, p.y)));
+      const cx = g.poles.reduce((a, p) => a + p.x, 0) / g.poles.length, cz = g.poles.reduce((a, p) => a + p.y, 0) / g.poles.length;
+      im.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, 70, cz), 1700);
+      this.scene.add(im);
+      if (g.wires.length) {
+        const wg = new THREE.BufferGeometry();
+        wg.setAttribute('position', new THREE.Float32BufferAttribute(g.wires, 3));
+        wg.computeBoundingSphere();
+        this.scene.add(new THREE.LineSegments(wg, wireMat));
+      }
+    }
+  }
+
+  private drawTrains(): void {
+    const tm = this.trainMesh;
+    if (!tm || this.world.indoors) { if (tm) tm.count = 0; return; }
+    const cars = this.world.rail.cars;
+    cars.forEach((c, i) => tm.setMatrixAt(i, this.m.makeRotationY(-c.heading).setPosition(c.x, this.viaductH, c.y)));
+    tm.count = cars.length;
+    tm.instanceMatrix.needsUpdate = true;
+  }
+
+  // =====================================================================================
   // Every frame
   // =====================================================================================
 
@@ -582,6 +770,8 @@ export class View3D {
     this.drawFx();
     this.drawBeams();
     this.drawLabels();
+    this.drawSignals();
+    this.drawTrains();
     U.uCam.value.copy(this.camera.position);
     void p;
     this.renderer.render(this.scene, this.camera);
@@ -613,7 +803,7 @@ export class View3D {
     this.sun.position.copy(U.uSunDir.value).multiplyScalar(100); this.sun.target.position.set(0, 0, 0);
     this.scene.fog = null;
     const night = U.uLamps.value;
-    for (const m of this.lampHeads) (m as THREE.MeshBasicMaterial).color.setScalar(0.55 + 0.45 * night);
+    for (const m of this.lampHeads) (m as THREE.MeshBasicMaterial).color.setHex(m.userData.base ?? 0xffffff).multiplyScalar(0.55 + 0.45 * night); // dimmer by day, keeping its colour
     this.carLightMat.color.setScalar(0.55 + 0.45 * night);
   }
 

@@ -222,7 +222,7 @@ export const MAP = {
   rail: {
     v: [[1, 0], [6, 1]], h: [[0, 1], [2, 1]],
     height: 0.09, // how high the deck is (the same scale as building heights)
-    trains: 3, cars: 5, carLength: 54, // px
+    trains: 3, cars: 4, carLength: 150, // px
     speed: 300, stopTime: 5, // px/s, and seconds at each station
     /** Stations: which side of the loop (n/e/s/w), how far along it (0-1), and the name on the platform. */
     stations: [

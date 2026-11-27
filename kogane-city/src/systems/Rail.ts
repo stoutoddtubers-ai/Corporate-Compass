@@ -7,7 +7,8 @@ import type { CityMap } from './CityMap';
  * They are scenery: they stop at each station, then move on. Nothing collides with them.
  */
 export class Rail {
-  private cars: { img: Phaser.GameObjects.Image; train: number; n: number }[] = [];
+  /** Every carriage: where it is on the map (before any 2.5D lean) and which way it points (read by the 3D view). */
+  readonly cars: { img: Phaser.GameObjects.Image; train: number; n: number; x: number; y: number; heading: number }[] = [];
   /** How far round the loop each train is (px), and how long it still waits at a station (s). */
   private at: number[] = [];
   private wait: number[] = [];
@@ -31,7 +32,7 @@ export class Rail {
     for (let tr = 0; tr < R.trains; tr++) {
       this.at.push((this.length * tr) / R.trains); this.wait.push(0);
       this.nextStop.push(this.stopAfter(this.at[tr]));
-      for (let n = 0; n < R.cars; n++) this.cars.push({ img: scene.add.image(0, 0, 'trainH').setDepth(21), train: tr, n });
+      for (let n = 0; n < R.cars; n++) this.cars.push({ img: scene.add.image(0, 0, 'trainH').setDepth(21), train: tr, n, x: 0, y: 0, heading: 0 });
     }
   }
 
@@ -54,7 +55,8 @@ export class Rail {
       }
     }
     for (const c of this.cars) {
-      const q = this.map.railPoint(this.at[c.train] - c.n * (R.carLength + 3));
+      const d = this.at[c.train] - c.n * (R.carLength + 3), q = this.map.railPoint(d), ahead = this.map.railPoint(d + 2);
+      c.x = q.x; c.y = q.y; c.heading = Math.atan2(ahead.y - q.y, ahead.x - q.x);
       c.img.setTexture(q.horizontal ? 'trainH' : 'trainV');
       c.img.setPosition(q.x + (q.x - mid.x) * ps, q.y + (q.y - mid.y) * ps - lean);
     }

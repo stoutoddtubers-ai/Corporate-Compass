@@ -109,7 +109,21 @@ The 3D view only draws that world with three.js on a canvas under the HUD:
   camera and Jun are cut away.
 
 Its numbers (camera distances, mouse speed, storey height, fog, colours) are in
-`src/data/view3d.ts`. The automated tests play in the three-quarter view.
+`src/data/view3d.ts`.
+
+### 3D models (`tools/blender/models3d.py`)
+
+Real models replace the block versions as they are made. The script builds them in Blender
+and saves .glb files in `public/models/`; the game loads each one when it starts and swaps
+it in, keeping the block version if a file is missing. Made so far: the six vehicles, the
+loop-line train carriage, the street lamp, traffic signals (which follow the real light
+phases), utility poles with overhead wires, and the old town's tiled roofs. Rules for new
+models (scale, facing, the "paint" and "light" materials) are at the top of the script and
+on the Specs sheet of the asset list.
+
+    pip install bpy
+    python tools/blender/models3d.py              # all models
+    python tools/blender/models3d.py --only lamp  # one The automated tests play in the three-quarter view.
 
 ## Art (Blender)
 

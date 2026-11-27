@@ -25,9 +25,17 @@ export const VIEW3D = {
 
   /** Storey height for buildings, and the range of storeys (the 2.5D height value picks within it). */
   floor: 44, minFloors: 2, maxFloors: 20,
+  /** The old town (Asagiri) stays low, like Asakusa and Yanaka: its buildings get wooden fronts and tiled roofs. */
+  oldTownMaxFloors: 4,
   /** Heights of low things, in px. */
   low: { fence: 36, container: 42, boxcar: 48, shelf: 30 } as Record<string, number>,
-  roomScale: 24, // interior walls and furniture: their height value times this
+  roomScale: 24,
+  /** Models from tools/blender/models3d.py are in metres; street furniture is drawn at this many game px per metre. */
+  pxPerMetre: 16,
+  /** Utility poles along side streets: one every this many tiles, with wires between them. */
+  poleEvery: 7, wireSag: 9,
+  /** The train on the viaduct: carriage length and width in px. */
+  trainWidth: 24, // interior walls and furniture: their height value times this
 
   person: { skin: '#e0b48c', trousers: 0.45 }, // trousers are the jacket colour this dark (0..1)
 
