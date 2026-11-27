@@ -185,6 +185,9 @@ function m10Machines(w: WorldScene): Machine[] {
   return out;
 }
 
+/** The cash office is walled off in its corner; raiders go for its wall on the hall side. */
+const m10Office = (s: Story): Pt => spot(s, 'pachinko', '4', -6, 0);
+
 /** The ways into the hall: the front door, the two front corners, and the back door by the lockers. */
 function m10Ways(w: WorldScene, s: Story): Pt[] {
   const inn = roomOf(w, 'pachinko');
@@ -351,7 +354,8 @@ Object.assign(HOOKS, {
     // gamblers at the back row of machines (the wide aisle, so nobody's way is blocked)
     const back = machines.filter((m) => m.y === machines[0].y);
     s.vars.gamblers = back.slice(0, 6).map((m, k) => npc(w, s, ['salaryman', 'elder', 'customer', 'grandmother'][k % 4], m.x + (k % 2 ? 12 : -12), m.y - TS * 1.45));
-    s.vars.office = fieldTo(w, spot(s, 'pachinko', '4')); // the cash office, in the corner
+    for (const g of s.vars.gamblers as Actor[]) g.body.checkCollision.none = true; // people can squeeze past them
+    s.vars.office = fieldTo(w, m10Office(s)); // the cash office, in the corner
     s.vars.lost = 0; s.vars.wave = 0; s.vars.slipT = 0;
   },
   m10Start(w, s) { m10Wave(w, s); },
@@ -365,8 +369,9 @@ Object.assign(HOOKS, {
     const van = s.vars.van as Car, at = w.sidePoint(van, -1), p = w.player.pos;
     const boss = npc(w, s, 'thug', at.x, at.y);
     boss.body.setImmovable(false); // he runs, so walls must stop him
-    // he bolts for whichever nearby yard is furthest from Jun
+    // he bolts for whichever nearby yard is furthest from Jun (or, with no yard near, a street corner a few blocks off)
     const yards = ['hanabiLot', 'miraiLot', 'marukaneLot', 'mansionYard'].map((id) => s.place(id) as Pt).filter((c) => dist(c, boss) < 1800);
+    for (let k = 0; k < 6 && yards.length < 4; k++) { const q = w.map.randomWalkNear(boss.x, boss.y, 600, 900); if (q) yards.push(q); }
     const to = yards.reduce((a, c) => (dist(c, p) > dist(a, p) ? c : a), yards[0] ?? s.place('hanabiLot'));
     s.vars.boss = boss; s.vars.bossTo = to; s.vars.run = fieldTo(w, to);
   },
@@ -592,7 +597,7 @@ Object.assign(CHECKS, {
 
   // ----- M10 -----
   m10Waves: (w, s, dt) => {
-    const machines = s.vars.machines as Machine[], office = spot(s, 'pachinko', '4'), p = w.player.actor;
+    const machines = s.vars.machines as Machine[], office = m10Office(s), p = w.player.actor;
     // a shot that finds a machine instead of a raider
     const gun = w.player.weapon;
     if (gun.def.id === s.vars.gunId && gun.mag < (s.vars.gunMag as number)) {
@@ -643,7 +648,7 @@ Object.assign(CHECKS, {
     const lost = s.vars.lost as number, wave = s.vars.wave as number;
     s.timer = { label: `WAVE ${wave + 1}/${T.m10Waves.length} · MACHINES LOST ${lost}/${T.m10MaxLost}`, value: lost, max: T.m10MaxLost, kind: 'bar' };
     // raiders only come while Jun is on the floor; if he steps outside, the marker brings him back to the door
-    s.marker = w.indoors?.id === 'pachinko' ? null : { x: office.x, y: office.y, r: 0 };
+    s.marker = w.indoors?.id === 'pachinko' ? null : { x: machines[0].sx, y: machines[0].sy, r: 0 };
     if (w.gang.activeThugs > 0) return false;
     s.vars.wave = wave + 1;
     if (wave + 1 >= T.m10Waves.length) return true;

@@ -8,7 +8,7 @@ export const INTERIORS_ACT2: Record<string, InteriorDef> = {
   // ---------------------------------------------------------------- M09 Welcome to Hanabi-chō
   // Hanabi Florist: Mrs. Hana behind the counter, buckets of flowers on the shelves
   florist: {
-    name: 'HANABI FLORIST', floor: 'wood', keeper: 'grandmother', light: { color: 0xffe0f0, alpha: 0.05 },
+    name: 'HANABI FLORIST', floor: 'wood', keeper: 'grandmother', customers: 1, light: { color: 0xffe0f0, alpha: 0.05 },
     map: [
       '##############',
       '#SSSSS..SSSSS#',
@@ -24,7 +24,7 @@ export const INTERIORS_ACT2: Record<string, InteriorDef> = {
   // Club Mirage: kitchen (top left), the bar, the dance floor with its speakers and booths, Kaz's office (top right)
   //   1 just inside the door   2 Kaz   3 kitchen   4 office   5, 6 the booths
   clubMirage: {
-    name: 'CLUB MIRAGE', floor: 'carpet', wall: '#4a3a5a', light: { color: 0xe060ff, alpha: 0.1 },
+    name: 'CLUB MIRAGE', floor: 'carpet', customers: 5, wall: '#4a3a5a', light: { color: 0xe060ff, alpha: 0.1 },
     map: [
       '################################',
       '#KK.S.#.LLLLLLLLLL.....#.LL...K#',
@@ -77,7 +77,7 @@ export const INTERIORS_ACT2: Record<string, InteriorDef> = {
   // Voice Cave, ground floor: the front desk, room 1, and the stairs up
   //   1, 2 where the extra bodyguards wait
   voiceCave: {
-    name: 'VOICE CAVE KARAOKE', floor: 'carpet', wall: '#3a3a5a', light: { color: 0x80a0ff, alpha: 0.08 },
+    name: 'VOICE CAVE KARAOKE', floor: 'carpet', customers: 2, wall: '#3a3a5a', light: { color: 0x80a0ff, alpha: 0.08 },
     map: [
       '########################',
       '#LLLL....#......#.....>#',

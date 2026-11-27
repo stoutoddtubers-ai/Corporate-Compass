@@ -583,10 +583,10 @@ Object.assign(CHECKS, {
       endo.body.enable = true; endo.body.reset(at.x, at.y); endo.sprite.setVisible(true);
       return false;
     }
-    if (!s.flags.inHall) { // Jun follows him inside
+    if (!s.flags.inHall) { // Jun follows him inside, to the lockers
       const by = s.place('stationHall:2');
       s.marker = { x: by.x, y: by.y, r: T.roomReach };
-      if (!inRoom(w, 'stationHall')) return false;
+      if (!inRoom(w, 'stationHall') || !onFootAt(w, s)) return false;
       s.flags.inHall = true;
       say(w, s, endo.sprite, B.sg2EndoLocker, WARM);
       later(w, s, 1500, () => kurodaWave(w, s));

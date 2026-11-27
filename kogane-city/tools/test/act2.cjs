@@ -104,7 +104,7 @@ const { chromium } = require('playwright');
       // one stray shot at a machine: it must break and spill its steel balls
       await run('const m = s.vars.machines[8]; t.go(m.sx, m.sy); w.player.switchTo(w.player.weapons.findIndex((x) => x.def.id === "kitsune9"));');
       for (let i = 0; i < 4; i++) { // aim at it (the camera shifts a little with the mouse, so home in)
-        const at = await run('const m = s.vars.machines[8], c = w.cameras.main; return { x: (m.x - c.worldView.x) * c.zoomX, y: (m.y - c.worldView.y) * c.zoomY };');
+        const at = await run('const m = s.vars.machines[8], c = w.cameras.main, r = w.game.canvas.getBoundingClientRect(), k = r.width / c.width; return { x: r.left + (m.x - c.worldView.x) * c.zoomX * k, y: r.top + (m.y - c.worldView.y) * c.zoomY * k };');
         await p.mouse.move(at.x, at.y); await wait(250);
       }
       await run('s.vars.gunMag = w.player.weapon.mag + 1; s.vars.gunId = w.player.weapon.def.id;');
