@@ -1,4 +1,5 @@
 import * as Phaser from 'phaser';
+import { MAP } from '../data/map';
 
 interface Part { img: Phaser.GameObjects.Image; vx: number; vy: number; life: number; max: number; grow: number; a: number }
 interface Bark { txt: Phaser.GameObjects.Text; life: number; follow: { x: number; y: number } | null; dy: number }
@@ -58,7 +59,7 @@ export class Fx {
       if (this.barks.length >= 10) return;
       const txt = this.scene.add.text(0, 0, '', {
         fontFamily: 'monospace', fontSize: '11px', color: '#fff', stroke: '#000', strokeThickness: 3,
-      }).setOrigin(0.5, 1).setDepth(40);
+      }).setOrigin(0.5, 1).setDepth(40).setScale(1, 1 / MAP.squash); // un-squash text so it reads normally
       b = { txt, life: 0, follow: null, dy: 0 };
       this.barks.push(b);
     }
@@ -85,7 +86,7 @@ export class Fx {
       if (b.life <= 0) continue;
       b.life -= dt; b.dy += 10 * dt;
       if (b.life <= 0 || !b.follow) { b.txt.setVisible(false); b.life = 0; continue; }
-      b.txt.setPosition(b.follow.x, b.follow.y - 14 - b.dy).setAlpha(Math.min(1, b.life * 2));
+      b.txt.setPosition(b.follow.x, b.follow.y - 26 - b.dy).setAlpha(Math.min(1, b.life * 2));
     }
   }
 

@@ -38,8 +38,10 @@ export class Actor {
     this.dirs = scene.textures.exists('atlas') && scene.textures.get('atlas').has(this.base + '_0_d0');
     this.sprite = this.dirs ? scene.physics.add.image(x, y, 'atlas', this.base + '_0_d0').setDepth(4) : scene.physics.add.image(x, y, this.base).setDepth(4);
     if (this.sprite.width > 20) { // Blender sprite, drawn at twice game size
-      this.sprite.setScale(0.5);
-      this.sprite.setCircle(PLAYER.radius * 2, this.sprite.width / 2 - PLAYER.radius * 2, this.sprite.height / 2 - PLAYER.radius * 2);
+      const k = PLAYER.spriteScale, r = PLAYER.radius / k; // the collision circle stays the same size on the ground
+      this.sprite.setScale(k);
+      const fr = this.sprite.frame, feet = fr.customPivot ? fr.pivotY : 0.5; // and sits at the feet
+      this.sprite.setCircle(r, this.sprite.width / 2 - r, this.sprite.height * feet - r);
     } else this.sprite.setCircle(PLAYER.radius, 1, 1);
     this.sprite.setCollideWorldBounds(true);
     scene.people.add(this.sprite); // everyone in this group bumps into buildings
@@ -70,6 +72,7 @@ export class Actor {
    */
   animate(dt: number): void {
     if (!this.alive) return;
+    this.sprite.setDepth(4 + this.sprite.y * 1e-5); // whoever is lower on the screen is drawn in front
     if (this.dirs && this.sprite.rotation !== FACING_READ) { this.facing = this.sprite.rotation; this.sprite.rotation = FACING_READ; }
     const sp = this.body.enable ? this.body.speed : 0;
     let f = 0;

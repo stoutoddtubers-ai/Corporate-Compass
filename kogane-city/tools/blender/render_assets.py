@@ -15,11 +15,12 @@ ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 OUT = os.path.join(HERE, 'out')
 os.makedirs(OUT, exist_ok=True)
 SCALE = 2  # render at 2x game size
-# The game's view is oblique: the ground is seen from straight above, but anything with
-# height leans "up the screen" by TILT pixels per pixel of height. Models are sheared the
-# same way before rendering, so cars and people show their sides. Things that turn are
-# rendered once per direction.
-TILT = 0.5
+# The game's camera is tilted about 45 degrees: halfway between overhead and behind the
+# shoulder. The game gets that by squashing the whole world vertically (MAP.squash) and
+# leaning anything with height up the screen. Models are leaned the same way here before
+# being rendered from above; after the game's squash that is exactly what a tilted camera
+# sees. TILT is pixels of lean per pixel of height and must equal MAP.tilt in src/data/map.ts.
+TILT = 1.0
 DIRS = 16
 ONLY = sys.argv[sys.argv.index('--only') + 1] if '--only' in sys.argv else ''
 
@@ -102,18 +103,27 @@ def cyl(loc, r, depth, m, rot=(0, 0, 0), verts=20):
     return o
 
 
-def render_dirs(s, name, size, dirs=DIRS, lean=True):
-    """Render the scene's model leaning up-screen, once per direction (0 = facing right, then clockwise)."""
+ORIGIN = {}  # frame name -> where the model's footprint centre sits in the picture (0..1 from the top)
+
+def render_dirs(s, name, size, tall=0.0, dirs=DIRS):
+    """
+    Render the scene's model leaning up-screen, once per direction (0 = facing right, then
+    clockwise). `tall` is the model's height: the picture gets that much extra room on top.
+    """
     objs = [o for o in bpy.context.scene.objects if o.type == 'MESH']
     base = [o.matrix_world.copy() for o in objs]
-    shear = Matrix.Identity(4); shear[1][2] = TILT if lean else 0
+    extra = tall * TILT
+    shear = Matrix.Identity(4); shear[1][2] = TILT if tall else 0
     for i in range(dirs):
         m = shear @ Matrix.Rotation(-i * 2 * math.pi / dirs, 4, 'Z')
         for o, b in zip(objs, base): o.matrix_world = m @ b
-        render(s, name if dirs == 1 else f'{name}_d{i}', size, size)
+        n = name if dirs == 1 else f'{name}_d{i}'
+        render(s, n, size, size + extra, extra / 2)
+        ORIGIN[n] = 0.5 + (extra / 2) / (size + extra)
 
-def render(s, name, w, h):
-    """Render a w x h (game pixels) area centred on the origin."""
+def render(s, name, w, h, cy=0.0):
+    """Render a w x h (game pixels) area centred on (0, cy)."""
+    s.camera.location = (0, cy, 200)
     s.render.resolution_x = int(w * SCALE); s.render.resolution_y = int(h * SCALE)
     s.camera.data.ortho_scale = max(w, h)
     s.render.filepath = os.path.join(OUT, name + '.png')
@@ -210,7 +220,7 @@ def vehicle(vid, v, ci):
             box((-L / 2 + 5, 0, 9), (7.5, W - 1, 6.5), mat('boxw', 0xf4f0e6, 0.5), 0.9)     # soup rack
             box((-L / 2 + 5, 0, 12.5), (5.5, W - 3.5, 0.6), mat('boxr', 0xb3312f, 0.5), 0.2)
             box((2.5, 0, 4.4), (6, W - 1, 1), trim, 0.4)                                    # footboard
-    render_dirs(s, f'car_{vid}_{ci}', L + 22)
+    render_dirs(s, f'car_{vid}_{ci}', L + 14, 18)
 
 # ---------------------------------------------------------------- people: 3 frames (standing, left step, right step)
 HATS = {'cop': 'cap', 'builder': 'helmet', 'mika': 'bandana', 'goro': 'goggles', 'rider': 'helmet', 'grandmother': 'bun', 'hikari': 'spiky', 'glitch': 'hood', 'kenta': 'pomp', 'raijin': 'pomp'}
@@ -241,7 +251,7 @@ def person(lid, look, frame):
     if accent and at == 'back': box((-3.7, 0, 8.0), (1.0, 5.4, 1.8), mat('a', accent, 0.5), 0.3)
     if accent and at == 'chest' and not hat == 'cap': box((3.0, 0, 8.2), (1.0, 2.4, 1.0), mat('a', accent, 0.5), 0.2)
     if accent and at == 'chest' and hat == 'cap': box((2.6, 2.6, 8.4), (0.8, 1.4, 0.8), mat('a', accent, 0.3, 0.8), 0.2)
-    render_dirs(s, f'p_{lid}_{frame}', 28)
+    render_dirs(s, f'p_{lid}_{frame}', 24, 14)
 
 # ---------------------------------------------------------------- portraits for cutscene text boxes (front view)
 def bust(lid, look):
@@ -276,7 +286,10 @@ def bust(lid, look):
     box((-4, -6.2, 9), (4.6, 0.8, 1.6), j, 0.3).rotation_euler = (0, math.radians(35), 0)   # collar
     box((4, -6.2, 9), (4.6, 0.8, 1.6), j, 0.3).rotation_euler = (0, math.radians(-35), 0)
     s.render.film_transparent = True
-    render(s, f'f_{lid}', 36, 36)
+    s.camera.location = (0, -200, 17)
+    s.render.resolution_x = s.render.resolution_y = 36 * SCALE; s.camera.data.ortho_scale = 36
+    s.render.filepath = os.path.join(OUT, f'f_{lid}.png')
+    bpy.ops.render.render(write_still=True)
 
 # ---------------------------------------------------------------- ground tiles (grey: coloured in game) and decals
 def noisy(name, color, scale, bump, rough=0.9, contrast=0.08, seed=0.0):
@@ -382,8 +395,9 @@ def prop(name):
             a, d, r = rs.uniform(0, 6.28), rs.uniform(0, 11), rs.uniform(4.5, 8)
             ball((math.cos(a) * d, math.sin(a) * d, 13 + rs.uniform(0, 6)), (r, r, r * 0.8), mat('leaf%d' % (i % 3), leaf + (i % 3) * 0x060a04, 0.85))
         size = 44
-    street = name.startswith(('vending', 'lamp', 'tree', 'bench', 'bin', 'cone', 'crate'))  # stands on the ground: leans like everything else
-    render_dirs(s, f'prop_{name}', size + (14 if street else 0), 1, street)
+    # things that stand on the street lean like everything else; rooftop props are painted flat onto roofs
+    tall = next((h for k, h in (('vending', 19), ('lamp', 30), ('tree', 24), ('bench', 5), ('bin', 9), ('cone', 9), ('crate', 11)) if name.startswith(k)), 0)
+    render_dirs(s, f'prop_{name}', size, tall, 1)
 
 # ---------------------------------------------------------------- run everything, then pack the sheet
 jobs = []
@@ -411,13 +425,13 @@ for f in os.listdir(OUT):
     sh.save(os.path.join(OUT, f))
 files = sorted(f for f in os.listdir(OUT) if f.endswith('.png'))
 # cars and people are rendered with spare room round them; trim it so the sheet stays under 4096 px tall
-TRIM = {'car_': 3 * SCALE, 'p_': 1 * SCALE}
+TRIM = {}
 def load(f):
     im = Image.open(os.path.join(OUT, f)).convert('RGBA')
     t = next((v for k, v in TRIM.items() if f.startswith(k)), 0)
     return im.crop((t, t, im.width - t, im.height - t)) if t else im
 imgs = [(f[:-4], load(f)) for f in files]
-PAD, SHEET_W = 2, 2048
+PAD, SHEET_W = 2, 4096
 x = y = PAD; row = 0; frames = {}
 for name, im in sorted(imgs, key=lambda t: -t[1].height):
     if x + im.width + PAD > SHEET_W: x = PAD; y += row + PAD; row = 0
@@ -426,5 +440,10 @@ sheet = Image.new('RGBA', (SHEET_W, y + row + PAD), (0, 0, 0, 0))
 for name, im in imgs: sheet.paste(im, (frames[name]['x'], frames[name]['y']))
 os.makedirs(os.path.join(ROOT, 'public', 'assets'), exist_ok=True)
 sheet.save(os.path.join(ROOT, 'public', 'assets', 'atlas.png'), optimize=True)
-json.dump(dict(scale=SCALE, frames=frames), open(os.path.join(ROOT, 'src', 'data', 'atlas.json'), 'w'), indent=1)
+import glob
+if ORIGIN: json.dump(ORIGIN, open(os.path.join(OUT, 'origins.json'), 'w'))  # kept so '--only pack' still knows them
+ORIGIN = json.load(open(os.path.join(OUT, 'origins.json'))) if os.path.exists(os.path.join(OUT, 'origins.json')) else {}
+for n, oy in ORIGIN.items():
+    if n in frames and abs(oy - 0.5) > 0.001: frames[n]['oy'] = round(oy, 4)
+json.dump(dict(scale=SCALE, tilt=TILT, frames=frames), open(os.path.join(ROOT, 'src', 'data', 'atlas.json'), 'w'), indent=1)
 print('ATLAS', sheet.size, len(frames), 'sprites')

@@ -37,7 +37,9 @@ export class BootScene extends Phaser.Scene {
     sheet.setFilter(Phaser.Textures.FilterMode.LINEAR); // rendered art is scaled down smoothly
     const src = sheet.getSourceImage() as HTMLImageElement;
     for (const [key, f] of Object.entries(ATLAS.frames)) {
-      sheet.add(key, 0, f.x, f.y, f.w, f.h); // cars and people are drawn straight from the sheet
+      const fr = sheet.add(key, 0, f.x, f.y, f.w, f.h); // cars, people and street furniture are drawn straight from the sheet
+      const oy = (f as { oy?: number }).oy;
+      if (fr && oy) { fr.customPivot = true; fr.pivotX = 0.5; fr.pivotY = oy; } // tall pictures are anchored at their feet
       if (!/^(ground_|roof_|prop_|f_)/.test(key)) continue;
       // textures that get painted into tiles, rooftops and portraits also exist as their own small pictures
       if (this.textures.exists(key)) this.textures.remove(key);

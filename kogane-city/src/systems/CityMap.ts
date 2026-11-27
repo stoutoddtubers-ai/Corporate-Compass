@@ -253,7 +253,8 @@ export class CityMap {
     const rnd = seeded(77), V = MAP.vRoads, Hh = MAP.hRoads, rw = MAP.roadWidth;
     const lampAt = (x: number, y: number) => {
       if (this.at(x, y) !== Tile.Walk) return;
-      this.decals[y * W + x] = T.lamp;
+      this.decals[y * W + x] = -2; // nothing else on this tile
+      this.furniture.push({ x: (x + 0.5) * TS, y: (y + 0.5) * TS, key: 'prop_lamp', h: 0 });
       this.lights.push({ x: (x + 0.5) * TS, y: (y + 0.5) * TS, color: DISTRICTS[MAP.districtAt(x, y)].lamp, scale: 1.7, alpha: 0.55 });
     };
     // street trees between the lamps: cherry and green in Asagiri, a few in Denpa-chō, none in the industrial east
@@ -289,7 +290,7 @@ export class CityMap {
       else if (roll > 0.955) this.furniture.push({ x: (x + 0.5 - side[s][0] * 0.2) * TS, y: (y + 0.5 - side[s][1] * 0.2) * TS, key: roll > 0.98 && st !== DISTRICTS.tetsugawa ? 'prop_bench' : 'prop_bin', h: 0 });
       else if (roll < st.awningChance + 0.05) {
         const c = Math.floor(rnd() * 3);
-        this.decals[y * W + x] = T.vending + s * 3 + c;
+        this.furniture.push({ x: (x + 0.5 + side[s][0] * 0.28) * TS, y: (y + 0.5 + side[s][1] * 0.28) * TS, key: 'prop_vending' + c, h: 0 });
         this.lights.push({ x: (x + 0.5 + side[s][0] * 0.3) * TS, y: (y + 0.5 + side[s][1] * 0.3) * TS, color: [0xe04a4a, 0x4a9ae0, 0xf2f2f2][c], scale: 0.6, alpha: 0.7 });
       }
     }
@@ -592,10 +593,11 @@ export class CityMap {
         smoke: !r.roof && r.district === 'tetsugawa' && i % 3 === 0, beacon: !r.roof && hgt > 0.16 });
     });
     // street furniture rendered in Blender; trees stand up a little, the rest sits on the ground
+    const sheet = scene.textures.exists('atlas') ? scene.textures.get('atlas') : null;
     for (const f of this.furniture) {
-      if (!has(f.key)) continue;
-      const tree = f.h > 0;
-      out.push({ img: scene.add.image(f.x, f.y, f.key).setScale(0.5).setDepth(tree ? 19.5 : 2).setAlpha(tree ? 0.94 : 1), x: f.x, y: f.y, h: 0, sway: tree });
+      if (!sheet || !sheet.has(f.key)) continue;
+      // standing things are drawn in the same depth order as people and cars: lower on screen = in front
+      out.push({ img: scene.add.image(f.x, f.y, 'atlas', f.key).setScale(0.5).setDepth(4 + f.y * 1e-5), x: f.x, y: f.y, h: 0, sway: f.key.startsWith('prop_tree') });
     }
     // the Hozuki-mon temple gate: a red beam across the road with one giant lantern
     const gate = this.places.asagiri, gw = (MAP.roadWidth + 2) * TS;

@@ -26,7 +26,7 @@ export class Player {
   /** Car being broken into / driver being dragged out, with progress. */
   entering: { car: Car; t: number; need: number } | null = null;
   private fireT = 0;
-  private baseScale = 1;
+  baseScale = 1;
   private rollSpin = 0;
   private focus = false;
   private rollDir = { x: 1, y: 0 };

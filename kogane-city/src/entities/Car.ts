@@ -226,6 +226,7 @@ export class Car {
       if (d !== this.dir) { this.dir = d; this.sprite.setFrame(`${this.dirBase}_d${d}`); }
       this.sprite.setPosition(this.x, this.y).setRotation(this.heading - n * step);
     } else this.sprite.setPosition(this.x, this.y).setRotation(this.heading);
+    this.sprite.setDepth(4 + this.y * 1e-5);
     const bx = this.x - Math.cos(this.heading) * this.def.length * 0.5, by = this.y - Math.sin(this.heading) * this.def.length * 0.5;
     this.glowBrake.setVisible(this.braking && !this.wreck).setPosition(bx, by - 3);
     this.shadow.setPosition(this.x + 3, this.y + 4).setRotation(this.heading);

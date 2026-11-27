@@ -16,6 +16,8 @@ export const PLAYER = {
   dragOutTime: 0.5, // PLACEHOLDER: seconds to drag a driver out
   screenTime: 3, // seconds the OWARI / TAIHO screen stays up
   lowHp: 30,
+  /** People are drawn a little larger than life so they read clearly in the three-quarter view. */
+  spriteScale: 0.62,
   focusSpread: 0.35, // PLACEHOLDER: right-click focus aim shrinks spread to 35%
   focusWalk: 0.5, // and halves walking speed
 } as const;

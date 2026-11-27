@@ -80,13 +80,17 @@ export const MAP = {
   /** How strongly rooftops slide away from the screen centre to fake height (the GTA 2 trick). */
   roofHeight: 0.05, // used for low things: fences, containers, the gate
   /**
-   * The oblique view. The ground is seen from straight above, but anything with height
-   * leans "up the screen": `tilt` pixels of lean per pixel of height (0 = pure top-down).
-   * The Blender sprites are rendered with the same lean (TILT in tools/blender/render_assets.py).
+   * The camera angle. The view is a three-quarter one, about 45 degrees: halfway between
+   * overhead and behind the shoulder. Two numbers make it:
+   *  - `squash`: the whole world is drawn this much shorter top-to-bottom, so the ground recedes;
+   *  - `tilt`: anything with height leans up the screen by this many pixels per pixel of height.
+   * For a true camera angle A from overhead: squash = cos(A), tilt = tan(A). 45 degrees = 0.7 and 1.
+   * `tilt` must equal TILT in tools/blender/render_assets.py (re-render the sprites after changing it).
    */
-  tilt: 0.5,
-  /** Building height in pixels for a height value of 1 (so 0.1 = 42 px tall). */
-  heightScale: 420,
+  tilt: 1.0,
+  squash: 0.7,
+  /** Building height in pixels for a height value of 1 (so 0.1 = 33 px tall). */
+  heightScale: 330,
   /** How much of the old "slide away from the screen centre" perspective to keep. */
   perspective: 0.6,
   lampSpacing: 7, // tiles between street lamps

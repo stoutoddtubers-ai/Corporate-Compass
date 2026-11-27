@@ -79,7 +79,7 @@ export class WorldScene extends Phaser.Scene {
     this.halo = this.add.image(0, 0, 'glow').setTint(0xe8b923).setScale(0.42).setAlpha(0.4).setDepth(31).setBlendMode(Phaser.BlendModes.ADD);
     for (const pl of Object.values(this.map.places)) {
       if (!pl.label) continue;
-      const txt = this.add.text(pl.sx, pl.sy, pl.label, { fontFamily: 'sans-serif', fontSize: '11px', color: '#fff8e8', align: 'center', stroke: '#1a1410', strokeThickness: 3 }).setOrigin(0.5).setDepth(21);
+      const txt = this.add.text(pl.sx, pl.sy, pl.label, { fontFamily: 'sans-serif', fontSize: '11px', color: '#fff8e8', align: 'center', stroke: '#1a1410', strokeThickness: 3 }).setOrigin(0.5).setDepth(21).setScale(1, 1 / MAP.squash);
       const on = this.roofs.find((r) => r.rect === pl.rect); // a sign sits on its building's roof
       this.roofs.push({ img: txt, x: pl.sx, y: pl.sy, h: on ? on.h : 0 });
     }
@@ -128,7 +128,7 @@ export class WorldScene extends Phaser.Scene {
       if (!this.player.car) this.player.switchTo((this.player.current + (dy > 0 ? 1 : n - 1)) % n);
     });
 
-    this.prompt = this.add.text(0, 0, t('PROMPT_STEAL'), { fontFamily: 'monospace', fontSize: '11px', color: '#fff', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5, 1).setDepth(41).setVisible(false);
+    this.prompt = this.add.text(0, 0, t('PROMPT_STEAL'), { fontFamily: 'monospace', fontSize: '11px', color: '#fff', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5, 1).setDepth(41).setVisible(false).setScale(1, 1 / MAP.squash);
     this.bars = this.add.graphics().setDepth(41);
 
     const cam = this.cameras.main;
@@ -225,7 +225,7 @@ export class WorldScene extends Phaser.Scene {
 
   addPickup(x: number, y: number, kind: 'cash' | 'weapon', value: number, weapon: string, respawn: number): void {
     const obj = this.add.rectangle(x, y, kind === 'cash' ? 7 : 12, 7, kind === 'cash' ? 0xe8b923 : 0xf2f2f2).setDepth(1.5).setStrokeStyle(1, 0x000000);
-    const label = kind === 'weapon' ? this.add.text(x, y - 6, WEAPONS[weapon].name, { fontFamily: 'monospace', fontSize: '9px', color: '#fff', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5, 1).setDepth(1.5) : null;
+    const label = kind === 'weapon' ? this.add.text(x, y - 6, WEAPONS[weapon].name, { fontFamily: 'monospace', fontSize: '9px', color: '#fff', stroke: '#000', strokeThickness: 2 }).setOrigin(0.5, 1).setDepth(1.5).setScale(1, 1 / MAP.squash) : null;
     this.pickups.push({ x, y, kind, value, weapon, obj, label, respawn, hidden: 0 });
   }
 
@@ -357,7 +357,7 @@ export class WorldScene extends Phaser.Scene {
     p.actor.body.reset(spot.x, spot.y);
     p.heal();
     this.mode = 'play';
-    p.rollT = -1; p.actor.sprite.setAlpha(1).setScale(p.actor.sprite.width > 20 ? 0.5 : 1);
+    p.rollT = -1; p.actor.sprite.setAlpha(1).setScale(p.baseScale);
     if (dead) p.armour = 0; // death costs your armour, weapons kept (bible)
     else p.resetWeapons(['fists']); // arrest costs every weapon except melee (bible)
     this.heat.clear(false);
@@ -434,12 +434,12 @@ export class WorldScene extends Phaser.Scene {
     } else {
       const ptr = this.input.activePointer;
       fx = p.actor.x + ((ptr.x - GAME_WIDTH / 2) / (GAME_WIDTH / 2)) * CAMERA.aimLead * GAME_WIDTH;
-      fy = p.actor.y + ((ptr.y - GAME_HEIGHT / 2) / (GAME_HEIGHT / 2)) * CAMERA.aimLead * GAME_HEIGHT;
+      fy = p.actor.y + (((ptr.y - GAME_HEIGHT / 2) / (GAME_HEIGHT / 2)) * CAMERA.aimLead * GAME_HEIGHT) / MAP.squash;
     }
     const k = Math.min(1, CAMERA.followLerp * dt);
     this.cam.x += (fx - this.cam.x) * k; this.cam.y += (fy - this.cam.y) * k;
     this.cam.zoom += (zoom - this.cam.zoom) * Math.min(1, CAMERA.zoomLerp * dt);
-    cam.setZoom(this.cam.zoom);
+    cam.setZoom(this.cam.zoom, this.cam.zoom * MAP.squash); // the three-quarter view: the world is drawn shorter top-to-bottom
     cam.centerOn(this.cam.x, this.cam.y);
     // slide the rooftops away from the middle of the screen so buildings look tall
     // 2.5D buildings: each roof slides and grows away from the middle of the screen, and
