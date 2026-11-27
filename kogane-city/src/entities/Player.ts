@@ -2,7 +2,7 @@ import * as Phaser from 'phaser';
 import { Actor } from './Actor';
 import type { Car } from './Car';
 import { PLAYER } from '../data/player';
-import { WEAPONS, WeaponDef, MELEE } from '../data/weapons';
+import { WEAPONS, WeaponDef, MELEE, WEAPON_SLOTS } from '../data/weapons';
 import { PICKUPS } from '../data/ai';
 import { BARKS, pick } from '../data/strings';
 import type { WorldScene } from '../scenes/WorldScene';
@@ -47,12 +47,21 @@ export class Player {
     this.reloadT = 0;
   }
 
+  /** Pick up or buy a weapon. One weapon per class (bible): a new one replaces the old one of its class. */
   giveWeapon(id: string): void {
     const def = WEAPONS[id];
     const have = this.weapons.find((w) => w.def.id === id);
-    if (have) have.reserve += def.mag * PICKUPS.ammoMags;
-    else this.weapons.push({ def, mag: def.mag, reserve: def.startReserve });
+    if (have) { have.reserve += def.mag * PICKUPS.ammoMags; return; }
+    const held = this.weapon?.def;
+    this.weapons = this.weapons.filter((w) => w.def.weaponClass !== def.weaponClass);
+    this.weapons.push({ def, mag: def.mag, reserve: def.startReserve });
+    this.weapons.sort((a, b) => WEAPON_SLOTS.indexOf(a.def.weaponClass) - WEAPON_SLOTS.indexOf(b.def.weaponClass));
+    const keep = this.weapons.findIndex((w) => w.def === held);
+    this.current = keep >= 0 ? keep : this.weapons.findIndex((w) => w.def === def);
+    this.reloadTime0();
   }
+
+  private reloadTime0(): void { this.reloadT = 0; }
 
   get weapon(): WeaponSlot { return this.weapons[this.current]; }
   get rolling(): boolean { return this.rollT >= 0; }
@@ -136,8 +145,10 @@ export class Player {
     a.sprite.rotation = this.aim;
 
     // weapons
-    const numKeys = [k.ONE, k.TWO, k.THREE, k.FOUR];
-    numKeys.forEach((key, i) => { if (Phaser.Input.Keyboard.JustDown(key)) this.switchTo(i); });
+    // 1-5 pick the weapon in that slot: melee, pistol, SMG, shotgun, rifle
+    const numKeys = [k.ONE, k.TWO, k.THREE, k.FOUR, k.FIVE];
+    if (!w.shop.open) numKeys.forEach((key, i) => { if (Phaser.Input.Keyboard.JustDown(key)) this.switchTo(this.weapons.findIndex((x) => x.def.weaponClass === WEAPON_SLOTS[i])); });
+    a.armed = this.weapon.def.weaponClass !== 'melee';
     if (Phaser.Input.Keyboard.JustDown(k.R)) this.startReload();
     if (this.reloadT > 0) {
       this.reloadT -= dt;
@@ -182,7 +193,8 @@ export class Player {
   }
 
   private punch(): void {
-    const w = this.world, d = WEAPONS.fists, a = this.actor;
+    const w = this.world, a = this.actor;
+    const d = this.weapons.find((x) => x.def.weaponClass === 'melee')?.def ?? WEAPONS.fists; // the bat or katana if you own one
     {
       this.fireT = 1 / d.rate;
       a.punch();
@@ -196,7 +208,7 @@ export class Player {
       }
       if (best) {
         this.combo++; this.comboT = MELEE.comboWindow;
-        if (this.combo >= MELEE.comboHits) { best.stun = MELEE.knockdownTime; this.combo = 0; }
+        if (this.combo >= MELEE.comboHits || d.id !== 'fists') { best.stun = MELEE.knockdownTime; this.combo = 0; } // fists: 3rd hit knocks down; a bat or blade always does
         w.hurtActor(best, d.damage, true, 'melee');
         w.fx.spark(best.x, best.y, 0xffffff);
       }

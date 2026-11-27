@@ -171,6 +171,7 @@ export class BootScene extends Phaser.Scene {
       g.strokeStyle = '#e8b923'; g.lineWidth = 2; g.beginPath(); g.arc(56, 56, 52, 0, Math.PI * 2); g.stroke();
     });
     this.useAtlas();
-    this.scene.start('World');
+    // automated tests (and a ?play link) skip the title screen
+    this.scene.start(navigator.webdriver || location.search.includes('play') ? 'World' : 'Title');
   }
 }

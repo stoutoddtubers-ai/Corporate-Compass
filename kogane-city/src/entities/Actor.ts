@@ -34,6 +34,8 @@ export class Actor {
   /** Which way the person faces, in radians. */
   facing = 0;
   private punchT = 0;
+  /** True while this person is holding a gun out (shows the aiming pose when standing still). */
+  armed = false;
 
   /** Show the punching pose for a moment. */
   punch(): void { this.punchT = 0.2; }
@@ -85,6 +87,7 @@ export class Actor {
     if (sp > 15) { this.walk += sp * dt * 0.075; f = [1, 0, 2, 0][Math.floor(this.walk) % 4]; }
     this.punchT -= dt;
     if (this.punchT > 0) f = 3;
+    else if (f === 0 && this.armed && this.dirs && this.sprite.texture.has(`${this.base}_5_d0`)) f = 5; // standing with a gun out
     const d = this.dirs ? (((Math.round(this.facing / (Math.PI / 8)) % 16) + 16) % 16) : 0;
     if (f === this.frame && d === this.dir) return;
     this.frame = f; this.dir = d;

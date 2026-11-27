@@ -76,6 +76,7 @@ export class GangSystem {
         if (a.moveTo(a.tx, a.ty, 120) < 26) { a.body.setVelocity(0, 0); a.timer -= dt; if (a.timer <= 0) { a.timer = 1; a.data.hit = ((a.data.hit as number) || 0) + 1; w.fx.spark(a.tx, a.ty, 0xffe08a); } }
         continue;
       }
+      a.armed = !!a.data.gun && a.state === 'chase';
       if (a.data.gun) { // armed guard: keep some distance and shoot
         const sees = d < 320 && w.map.los(a.x, a.y, p.x, p.y);
         if (sees && d < 170) a.body.setVelocity(0, 0);

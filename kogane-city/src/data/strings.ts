@@ -8,6 +8,9 @@ export const STRINGS = {
   UI_ARREST_BIG: '逮捕 TAIHO',
   UI_ARREST: 'Fine: ¥{amount}. Weapons confiscated.',
   UI_HEAT_CLEAR: 'CLEAN',
+  UI_CONTINUE: 'Continue', // UI_TITLE_MENU in the script doc: Continue · New game · Settings
+  UI_NEW_GAME: 'New game',
+  UI_SAVED: 'Saved at {safehouse}.',
   OBJ_LOSE_POLICE: 'Lose the police.',
   PROMPT_STEAL: 'E — Steal',
   PROMPT_DRINK: 'E — Drink ¥{price}', // new wording, not yet in the script doc

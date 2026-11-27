@@ -174,16 +174,17 @@ export class PoliceSystem {
         a.state = 'chase';
         w.fx.bark(a.sprite, BARKS.roadblock, '#9cc0ff', 'cop', 3.5);
       }
+      a.armed = resp.armed; // officers draw their guns from 2 lanterns
       if (sees) {
         this.levelBark(a.sprite);
         const ang = Math.atan2(p.y - a.y, p.x - a.x);
         if (resp.armed && d < HEAT.cop.fireRange) {
           a.timer -= dt;
           if (a.timer <= 0) {
-            const riot = lvl >= 4; // riot police carry SMGs
-            a.timer = (riot ? HEAT.cop.riotFireInterval : HEAT.cop.fireInterval) * (0.8 + Math.random() * 0.4);
+            const riot = lvl >= 4, tac = lvl >= 5; // riot police carry SMGs; tactical teams carry rifles
+            a.timer = (tac ? HEAT.cop.tacticalFireInterval : riot ? HEAT.cop.riotFireInterval : HEAT.cop.fireInterval) * (0.8 + Math.random() * 0.4);
             const err = Phaser.Math.DegToRad((Math.random() * 2 - 1) * HEAT.cop.aimError);
-            w.projectiles.fire(a.x + Math.cos(ang) * 12, a.y + Math.sin(ang) * 12, ang + err, WEAPONS[riot ? HEAT.cop.riotWeapon : HEAT.cop.weapon], 'cop');
+            w.projectiles.fire(a.x + Math.cos(ang) * 12, a.y + Math.sin(ang) * 12, ang + err, WEAPONS[tac ? HEAT.cop.tacticalWeapon : riot ? HEAT.cop.riotWeapon : HEAT.cop.weapon], 'cop');
           }
         }
         if (!onFoot && resp.armed && d < HEAT.cop.fireRange * 0.8) a.body.setVelocity(0, 0); // stand and shoot at the car

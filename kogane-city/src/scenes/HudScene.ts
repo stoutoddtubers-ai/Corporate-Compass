@@ -8,6 +8,7 @@ import { MAX_PROJECTILES } from '../data/weapons';
 import { t } from '../data/strings';
 import { SPEAKERS } from '../data/characters';
 import { GARAGE } from '../data/garage';
+import { SHOP } from '../data/shop';
 import { FACTIONS } from '../data/turf';
 import type { WorldScene } from './WorldScene';
 
@@ -149,7 +150,7 @@ export class HudScene extends Phaser.Scene {
     this.help.setVisible(!story.radio && !story.cut);
     this.help.setText(car
       ? 'W/S drive · A/D steer · Space handbrake (drift fills nitro) · Shift nitro · E get out'
-      : 'WASD move · mouse aim · click fire · V punch · Space roll · 1-4 / wheel weapon · R reload · E steal car · F3 debug');
+      : 'WASD move · mouse aim · click fire · right-click focus · V melee · Space roll · 1-5 / wheel weapon · R reload · E car / drink');
 
     this.drawMinimap();
 
@@ -253,6 +254,19 @@ export class HudScene extends Phaser.Scene {
       ]);
     }
 
+    // Hachiman Hardware menu (shares the garage's text box)
+    if (w.shop.open && !w.garageOpen) {
+      const yen = (n: number) => '¥' + n.toLocaleString('en-US'), rows = w.shop.items;
+      this.garage.setVisible(true).setText([
+        SHOP.name,
+        ...rows.map((it, i) => `${i === w.shop.cursor ? '▶' : ' '} ${it.label.padEnd(18)} ${(it.owned ? 'OWNED' : yen(it.price)).padStart(8)}`),
+        rows[w.shop.cursor] ? rows[w.shop.cursor].note : '',
+        '↑ ↓ choose · Enter buy · walk away to leave',
+      ]);
+      g.fillStyle(0x0b0b10, 0.9).fillRect(GW / 2 - 204, 138, 408, this.garage.height + 24);
+      g.lineStyle(2, 0xf0a030, 1).strokeRect(GW / 2 - 204, 138, 408, this.garage.height + 24);
+    }
+
     // mission title card
     this.cardTitle.setVisible(!!s.card); this.cardSub.setVisible(!!s.card);
     if (s.card) {
@@ -325,6 +339,7 @@ export class HudScene extends Phaser.Scene {
     for (const a of w.police.cops) if (a.alive) dot(a.x, a.y, 0x4a8cff, 3);
     for (const a of w.gang.thugs) if (a.alive) dot(a.x, a.y, 0xc060ff, 3);
     for (const c of w.gang.activeChasers) dot(c.x, c.y, 0xc060ff, 5);
+    for (const sh of w.shop.places) dot(sh.x, sh.y, 0xf0a030, 4);
     for (const sm of w.story.sideMarkers) dot(sm.x, sm.y, 0xc060ff, 5);
     if (!w.story.active && !w.side.active) for (const st of w.side.starts) dot(st.x, st.y, 0x40d0c0, 4);
     const mk = w.story.marker ?? w.side.marker;

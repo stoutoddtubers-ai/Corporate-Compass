@@ -156,10 +156,12 @@ def taper(loc, size, top, m, bevel=0.0):
     return o
 
 # ---------------------------------------------------------------- vehicles
-def vehicle(vid, v, ci):
+def vehicle(vid, v, ci, wrecked=False):
+    """wrecked=True renders the battered version shown below half health."""
     s = reset(); MATS.clear()
     L, W, shape, col = v['L'], v['W'], v['shape'], v['colors'][ci]
-    paint = mat('paint', col, 0.28, 0.45); dark = mat('dark', 0x111114, 0.6); glass = mat('glass', 0x0a1018, 0.22, 0.0)
+    paint = mat('paint', col, 0.28 if not wrecked else 0.7, 0.45 if not wrecked else 0.1); dark = mat('dark', 0x111114, 0.6)
+    glass = mat('glass', 0x0a1018, 0.22, 0.0) if not wrecked else mat('glassx', 0x8a949c, 0.9, 0.0)  # crazed glass
     tyre = mat('tyre', 0x0b0b0b, 0.9); head = mat('head', 0xfff3c0, 0.3, 0, 5); tail = mat('tail', 0xe03030, 0.3, 0, 3)
     chrome = mat('chrome', 0xc8ccd0, 0.18, 0.95); trim = mat('trim', 0x1c1c20, 0.5, 0.3)
     def wheels(xs, y, r=3.4, wd=3):
@@ -230,7 +232,14 @@ def vehicle(vid, v, ci):
             box((-L / 2 + 5, 0, 9), (7.5, W - 1, 6.5), mat('boxw', 0xf4f0e6, 0.5), 0.9)     # soup rack
             box((-L / 2 + 5, 0, 12.5), (5.5, W - 3.5, 0.6), mat('boxr', 0xb3312f, 0.5), 0.2)
             box((2.5, 0, 4.4), (6, W - 1, 1), trim, 0.4)                                    # footboard
-    render_dirs(s, f'car_{vid}_{ci}', L + 14, 18)
+    if wrecked:  # dents, scorch marks and a missing headlight
+        soot = mat('soot', 0x1a1816, 0.95); bare = mat('bare', 0x6a6a6e, 0.6, 0.6)
+        top = 15 if shape == 'truck' else 9
+        for (x, y, sx, sy, m) in ((L * 0.3, W * 0.15, 9, 6, soot), (-L * 0.25, -W * 0.2, 7, 5, bare), (L * 0.05, W * 0.28, 5, 3, soot), (L * 0.42, -W * 0.3, 5, 4, bare), (-L * 0.4, W * 0.1, 6, 5, soot)):
+            if shape in ('scooter', 'bike') and abs(y) > W * 0.25: continue
+            box((x, y, top if abs(x) < L * 0.2 else top - 2.5), (sx, sy, 0.5), m, 0.2)
+        box((L / 2 - 0.6, W / 2 - 4.2, 5), (2.2, 5, 2.6), soot, 0.3)  # a smashed headlight
+    render_dirs(s, f'car_{vid}_{ci}' + ('x' if wrecked else ''), L + 14, 18)
 
 # ---------------------------------------------------------------- people: 3 frames (standing, left step, right step)
 HATS = {'riot': 'helmet', 'yatagarasu': 'cap', 'mama': 'bun', 'cop': 'cap', 'builder': 'helmet', 'mika': 'bandana', 'goro': 'goggles', 'rider': 'helmet', 'grandmother': 'bun', 'hikari': 'spiky', 'glitch': 'hood', 'kenta': 'pomp', 'raijin': 'pomp'}
@@ -246,16 +255,19 @@ def person(lid, look, frame):
         if accent and at == 'back': box((0, 0, 4.4), (4, 5, 0.6), mat('a', accent, 0.5), 0.2)
         render_dirs(s, f'p_{lid}_{frame}', 24, 14)
         return
-    step = {0: 0, 1: 1, 2: -1, 3: 0}[frame]
+    step = {0: 0, 1: 1, 2: -1, 3: 0, 5: 0}[frame]
     for sy in (-1, 1):                                    # feet: one forward, one back when walking
         ball((sy * step * 3.4, sy * 2.4, 1.4), (2.6, 1.5, 1.2), shoe)
     ball((-0.6, 0, 5.5), (3.8, 7.0, 3.2), j)              # shoulders
     ball((-0.9, 0, 5.0), (3.2, 4.6, 3.4), j)              # back
     for sy in (-1, 1):                                    # arms swing opposite to the feet
         ax = 3.0 - sy * step * 2.2
+        if frame == 5:  # aiming: both arms out in front, holding a gun
+            ball((6.0, sy * 2.6, 5.9), (5.0, 1.7, 1.7), j); ball((10.6, sy * 1.3, 5.9), (1.6, 1.5, 1.5), skin); continue
         if frame == 3 and sy == 1:  # punching: this arm is thrown forward
             ball((6.5, sy * 4.2, 5.8), (5.2, 1.8, 1.8), j); ball((11.6, sy * 3.8, 5.8), (1.9, 1.9, 1.7), skin); continue
         ball((ax, sy * 5.5, 5.4), (3.3, 1.7, 1.7), j); ball((ax + 3.4, sy * 4.8, 5.3), (1.4, 1.4, 1.3), skin)
+    if frame == 5: box((13.2, 0, 6.0), (5.2, 1.5, 1.6), mat('gun', 0x17171a, 0.35, 0.6), 0.3)
     ball((1.3, 0, 9.3), (2.9, 2.9, 2.9), skin)            # face peeks out in front
     hat = HATS.get(lid)
     if hat == 'hood': ball((-0.2, 0, 9.8), (3.9, 3.9, 3.5), j)
@@ -429,11 +441,14 @@ def prop(name):
 # ---------------------------------------------------------------- run everything, then pack the sheet
 jobs = []
 for vid, v in VEHICLES.items():
-    for ci in range(len(v['colors'])): jobs.append(('car', lambda vid=vid, v=v, ci=ci: vehicle(vid, v, ci)))
+    for ci in range(len(v['colors'])):
+        jobs.append(('car', lambda vid=vid, v=v, ci=ci: vehicle(vid, v, ci)))
+        jobs.append(('cardmg', lambda vid=vid, v=v, ci=ci: vehicle(vid, v, ci, True)))  # battered version
 for lid, look in LOOKS.items():
     if ONLY_LOOKS is not None and lid not in ONLY_LOOKS: continue
     for fr in (0, 1, 2): jobs.append(('person', lambda lid=lid, look=look, fr=fr: person(lid, look, fr)))
     for fr in (3, 4): jobs.append(('pose', lambda lid=lid, look=look, fr=fr: person(lid, look, fr)))  # punch, knocked down
+    jobs.append(('aim', lambda lid=lid, look=look: person(lid, look, 5)))  # aiming a gun
     jobs.append(('bust', lambda lid=lid, look=look: bust(lid, look)))
 for n in ('asphalt0', 'asphalt1', 'asphalt2', 'paver', 'kerb', 'water0', 'water1', 'planks', 'awning'): jobs.append(('ground', lambda n=n: ground(n)))
 for n in ('tile', 'metal', 'plank', 'flat'): jobs.append(('roof', lambda n=n: roof_tile(n)))

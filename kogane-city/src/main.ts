@@ -3,6 +3,7 @@ import { GAME_WIDTH, GAME_HEIGHT } from './data/config';
 import { BootScene } from './scenes/BootScene';
 import { WorldScene } from './scenes/WorldScene';
 import { HudScene } from './scenes/HudScene';
+import { TitleScene } from './scenes/TitleScene';
 import { installIntegerScaling } from './systems/IntegerScaler';
 
 const game = new Phaser.Game({
@@ -14,7 +15,7 @@ const game = new Phaser.Game({
   pixelArt: true,
   scale: { mode: Phaser.Scale.NONE },
   physics: { default: 'arcade', arcade: { gravity: { x: 0, y: 0 }, debug: false } },
-  scene: [BootScene, WorldScene, HudScene],
+  scene: [BootScene, TitleScene, WorldScene, HudScene],
 });
 
 installIntegerScaling(game);

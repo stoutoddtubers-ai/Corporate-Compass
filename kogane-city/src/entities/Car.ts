@@ -23,6 +23,7 @@ export class Car {
   /** Name of this car's set of 16 direction pictures on the sprite sheet ('' = old single picture). */
   private dirBase = '';
   private dir = 0;
+  private battered = false;
   /** True while the brakes are on (brake lights). */
   braking = false;
   private beam: Phaser.GameObjects.Image;
@@ -213,7 +214,7 @@ export class Car {
   respray(): void {
     const n = this.def.colors.length - 1;
     this.colorIndex = (this.colorIndex + 1 + Math.floor(Math.random() * Math.max(1, n - 1))) % Math.max(1, n);
-    if (this.dirBase) { this.dirBase = `car_${this.def.id}_${this.colorIndex}`; this.sprite.setFrame(`${this.dirBase}_d${this.dir}`); }
+    if (this.dirBase) { this.dirBase = `car_${this.def.id}_${this.colorIndex}`; this.battered = false; this.sprite.setFrame(`${this.dirBase}_d${this.dir}`); }
     else this.sprite.setTexture(`car_${this.def.id}_${this.colorIndex}`);
   }
 
@@ -224,7 +225,9 @@ export class Car {
     if (this.dirBase) {
       // pick the nearest of the 16 rendered directions, then turn the picture the last few degrees
       const step = Math.PI / 8, n = Math.round(this.heading / step), d = ((n % 16) + 16) % 16;
-      if (d !== this.dir) { this.dir = d; this.sprite.setFrame(`${this.dirBase}_d${d}`); }
+      // below half health the battered version of the car is shown
+      const hurt = this.hp < this.maxHp * 0.5 && !!SHEET[this.dirBase + 'x_d0'];
+      if (d !== this.dir || hurt !== this.battered) { this.dir = d; this.battered = hurt; this.sprite.setFrame(`${this.dirBase}${hurt ? 'x' : ''}_d${d}`); }
       this.sprite.setPosition(this.x, this.y).setRotation(this.heading - n * step);
     } else this.sprite.setPosition(this.x, this.y).setRotation(this.heading);
     this.sprite.setDepth(4 + this.y * 1e-5);

@@ -38,6 +38,8 @@ export const HEAT = {
     weapon: 'kitsune9',
     riotWeapon: 'suzume', // 4 lanterns: SMGs (bible)
     riotFireInterval: 0.22,
+    tacticalWeapon: 'kazeAR', // 5 lanterns: rifles (bible)
+    tacticalFireInterval: 0.2,
     dropChance: 0.3, // "grunts drop their weapon 30% of the time" (bible)
   },
   spawnInterval: 1.5,

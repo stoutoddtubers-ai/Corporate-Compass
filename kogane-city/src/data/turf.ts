@@ -1,13 +1,12 @@
 // Turf (bible "Turf control"). Bible numbers are marked; the rest are PLACEHOLDERS.
-// The bible wants 6 zones per district; for now each city block is one zone
-// (4 in Asagiri, 4 in Denpa-chō, 10 in Tetsugawa).
+// The bible wants 48 zones, 6 per district; for now each city block is one zone (37 in all).
 export const FACTIONS: Record<string, { name: string; color: number; look: string; ride: 'bike' | 'sedan' }> = {
   glitch: { name: 'Glitch', color: 0x28d8e8, look: 'glitch', ride: 'sedan' },
   raijin: { name: 'Raijin', color: 0x9a4ae0, look: 'raijin', ride: 'bike' },
   tsukuyomi: { name: 'Tsukuyomi', color: 0xd8d8d8, look: 'windbreaker', ride: 'sedan' },
   kurogane: { name: 'Kurogane-kai', color: 0xc9a84a, look: 'thug', ride: 'sedan' }, // black and gold (bible)
-  yatagarasu: { name: 'Yatagarasu', color: 0xe8e8f0, look: 'guard', ride: 'sedan' }, // Tsukuyomi's security: white and silver
-  umibozu: { name: 'Umibōzu', color: 0x2f9f96, look: 'windbreaker', ride: 'sedan' }, // teal and rust orange
+  yatagarasu: { name: 'Yatagarasu', color: 0xe8e8f0, look: 'yatagarasu', ride: 'sedan' }, // Tsukuyomi's security: white and silver
+  umibozu: { name: 'Umibōzu', color: 0x2f9f96, look: 'umibozu', ride: 'sedan' }, // teal and rust orange
   jun: { name: 'Jun', color: 0xe8b923, look: 'jun', ride: 'sedan' }, // "Jun's crew colour is gold" (bible)
 };
 

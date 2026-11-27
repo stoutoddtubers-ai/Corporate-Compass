@@ -19,13 +19,15 @@ import { GangSystem } from '../systems/GangSystem';
 import { Story } from '../systems/Story';
 import { TurfSystem } from '../systems/TurfSystem';
 import { SideJobs } from '../systems/SideJobs';
+import { Shop } from '../systems/Shop';
+import { SaveGame } from '../systems/SaveGame';
 import { createSideJobs } from '../systems/sideJobsImpl';
 import { GARAGE } from '../data/garage';
 import { Actor } from '../entities/Actor';
 import { Car } from '../entities/Car';
 import { Player } from '../entities/Player';
 
-type Keys = Record<'W' | 'A' | 'S' | 'D' | 'E' | 'R' | 'SPACE' | 'SHIFT' | 'ONE' | 'TWO' | 'THREE' | 'FOUR' | 'V' | 'F3' | 'F4' | 'F6', Phaser.Input.Keyboard.Key>;
+type Keys = Record<'W' | 'A' | 'S' | 'D' | 'E' | 'R' | 'SPACE' | 'SHIFT' | 'ONE' | 'TWO' | 'THREE' | 'FOUR' | 'FIVE' | 'UP' | 'DOWN' | 'ENTER' | 'V' | 'F3' | 'F4' | 'F6', Phaser.Input.Keyboard.Key>;
 interface Pickup { x: number; y: number; kind: 'cash' | 'weapon'; value: number; weapon: string; obj: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text | null; respawn: number; hidden: number }
 
 /** The city block: owns every system and runs them in order each frame. */
@@ -43,6 +45,8 @@ export class WorldScene extends Phaser.Scene {
   story!: Story;
   turf!: TurfSystem;
   side!: SideJobs;
+  shop!: Shop;
+  private atHome = false;
   /** True while the player's car is parked in Goro's spray booth with the menu up. */
   garageOpen = false;
   /** Writes the whole game to the browser's storage (set up by the save system). */
@@ -135,6 +139,9 @@ export class WorldScene extends Phaser.Scene {
     this.story = new Story(this);
     this.turf = new TurfSystem(this);
     this.side = createSideJobs(this);
+    this.shop = new Shop(this);
+    SaveGame.load(this);
+    this.saveGame = () => SaveGame.save(this);
 
     this.traffic = new TrafficSystem(this);
 
@@ -144,7 +151,7 @@ export class WorldScene extends Phaser.Scene {
     const near = [...this.map.lots].sort((a, b) => Math.hypot(a.x - start.x, a.y - start.y) - Math.hypot(b.x - start.x, b.y - start.y));
     guns.forEach((id, i) => { const l = near[i + 1] ?? near[0]; this.addPickup(l.x + l.w - 24, l.y + 22, 'weapon', 0, id, PICKUPS.weaponRespawn); });
 
-    this.keys = this.input.keyboard!.addKeys('W,A,S,D,E,R,V,SPACE,SHIFT,ONE,TWO,THREE,FOUR,F3,F4,F6') as Keys;
+    this.keys = this.input.keyboard!.addKeys('W,A,S,D,E,R,V,SPACE,SHIFT,ONE,TWO,THREE,FOUR,FIVE,UP,DOWN,ENTER,F3,F4,F6') as Keys;
     this.input.mouse?.disableContextMenu();
     this.input.setDefaultCursor('crosshair');
     this.input.on('wheel', (_p: unknown, _o: unknown, _dx: number, dy: number) => {
@@ -473,6 +480,12 @@ export class WorldScene extends Phaser.Scene {
     this.turf.update(dt);
     if (!this.story.active && this.mode === 'play') this.side.update(dt); else if (this.side.active) this.side.abort();
     this.updateGarage();
+    this.shop.update();
+    // the safehouse (the room above Sakamaki Ramen, once mission 1 is done): heals you and saves the game
+    const home = this.map.places.ramen, hp = this.player;
+    const inside = this.story.index >= 1 && !this.story.active && !hp.car && this.mode === 'play' && Math.hypot(hp.actor.x - home.x, hp.actor.y - home.y) < 44;
+    if (inside && !this.atHome) { hp.heal(); this.saveGame?.(); this.story.phone.push({ from: 'MIKA', text: t('UI_SAVED', { safehouse: 'Sakamaki Ramen' }), t: 3 }); }
+    this.atHome = inside;
     for (let i = this.cars.length - 1; i >= 0; i--) {
       const c = this.cars[i];
       if (c.removed) { this.cars.splice(i, 1); continue; }
@@ -665,6 +678,7 @@ export class WorldScene extends Phaser.Scene {
     const p = this.player, g = this.bars;
     g.clear();
     this.halo.setPosition(p.pos.x, p.pos.y).setVisible(!p.car && this.mode !== 'cut');
+    for (const sh of this.shop.places) if (this.onScreen(sh.x, sh.y, 60)) g.lineStyle(2, 0xf0a030, 0.75).strokeCircle(sh.x, sh.y, 22); // Hachiman Hardware: orange rings
     if (this.story.index >= 3 && !this.story.active) { const sp = this.map.places.spray; g.lineStyle(2, 0x7fe0ff, 0.7).strokeCircle(sp.x, sp.y, 30); } // Goro's spray booth
     for (const sm of this.story.sideMarkers) g.lineStyle(2, 0xc060ff, 0.5 + 0.4 * Math.sin(this.time.now / 200)).strokeCircle(sm.x, sm.y, 26); // side stories: violet rings
     if (!this.story.active) for (const st of this.side.starts) if (!this.side.active && this.onScreen(st.x, st.y, 60)) g.lineStyle(2, 0x40d0c0, 0.75).strokeCircle(st.x, st.y, 24); // side jobs: teal rings
