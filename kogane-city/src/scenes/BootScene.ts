@@ -33,13 +33,18 @@ export class BootScene extends Phaser.Scene {
    */
   private useAtlas(): void {
     if (!this.textures.exists('atlas')) return;
-    const src = this.textures.get('atlas').getSourceImage() as HTMLImageElement;
+    const sheet = this.textures.get('atlas');
+    sheet.setFilter(Phaser.Textures.FilterMode.LINEAR); // rendered art is scaled down smoothly
+    const src = sheet.getSourceImage() as HTMLImageElement;
     for (const [key, f] of Object.entries(ATLAS.frames)) {
+      sheet.add(key, 0, f.x, f.y, f.w, f.h); // cars and people are drawn straight from the sheet
+      if (!/^(ground_|roof_|prop_|f_)/.test(key)) continue;
+      // textures that get painted into tiles, rooftops and portraits also exist as their own small pictures
       if (this.textures.exists(key)) this.textures.remove(key);
       const tex = this.textures.createCanvas(key, f.w, f.h)!;
       tex.getContext().drawImage(src, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
       tex.refresh();
-      tex.setFilter(Phaser.Textures.FilterMode.LINEAR); // rendered art is scaled down smoothly
+      tex.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
   }
 

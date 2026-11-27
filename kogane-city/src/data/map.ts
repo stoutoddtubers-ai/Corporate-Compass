@@ -45,7 +45,7 @@ export const DISTRICTS: Record<string, DistrictStyle> = {
     ],
     awnings: ['#19b7c9', '#e8d02a', '#e0408a', '#f2f2f2'], awningChance: 0.8,
     neon: [0x28e0f0, 0xf0e030, 0xf040a0], lamp: 0x9fe8ff, // electric cyan
-    height: [0.13, 0.2], walls: [0xc9c9c2, 0x4a4d57, 0x8b9199], // off-white tile, dark glass
+    height: [0.11, 0.16], walls: [0xc9c9c2, 0x4a4d57, 0x8b9199], // off-white tile, dark glass
   },
   tetsugawa: {
     name: 'TETSUGAWA', kanji: '鉄川', tagline: 'Iron, rust and engines.',
@@ -79,6 +79,16 @@ export const MAP = {
   },
   /** How strongly rooftops slide away from the screen centre to fake height (the GTA 2 trick). */
   roofHeight: 0.05, // used for low things: fences, containers, the gate
+  /**
+   * The oblique view. The ground is seen from straight above, but anything with height
+   * leans "up the screen": `tilt` pixels of lean per pixel of height (0 = pure top-down).
+   * The Blender sprites are rendered with the same lean (TILT in tools/blender/render_assets.py).
+   */
+  tilt: 0.5,
+  /** Building height in pixels for a height value of 1 (so 0.1 = 42 px tall). */
+  heightScale: 420,
+  /** How much of the old "slide away from the screen centre" perspective to keep. */
+  perspective: 0.6,
   lampSpacing: 7, // tiles between street lamps
   /**
    * Story places. `block` is "column-row" of the city block (0-0 is top left; the two

@@ -217,6 +217,7 @@ export class WorldScene extends Phaser.Scene {
     if (a.hp > 0) return;
     a.kill();
     a.timer = 8; // how long the body stays
+    this.fx.mark(a.x, a.y, 'dot', Math.random() * 6, 1.3, 0.9, 0x5a0d0d, 0.6, 30); // a stain where they fell
     if (byPlayer) { this.heat.crime('kill'); if (a.kind === 'cop') this.heat.officerDown(); }
     if (a.kind === 'ped') this.addPickup(a.x, a.y, 'cash', Phaser.Math.Between(PEDS.cashDrop[0], PEDS.cashDrop[1]), '', 0);
     else if (Math.random() < HEAT.cop.dropChance) this.addPickup(a.x, a.y, 'weapon', 0, HEAT.cop.weapon, 0);
@@ -398,6 +399,16 @@ export class WorldScene extends Phaser.Scene {
     }
     this.player.actor.animate(dt);
     for (const a of this.npcs()) a.animate(dt);
+    for (const a of this.story.actors) a.animate(dt);
+    // small signs of life: tyre marks when sliding, exhaust when pulling away
+    for (const c of this.cars) {
+      if (c.removed || c.wreck || c.driver === 'none') continue;
+      const fx = Math.cos(c.heading), fy = Math.sin(c.heading), rx = c.x - fx * c.def.length * 0.3, ry = c.y - fy * c.def.length * 0.3;
+      if ((c.drifting || (c.input.handbrake && c.slip > 45)) && this.onScreen(c.x, c.y, 40)) {
+        for (const sd of [-1, 1]) this.fx.mark(rx - fy * sd * c.def.width * 0.4, ry + fx * sd * c.def.width * 0.4, 'bullet', Math.atan2(c.vy, c.vx), 0.9, 1.5, 0x0a0a0a, 0.5, 9);
+      }
+      if (c.input.throttle > 0 && c.speed < 150 && Math.random() < 0.2 && this.onScreen(c.x, c.y, 40)) this.fx.puff(c.x - fx * c.def.length * 0.5, c.y - fy * c.def.length * 0.5, 0x9a9a9a, 5, 0.5, -fx * 30, -fy * 30, 1.6, 0.35);
+    }
     this.collideCars();
     this.collideCarPeople();
     for (const c of this.cars) c.sync();
@@ -440,13 +451,17 @@ export class WorldScene extends Phaser.Scene {
       const on = Math.abs(r.x - mid.x) < vw.width / 2 + 360 && Math.abs(r.y - mid.y) < vw.height / 2 + 360;
       r.img.setVisible(on);
       if (!on) continue;
-      const k = r.h;
-      r.img.setPosition(r.x + (r.x - mid.x) * k, r.y + (r.y - mid.y) * k);
+      // oblique view: height leans up the screen, plus a little slide away from the screen centre
+      const k = r.h, ps = k * MAP.perspective, lean = k * MAP.heightScale * MAP.tilt;
+      r.img.setPosition(r.x + (r.x - mid.x) * ps, r.y + (r.y - mid.y) * ps - lean);
+      if (r.sway) r.img.rotation = Math.sin(this.time.now / 900 + r.x) * 0.035; // trees move in the wind
       const b = r.rect;
       if (!b) continue;
-      (r.img as Phaser.GameObjects.Image).setScale(1 + k);
+      (r.img as Phaser.GameObjects.Image).setScale(1 + ps);
       const x0 = b.x, y0 = b.y, x1 = b.x + b.w, y1 = b.y + b.h;
-      const X0 = x0 + (x0 - mid.x) * k, Y0 = y0 + (y0 - mid.y) * k, X1 = x1 + (x1 - mid.x) * k, Y1 = y1 + (y1 - mid.y) * k; // roof corners
+      const X0 = x0 + (x0 - mid.x) * ps, Y0 = y0 + (y0 - mid.y) * ps - lean, X1 = x1 + (x1 - mid.x) * ps, Y1 = y1 + (y1 - mid.y) * ps - lean; // roof corners
+      if (r.smoke && Math.random() < 0.1) this.fx.puff(X0 + (X1 - X0) * 0.3, Y0 + (Y1 - Y0) * 0.3, 0x8a8a8a, 10, 2.2, -8 + Math.random() * 6, -26, 1.1, 0.45); // factory chimneys
+      if (r.beacon && Math.floor(this.time.now / 700 + r.x) % 2) this.fx.puff(X1 - 8, Y0 + 8, 0xff3030, 5, 0.08, 0, 0, 0, 0.9); // blinking roof beacons
       // if the player is hidden behind this building, make it see-through
       const hidden = pp.x > X0 - 8 && pp.x < X1 + 8 && pp.y > Y0 - 8 && pp.y < Y1 + 8;
       const alpha = hidden ? 0.4 : 1;
@@ -472,10 +487,10 @@ export class WorldScene extends Phaser.Scene {
           }
         }
       };
-      if (mid.x < x0) wall(x0, y0, x0, y1, X0, Y0, X0, Y1, dark, 0); // we see its west wall
-      else if (mid.x > x1) wall(x1, y0, x1, y1, X1, Y0, X1, Y1, dark, 1); // east wall
-      if (mid.y < y0) wall(x0, y0, x1, y0, X0, Y0, X1, Y0, col, 2); // north wall
-      else if (mid.y > y1) wall(x0, y1, x1, y1, X0, Y1, X1, Y1, col, 3); // south wall
+      if (X0 > x0) wall(x0, y0, x0, y1, X0, Y0, X0, Y1, dark, 0); // we see its west wall
+      else if (X1 < x1) wall(x1, y0, x1, y1, X1, Y0, X1, Y1, dark, 1); // east wall
+      if (Y0 > y0) wall(x0, y0, x1, y0, X0, Y0, X1, Y0, col, 2); // north wall
+      else if (Y1 < y1) wall(x0, y1, x1, y1, X0, Y1, X1, Y1, col, 3); // the south wall faces the camera // south wall
     }
   }
 
@@ -494,12 +509,14 @@ export class WorldScene extends Phaser.Scene {
 
   /** A few times a second: move the light pool to the lamps on screen, and fill / empty nearby car parks. */
   private slowUpdate(): void {
+    this.map.shimmer(); // water ripples
     const v = this.cameras.main.worldView, p = this.player.pos, a = this.ambience;
     let n = 0;
     if (a.lights > 0.05) for (const l of this.map.lights) {
       if (n >= this.glows.length) break;
       if (l.x < v.x - 160 || l.x > v.right + 160 || l.y < v.y - 160 || l.y > v.bottom + 160) continue;
-      this.glows[n++].setPosition(l.x, l.y).setTint(l.color).setScale(l.scale).setAlpha(l.alpha * a.lights).setVisible(true);
+      const flicker = l.scale > 1 && l.scale < 1.2 ? 0.75 + Math.random() * 0.3 : 1; // neon billboards buzz
+      this.glows[n++].setPosition(l.x, l.y).setTint(l.color).setScale(l.scale).setAlpha(l.alpha * a.lights * flicker).setVisible(true);
     }
     for (; n < this.glows.length; n++) this.glows[n].setVisible(false);
 

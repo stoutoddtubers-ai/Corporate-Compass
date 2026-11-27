@@ -27,8 +27,11 @@ Cars, people, roof materials and rooftop props are modelled and rendered in Blen
 `tools/blender/render_assets.py` (needs `pip install bpy pillow`). It writes the sprite
 sheet `public/assets/atlas.png` and `src/data/atlas.json`. Re-run it after changing a
 model or a colour. If the sheet is missing the game falls back to code-drawn placeholders.
-Buildings are 2.5D: roofs slide away from the screen centre and walls are drawn down to
-the footprint; heights and wall colours per district are in `src/data/map.ts`.
+The view is oblique (2.5D): the ground is seen from above, but anything with height leans
+up the screen, so buildings show their camera-facing wall and cars and people show their
+sides. Cars and people are rendered in 16 directions with that lean. The lean (`tilt`),
+building heights and wall colours are in `src/data/map.ts`; TILT in the Blender script must match.
+A full re-render takes about 3 minutes; `--only pack` just rebuilds the sheet.
 
 ## Folders
 

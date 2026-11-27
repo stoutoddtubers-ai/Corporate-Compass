@@ -20,7 +20,7 @@ export interface Block extends Rect { id: string; district: string }
 export interface Place { x: number; y: number; sx: number; sy: number; label: string; rect: Rect | null }
 export interface Light { x: number; y: number; color: number; scale: number; alpha: number }
 /** Something drawn above the street: a rooftop (with its building's footprint, for walls), a sign, the gate... */
-export interface Roof { img: Phaser.GameObjects.Image | Phaser.GameObjects.Text; x: number; y: number; h: number; rect?: Rect; wall?: number }
+export interface Roof { img: Phaser.GameObjects.Image | Phaser.GameObjects.Text; x: number; y: number; h: number; rect?: Rect; wall?: number; sway?: boolean; smoke?: boolean; beacon?: boolean }
 export interface Junction { id: number; x: number; y: number; lit: boolean; offset: number }
 
 /** Small repeatable random number generator, so the city is the same every time. */
@@ -63,6 +63,10 @@ export class CityMap {
   private carPass = new Uint8Array(W * H);
   private queue = new Int32Array(W * H);
   private decals = new Int16Array(W * H).fill(-1);
+  private groundLayer: Phaser.Tilemaps.TilemapLayer | null = null;
+
+  /** Swaps the two water pictures, so the river and canal shimmer. */
+  shimmer(): void { this.groundLayer?.swapByIndex(T.water, T.water + 1); }
   /** Street furniture drawn as sprites: trees, benches, bins, crates, cones. `h` > 0 makes it stand up (2.5D). */
   readonly furniture: { x: number; y: number; key: string; h: number }[] = [];
 
@@ -526,7 +530,8 @@ export class CityMap {
     for (let i = 0; i < this.decals.length; i++) if (this.decals[i] < -1) this.decals[i] = -1;
     const map = scene.make.tilemap({ data: ground, tileWidth: TS, tileHeight: TS });
     const set = map.addTilesetImage('tiles', 'tiles', TS, TS, 1, 2)!;
-    map.createLayer(0, set, 0, 0)!.setDepth(0);
+    this.groundLayer = map.createLayer(0, set, 0, 0) as Phaser.Tilemaps.TilemapLayer;
+    this.groundLayer.setDepth(0);
     const dec = map.createBlankLayer('decals', set, 0, 0)!.setDepth(1);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (this.decals[y * W + x] >= 0) dec.putTileAt(this.decals[y * W + x], x, y);
   }
@@ -583,13 +588,14 @@ export class CityMap {
       g.fillStyle = 'rgba(0,0,0,0.38)'; g.fillRect(0, h - 4, w, 4); g.fillRect(w - 4, 0, 4, h);
       tex.refresh();
       const hgt = r.roof ? MAP.roofHeight * (r.height ?? 1) : D.height[0] + rnd() * (D.height[1] - D.height[0]);
-      out.push({ img: scene.add.image(r.x + r.w / 2, r.y + r.h / 2, key).setDepth(20), x: r.x + r.w / 2, y: r.y + r.h / 2, h: hgt, rect: r, wall: D.walls[i % D.walls.length] });
+      out.push({ img: scene.add.image(r.x + r.w / 2, r.y + r.h / 2, key).setDepth(20), x: r.x + r.w / 2, y: r.y + r.h / 2, h: hgt, rect: r, wall: D.walls[i % D.walls.length],
+        smoke: !r.roof && r.district === 'tetsugawa' && i % 3 === 0, beacon: !r.roof && hgt > 0.16 });
     });
     // street furniture rendered in Blender; trees stand up a little, the rest sits on the ground
     for (const f of this.furniture) {
       if (!has(f.key)) continue;
       const tree = f.h > 0;
-      out.push({ img: scene.add.image(f.x, f.y, f.key).setScale(0.5).setDepth(tree ? 19.5 : 2).setAlpha(tree ? 0.94 : 1), x: f.x, y: f.y, h: f.h });
+      out.push({ img: scene.add.image(f.x, f.y, f.key).setScale(0.5).setDepth(tree ? 19.5 : 2).setAlpha(tree ? 0.94 : 1), x: f.x, y: f.y, h: 0, sway: tree });
     }
     // the Hozuki-mon temple gate: a red beam across the road with one giant lantern
     const gate = this.places.asagiri, gw = (MAP.roadWidth + 2) * TS;

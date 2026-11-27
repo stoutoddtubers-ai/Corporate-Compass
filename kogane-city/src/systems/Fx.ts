@@ -8,6 +8,8 @@ export class Fx {
   private parts: Part[] = [];
   private barks: Bark[] = [];
   private lastBark = new Map<string, number>();
+  private marks: { img: Phaser.GameObjects.Image; life: number; max: number; a: number }[] = [];
+  private markI = 0;
 
   constructor(private scene: Phaser.Scene) {}
 
@@ -20,6 +22,15 @@ export class Fx {
     }
     p.img.setPosition(x, y).setTint(color).setScale(size / 16).setAlpha(alpha).setVisible(true);
     p.vx = vx; p.vy = vy; p.life = p.max = life; p.grow = grow; p.a = alpha;
+  }
+
+  /** A stain on the ground that slowly fades: tyre marks, blood. */
+  mark(x: number, y: number, key: string, rot: number, sx: number, sy: number, color: number, alpha: number, life: number): void {
+    let m = this.marks[this.markI];
+    if (!m) { m = { img: this.scene.add.image(0, 0, key).setDepth(1.3), life: 0, max: 1, a: 1 }; this.marks[this.markI] = m; }
+    this.markI = (this.markI + 1) % 260; // oldest marks are reused
+    m.img.setTexture(key).setPosition(x, y).setRotation(rot).setScale(sx, sy).setTint(color).setAlpha(alpha).setVisible(true);
+    m.life = m.max = life; m.a = alpha;
   }
 
   spark(x: number, y: number, color = 0xffe08a): void {
@@ -64,6 +75,11 @@ export class Fx {
       p.vx *= 1 - 2 * dt; p.vy *= 1 - 2 * dt;
       p.img.setScale(p.img.scaleX * (1 + p.grow * dt));
       p.img.setAlpha(p.a * (p.life / p.max));
+    }
+    for (const m of this.marks) {
+      if (m.life <= 0) continue;
+      m.life -= dt;
+      if (m.life <= 0) m.img.setVisible(false); else if (m.life < m.max * 0.4) m.img.setAlpha(m.a * (m.life / (m.max * 0.4)));
     }
     for (const b of this.barks) {
       if (b.life <= 0) continue;

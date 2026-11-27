@@ -2,6 +2,9 @@ import * as Phaser from 'phaser';
 import { PLAYER } from '../data/player';
 import type { WorldScene } from '../scenes/WorldScene';
 
+/** A tiny rotation that means "the facing has been read": lets animate() notice when someone turns the sprite. */
+const FACING_READ = 1e-7;
+
 export type ActorKind = 'player' | 'ped' | 'cop' | 'thug';
 
 /**
@@ -24,10 +27,16 @@ export class Actor {
   private base: string;
   private frame = 0;
   private walk = 0;
+  /** True when this look has pictures for 16 directions on the sprite sheet. */
+  private dirs = false;
+  private dir = 0;
+  /** Which way the person faces, in radians. */
+  facing = 0;
 
   constructor(scene: WorldScene, readonly kind: ActorKind, x: number, y: number, look: string, hp: number) {
     this.base = 'p_' + look;
-    this.sprite = scene.physics.add.image(x, y, this.base).setDepth(4);
+    this.dirs = scene.textures.exists('atlas') && scene.textures.get('atlas').has(this.base + '_0_d0');
+    this.sprite = this.dirs ? scene.physics.add.image(x, y, 'atlas', this.base + '_0_d0').setDepth(4) : scene.physics.add.image(x, y, this.base).setDepth(4);
     if (this.sprite.width > 20) { // Blender sprite, drawn at twice game size
       this.sprite.setScale(0.5);
       this.sprite.setCircle(PLAYER.radius * 2, this.sprite.width / 2 - PLAYER.radius * 2, this.sprite.height / 2 - PLAYER.radius * 2);
@@ -54,16 +63,22 @@ export class Actor {
     return d;
   }
 
-  /** Walking animation: swaps between the standing frame and two stepping frames as the person moves. */
+  /**
+   * Picks the picture to show: which of 16 directions the person faces, and which walking
+   * frame (standing, left step, right step). The rest of the game still just sets
+   * `sprite.rotation` to turn someone; this reads that and swaps the picture instead.
+   */
   animate(dt: number): void {
-    if (!this.alive || !this.body.enable) return;
-    const sp = this.body.speed;
+    if (!this.alive) return;
+    if (this.dirs && this.sprite.rotation !== FACING_READ) { this.facing = this.sprite.rotation; this.sprite.rotation = FACING_READ; }
+    const sp = this.body.enable ? this.body.speed : 0;
     let f = 0;
     if (sp > 15) { this.walk += sp * dt * 0.075; f = [1, 0, 2, 0][Math.floor(this.walk) % 4]; }
-    if (f === this.frame) return;
-    this.frame = f;
-    const key = f ? `${this.base}_${f}` : this.base;
-    if (this.sprite.scene.textures.exists(key)) this.sprite.setTexture(key);
+    const d = this.dirs ? (((Math.round(this.facing / (Math.PI / 8)) % 16) + 16) % 16) : 0;
+    if (f === this.frame && d === this.dir) return;
+    this.frame = f; this.dir = d;
+    if (this.dirs) this.sprite.setFrame(`${this.base}_${f}_d${d}`);
+    else { const key = f ? `${this.base}_${f}` : this.base; if (this.sprite.scene.textures.exists(key)) this.sprite.setTexture(key); }
   }
 
   kill(): void {

@@ -8,13 +8,19 @@ sprite sits in the sheet). Everything is rendered at twice game size for crisp s
 One Blender unit = one game pixel.
 """
 import bpy, json, math, os, sys
-from mathutils import Vector
+from mathutils import Matrix
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 OUT = os.path.join(HERE, 'out')
 os.makedirs(OUT, exist_ok=True)
 SCALE = 2  # render at 2x game size
+# The game's view is oblique: the ground is seen from straight above, but anything with
+# height leans "up the screen" by TILT pixels per pixel of height. Models are sheared the
+# same way before rendering, so cars and people show their sides. Things that turn are
+# rendered once per direction.
+TILT = 0.5
+DIRS = 16
 ONLY = sys.argv[sys.argv.index('--only') + 1] if '--only' in sys.argv else ''
 
 # ---- colours copied from src/data/vehicles.ts and src/data/characters.ts ----
@@ -48,7 +54,7 @@ def rgb(c):
 def reset():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     s = bpy.context.scene
-    s.render.engine = 'CYCLES'; s.cycles.device = 'CPU'; s.cycles.samples = 48
+    s.render.engine = 'CYCLES'; s.cycles.device = 'CPU'; s.cycles.samples = 24
     s.cycles.use_denoising = False
     s.render.film_transparent = True
     s.view_settings.view_transform = 'Standard'
@@ -95,6 +101,16 @@ def cyl(loc, r, depth, m, rot=(0, 0, 0), verts=20):
     o = bpy.context.object; bpy.ops.object.shade_smooth(); o.data.materials.append(m)
     return o
 
+
+def render_dirs(s, name, size, dirs=DIRS, lean=True):
+    """Render the scene's model leaning up-screen, once per direction (0 = facing right, then clockwise)."""
+    objs = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+    base = [o.matrix_world.copy() for o in objs]
+    shear = Matrix.Identity(4); shear[1][2] = TILT if lean else 0
+    for i in range(dirs):
+        m = shear @ Matrix.Rotation(-i * 2 * math.pi / dirs, 4, 'Z')
+        for o, b in zip(objs, base): o.matrix_world = m @ b
+        render(s, name if dirs == 1 else f'{name}_d{i}', size, size)
 
 def render(s, name, w, h):
     """Render a w x h (game pixels) area centred on the origin."""
@@ -194,7 +210,7 @@ def vehicle(vid, v, ci):
             box((-L / 2 + 5, 0, 9), (7.5, W - 1, 6.5), mat('boxw', 0xf4f0e6, 0.5), 0.9)     # soup rack
             box((-L / 2 + 5, 0, 12.5), (5.5, W - 3.5, 0.6), mat('boxr', 0xb3312f, 0.5), 0.2)
             box((2.5, 0, 4.4), (6, W - 1, 1), trim, 0.4)                                    # footboard
-    render(s, f'car_{vid}_{ci}', L + 8, W + 8)
+    render_dirs(s, f'car_{vid}_{ci}', L + 22)
 
 # ---------------------------------------------------------------- people: 3 frames (standing, left step, right step)
 HATS = {'cop': 'cap', 'builder': 'helmet', 'mika': 'bandana', 'goro': 'goggles', 'rider': 'helmet', 'grandmother': 'bun', 'hikari': 'spiky', 'glitch': 'hood', 'kenta': 'pomp', 'raijin': 'pomp'}
@@ -225,7 +241,7 @@ def person(lid, look, frame):
     if accent and at == 'back': box((-3.7, 0, 8.0), (1.0, 5.4, 1.8), mat('a', accent, 0.5), 0.3)
     if accent and at == 'chest' and not hat == 'cap': box((3.0, 0, 8.2), (1.0, 2.4, 1.0), mat('a', accent, 0.5), 0.2)
     if accent and at == 'chest' and hat == 'cap': box((2.6, 2.6, 8.4), (0.8, 1.4, 0.8), mat('a', accent, 0.3, 0.8), 0.2)
-    render(s, f'p_{lid}' + ('' if frame == 0 else f'_{frame}'), 22, 22)
+    render_dirs(s, f'p_{lid}_{frame}', 28)
 
 # ---------------------------------------------------------------- portraits for cutscene text boxes (front view)
 def bust(lid, look):
@@ -366,7 +382,8 @@ def prop(name):
             a, d, r = rs.uniform(0, 6.28), rs.uniform(0, 11), rs.uniform(4.5, 8)
             ball((math.cos(a) * d, math.sin(a) * d, 13 + rs.uniform(0, 6)), (r, r, r * 0.8), mat('leaf%d' % (i % 3), leaf + (i % 3) * 0x060a04, 0.85))
         size = 44
-    render(s, f'prop_{name}', size, size)
+    street = name.startswith(('vending', 'lamp', 'tree', 'bench', 'bin', 'cone', 'crate'))  # stands on the ground: leans like everything else
+    render_dirs(s, f'prop_{name}', size + (14 if street else 0), 1, street)
 
 # ---------------------------------------------------------------- run everything, then pack the sheet
 jobs = []
@@ -379,7 +396,7 @@ for n in ('asphalt0', 'asphalt1', 'asphalt2', 'paver', 'kerb', 'water0', 'water1
 for n in ('tile', 'metal', 'plank', 'flat'): jobs.append(('roof', lambda n=n: roof_tile(n)))
 for n in ('ac', 'tank', 'vent', 'skylight', 'dish', 'solar', 'vending0', 'vending1', 'vending2', 'lamp', 'tree0', 'tree1', 'tree2', 'bench', 'bin', 'cone', 'crate'): jobs.append(('prop', lambda n=n: prop(n)))
 for kind, job in jobs:
-    if not ONLY or ONLY == kind: job()
+    if ONLY != 'pack' and (not ONLY or ONLY == kind): job()  # '--only pack' just rebuilds the sheet
 
 from PIL import Image, ImageFilter
 # props get a soft drop shadow, added here so it is easy to tune
@@ -393,8 +410,14 @@ for f in os.listdir(OUT):
     sh.alpha_composite(im)
     sh.save(os.path.join(OUT, f))
 files = sorted(f for f in os.listdir(OUT) if f.endswith('.png'))
-imgs = [(f[:-4], Image.open(os.path.join(OUT, f)).convert('RGBA')) for f in files]
-PAD, SHEET_W = 2, 1024
+# cars and people are rendered with spare room round them; trim it so the sheet stays under 4096 px tall
+TRIM = {'car_': 3 * SCALE, 'p_': 1 * SCALE}
+def load(f):
+    im = Image.open(os.path.join(OUT, f)).convert('RGBA')
+    t = next((v for k, v in TRIM.items() if f.startswith(k)), 0)
+    return im.crop((t, t, im.width - t, im.height - t)) if t else im
+imgs = [(f[:-4], load(f)) for f in files]
+PAD, SHEET_W = 2, 2048
 x = y = PAD; row = 0; frames = {}
 for name, im in sorted(imgs, key=lambda t: -t[1].height):
     if x + im.width + PAD > SHEET_W: x = PAD; y += row + PAD; row = 0

@@ -27,6 +27,7 @@ export class Player {
   entering: { car: Car; t: number; need: number } | null = null;
   private fireT = 0;
   private baseScale = 1;
+  private rollSpin = 0;
   private focus = false;
   private rollDir = { x: 1, y: 0 };
   private combo = 0;
@@ -117,12 +118,13 @@ export class Player {
       this.rollT += dt;
       a.body.setVelocity(this.rollDir.x * PLAYER.roll.speed, this.rollDir.y * PLAYER.roll.speed);
       a.sprite.setAlpha(this.invulnerable ? 0.45 : 0.8).setScale(this.baseScale * 0.8);
-      a.sprite.rotation += 20 * dt;
+      a.sprite.rotation = this.rollSpin += 20 * dt;
       if (this.rollT >= PLAYER.roll.duration) { this.rollT = -1; a.sprite.setAlpha(1).setScale(this.baseScale); }
       return;
     }
     if (spaceDown && this.rollCooldown <= 0) {
       this.rollT = 0;
+      this.rollSpin = this.aim;
       this.rollCooldown = PLAYER.roll.duration + PLAYER.roll.cooldown;
       this.rollDir = ml ? { x: mx, y: my } : { x: Math.cos(this.aim), y: Math.sin(this.aim) };
       this.entering = null;
