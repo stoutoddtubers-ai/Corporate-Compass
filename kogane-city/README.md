@@ -86,3 +86,19 @@ fun or fair; that needs a person playing.
     GAME_URL=http://localhost:4173/ node tools/test/act3.cjs      # missions 17-24, all endings
     GAME_URL=http://localhost:4173/ node tools/test/side.cjs      # the twelve side stories
     GAME_URL=http://localhost:4173/ node tools/test/sidejobs.cjs  # side jobs and lucky cats
+
+## What stands in for what
+
+The engine has streets, cars and people, but no building interiors, no boats and no
+aircraft. Until those exist:
+
+- Indoor scenes are staged in the nearest yard, alley or plaza. "Rooms" and "floors" are
+  marked spots or waves of enemies; "rooftops" are marked spots at a building's door.
+- Boat chases are car chases along the shore. The ship in the finale is a drawing beside
+  the north quay and its deck is the quay. Boats in the side stories are cars and trucks.
+- The helicopter is a drawing over an invisible truck, which is what bullets hit.
+- Weapons the story names but the game does not have yet (the Inspector's Revolver,
+  Black Iron) are stood in by existing guns.
+- Side-story rewards: the money and Daigo's bike are real. Faction standing, escorts,
+  tips, the free drink and similar are named on the result card only.
+- Mission payouts and most timings are placeholders inside the bible's ranges.
