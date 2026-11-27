@@ -1,6 +1,6 @@
 // Act 3 (missions 17-24 and the three endings), driven from first step to final card.
 //   node tools/test/act3.cjs            (GAME_URL defaults to http://localhost:4182/)
-// It teleports and kills instantly; it checks the words shown against the script, both Act 2
+// It teleports and kills instantly, but goes through the real doors and stairs of each building at least once; it checks the words shown against the script, both Act 2
 // paths where lines differ, every choice, every fail condition and checkpoint, and all endings.
 // Prints one line per mission run and exits 1 on any failure or page error.
 const { chromium } = require('playwright');
@@ -64,7 +64,7 @@ function audit() {
   const browser = await chromium.launch({ args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader'] });
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const errs = [];
-  page.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
+  page.on('console', (m) => { if (m.type() === 'error' || /No room left for interior/.test(m.text())) errs.push(m.text()); });
   page.on('pageerror', (e) => errs.push(String(e.stack || e)));
   await page.goto(URL);
   await page.waitForFunction(() => window.__kc && window.__kc.story && window.__kc.player, null, { timeout: 60000 });
@@ -116,6 +116,19 @@ function audit() {
     }, [id, pathName, cash ?? 5000]);
   };
   const toMarker = () => ev(() => { const w = window.__kc, m = w.story.marker, c = w.player.car; if (!m) return; if (c) { c.x = m.x; c.y = m.y; c.vx = c.vy = 0; } else w.player.actor.body.reset(m.x, m.y); });
+  /** The room Jun is in (null on the street). */
+  const room = async () => { await wait(120); return ev(() => { const w = window.__kc; return w.indoors ? w.indoors.id : null; }); };
+  /** Which room a thing in the mission's notes is in. */
+  const roomOf = (key) => ev((key) => { const w = window.__kc, a = w.story.vars[key], r = a && w.map.interiorAt(a.x, a.y); return r ? r.id : null; }, key);
+  /** Walks through doors and up stairs the way a player does: stand on each named place in turn and press E. Ends in room `want`. */
+  const through = async (places, want) => {
+    for (const id of places) {
+      const ok = await ev((id) => { const w = window.__kc, q = w.map.places[id]; if (!q) return false; w.player.actor.body.reset(q.x, q.y); return w.useDoor(); }, id);
+      need(ok, 'no door or stairs at ' + id);
+      await wait(120);
+    }
+    const r = await room(); need(r === want, `after ${places.join(' → ')} Jun should be in ${want}, is in ${r}`);
+  };
   const onFoot = () => ev(() => { const w = window.__kc; if (w.player.car) w.player.exitCar(); });
   const kill = (tag) => ev((tag) => { const w = window.__kc; for (const t of w.gang.thugs) if (t.alive && (!tag || t.data.tag === tag)) w.hurtActor(t, 999, true, 'bullet'); }, tag);
   const count = (tag) => ev((tag) => window.__kc.gang.thugs.filter((t) => t.alive && t.data.tag === tag).length, tag);
@@ -147,9 +160,12 @@ function audit() {
     await toMarker(); await obj('Reach the harbour office.');
     if (p === 'police') { has(log.phone, 'SAWADA: Guard on the left stack. My sniper has him. Go.', 'call'); need(await ev(() => !window.__kc.story.vars.docks[1].alive), 'the sniper did not drop the guard on the left stack'); }
     else { need(await ev(() => !!window.__kc.story.vars.fire), 'no fire at the north gate'); need(!log.phone.some((l) => l.startsWith('SAWADA')), 'Sawada called on the yakuza path'); }
-    await kill('dock');
     await toMarker(); await obj('Find the manifest.');
-    await toMarker(); await obj('Get out of the port.'); has(log.lines, 'MANIFEST: AMATERASU MARU — DEPARTS IN 7 DAYS', 'manifest');
+    need(await ev(() => { const w = window.__kc, r = w.map.interiorAt(w.story.vars.docks[4].x, w.story.vars.docks[4].y); return !!r && r.id === 'harbourOffice'; }), 'the fifth dockhand should be inside the harbour office');
+    await through(['harbourOffice', 'harbourOffice:>'], 'harbourRecords'); // in at the door, up the stairs
+    await toMarker(); await obj('Get out of the port.');
+    await through(['harbourRecords:<', 'harbourOffice:D'], null); // and back out the way he came
+    await kill('dock'); has(log.lines, 'MANIFEST: AMATERASU MARU — DEPARTS IN 7 DAYS', 'manifest');
     await toMarker(); const o = await done();
     has(log.phone, "HIKARI: It's the gold.", 'outro call'); has(log.phone, "JUN: Then I'm getting up early.", 'outro call');
     has(log.cards, p === 'police' ? "LOW TIDE — COMPLETE | Unlocked: Inspector's Revolver (Legendary)" : 'LOW TIDE — COMPLETE | ', 'card');
@@ -161,6 +177,7 @@ function audit() {
   await mission('M18 Fish Market [pay]', async () => {
     await start('M18', 'yakuza', 6000000);
     const c = await until((o) => !!o.choice, 'the choice'); need(c.choice.join('|') === 'Pay ¥5,000,000|Fight', 'choice options');
+    need(await room() === 'fishHall', 'the scene should be inside the market hall'); need(await roomOf('boss') === 'fishHall', 'Hachirō should be in the hall');
     await ev(() => window.__kc.story.choose(0));
     await obj('Hand over the money.'); await toMarker(); const o = await done();
     has(log.lines, "HACHIRŌ: (counting) Smart. Money's cleaner than blood. Mostly.", 'outro'); need(!log.lines.some((l) => l.includes('frozen tuna. Nobody')), 'fought line shown after paying');
@@ -172,6 +189,7 @@ function audit() {
     await start('M18', 'yakuza');
     await until((o) => !!o.choice, 'the choice'); await ev(() => window.__kc.story.choose(1));
     const b = await obj("Beat Hachirō's crew."); need(b.hint === 'Tuna knife — press E to pick up.', 'knife prompt');
+    need(await ev(() => { const w = window.__kc; return w.gang.thugs.filter((t) => t.alive).every((t) => { const r = w.map.interiorAt(t.x, t.y); return r && r.id === 'fishHall'; }); }), 'the crew should all be in the hall');
     await toMarker(); await page.keyboard.down('e'); await wait(250); await page.keyboard.up('e');
     need(await ev(() => !!window.__kc.story.flags.knife), 'E did not pick up the tuna knife');
     await kill('crew'); await obj('Beat Hachirō.'); await wait(300); await boss('boss', 0); await done();
@@ -221,7 +239,10 @@ function audit() {
     const toRoof = async (scratchFirst) => {
       if (scratchFirst) await park(true);
       for (let i = 0; i < 3; i++) await park(false);
-      await obj('Carry coats up to the roof.'); await toMarker(); await obj('Get close to Amane.');
+      await obj('Carry coats up to the roof.');
+      if (scratchFirst) await through(['rokkakuTower', 'rokkakuLobby:>', 'rokkakuStairs:>'], 'rokkakuTop'); // the first time, by the front door and the service stairs
+      await toMarker(); await obj('Get close to Amane.');
+      need(await room() === 'rokkakuTop' && await roomOf('amane') === 'rokkakuTop', 'the party should be on the roof of Rokkaku Tower');
     };
     await toRoof(true);
     has(log.phone, 'HIKARI: You were a getaway driver. This is a getaway driver with manners.', 'intro call');
@@ -233,7 +254,8 @@ function audit() {
     const behind = () => ev(() => { const w = window.__kc, a = w.story.vars.amane; w.player.actor.body.reset(a.x + 20, a.y); }); // beside her, out of her sight
     await obj('Plant the bug on her phone.', behind); await obj('Listen in.', behind);
     await until((o) => o.obj !== 'Listen in.', 'the conversation', () => ev(() => { window.__kc.story.vars.listenT = 100; }));
-    await done();
+    await done(); need(await room() === 'rokkakuStairs', 'the last call should be in the service stairwell');
+    await through(['rokkakuStairs:<', 'rokkakuLobby:D'], null); // down and out to the street
     for (const l of ['AMANE: Mr. Kirishima. The driver robbed my truck', 'KIRISHIMA: He was always resourceful. I trained him that way.', "KIRISHIMA: Then I'll make him disappear. (laughs)", "JUN: A dead man's.", 'MIKA: Someone left flowers at the shop.']) has(log.phone, l, 'phone');
     has(log.lines, ': through the glass, JUN sees a silver-haired man from behind', 'stage direction'); has(log.cards, 'PENTHOUSE — COMPLETE | ', 'card');
     return '5 objectives; scratch, spotted and retry covered';
@@ -242,6 +264,10 @@ function audit() {
   // ----- M21 Ghost -----
   await mission('M21 Ghost', async () => {
     await start('M21', 'yakuza');
+    const mikaAtWork = () => ev(() => { const w = window.__kc, n = w.map.interiors.find((i) => i.id === 'ramen').spots.n; return w.keepers.find((k) => Math.hypot(k.x - n.x, k.y - n.y) < 8).sprite.visible; });
+    await until((o) => o.id === 'M21' && !!o.obj, 'the mission to start');
+    need(await room() === 'ramen', 'the mission should start inside the ramen shop'); need(!(await mikaAtWork()), 'Mika should not be behind the counter');
+    await through(['ramen:D'], null);
     const toMika = async () => {
       const o = await until((x) => x.obj === 'Get to the old temple.' || x.obj === 'Fight through the Yatagarasu guards.', 'the way to the temple'); // (a retry starts at the gate, so the first objective passes at once)
       if (o.obj === 'Get to the old temple.') await toMarker();
@@ -254,6 +280,7 @@ function audit() {
     const f = await obj('MISSION FAILED'); need(f.hint === 'You were too late.', 'fail card');
     await toMika(); // the retry starts at the temple gate
     await kill('fire'); await toMarker(); await obj('Get Mika to safety.'); await toMarker(); await done();
+    need(await mikaAtWork(), 'Mika should be back behind the counter afterwards');
     has(log.lines, 'MIKA: No. (takes his hand) But you can stop carrying him alone.', 'temple steps'); has(log.cards, 'GHOST — COMPLETE | ', 'card'); has(log.phone, "KENTA: heard tetsu's alive.", 'text');
     return '5 objectives; too-late fail and gate retry covered';
   });
@@ -261,12 +288,29 @@ function audit() {
   // ----- M22 Last Stand -----
   for (const p of ['yakuza', 'police']) await mission(`M22 Last Stand [${p}]`, async () => {
     await start('M22', p);
+    let first = true;
+    const inRoom = (tag, id) => ev(([tag, id]) => { const w = window.__kc; return w.gang.thugs.filter((t) => t.alive && t.data.tag === tag && (w.map.interiorAt(t.x, t.y) || {}).id === id).length; }, [tag, id]);
     const toHeli = async () => {
-      await obj('Fight up through the tower.'); await ev(() => { const w = window.__kc, q = w.story.place('mibuPlaza'); w.player.actor.body.reset(q.x, q.y + 40); });
-      await until((o) => o.obj === 'Reach the penthouse.', 'the floors', () => kill('floor'));
-      await toMarker(); await obj('Beat Mibu.'); await wait(200);
-      await boss('mibu', 0.6); await until(async () => (await count('bodyguard')) === 3, 'the bodyguards');
-      await boss('mibu', 0.2); return obj('Bring down the helicopter.');
+      await obj('Fight up through the tower.');
+      need(await inRoom('floor', 'mibuLobby') === 4 && await inRoom('floor', 'mibuOffices') === 5, 'guards: 4 in the lobby, 5 on the office floors');
+      if (first) { // the first time, the real way up: front door, lobby, stairs, offices, stairs, penthouse
+        await through(['mibuTower'], 'mibuLobby');
+        await until(() => ev(() => window.__kc.gang.thugs.some((t) => t.data.room === 'mibuLobby' && t.state === 'chase')), 'the lobby guards to notice Jun');
+        need(await ev(() => window.__kc.gang.thugs.every((t) => t.data.room !== 'mibuOffices' || t.state === 'guard')), 'the guards upstairs should still be at their posts');
+        need(await ev(() => !!window.__kc.story.flags.intercom), 'Mibu on the intercom');
+        await until(async () => (await inRoom('floor', 'mibuLobby')) === 0, 'the lobby', () => ev(() => { const w = window.__kc; for (const t of w.gang.thugs) if (t.alive && t.data.room === 'mibuLobby') w.hurtActor(t, 999, true, 'bullet'); }));
+        need((await tick()).obj === 'Fight up through the tower.', 'the objective should not be done with men still upstairs');
+        await through(['mibuLobby:>'], 'mibuOffices');
+        await until((o) => o.obj === 'Reach the penthouse.', 'the floors', () => kill('floor'));
+        await through(['mibuOffices:>'], 'mibuPenthouse');
+      } else await until((o) => o.obj === 'Reach the penthouse.', 'the floors', () => kill('floor'));
+      await toMarker(); await obj('Beat Mibu.'); await wait(200); need(await roomOf('mibu') === 'mibuPenthouse', 'Mibu should be in his penthouse');
+      await boss('mibu', 0.6); await until(async () => (await count('bodyguard')) === 3, 'the bodyguards'); need(await inRoom('bodyguard', 'mibuPenthouse') === 3, 'bodyguards in the penthouse');
+      await boss('mibu', 0.2); const o = await obj('Bring down the helicopter.');
+      need(await roomOf('heli') === 'mibuRoof', 'the helicopter should be on the roof');
+      if (first) await through(['mibuPenthouse:>'], 'mibuRoof'); else await ev(() => window.__kc.enterRoom('mibuRoof', '<'));
+      first = false;
+      return o;
     };
     const h = await toHeli(); pathLines(p);
     need(h.hint === "shoot the rotor, or harpoon the skid with Umibōzu's Hook", 'helicopter prompt');
@@ -275,17 +319,28 @@ function audit() {
       await obj('MISSION FAILED'); has(log.phone, 'MIBU: Bye, Jun! Expensive, remember?', 'fail line');
       await toHeli();
     }
-    await wait(400); await ev(() => window.__kc.story.vars.heli.damage(99999, true)); const o = await done();
+    await wait(400); need(await ev(() => { const h = window.__kc.story.vars.heli; return !h.removed && !h.wreck && h.hp > 0; }), 'the helicopter should still be on its pad');
+    await ev(() => window.__kc.story.vars.heli.damage(99999, true)); const o = await done(); need(await room() === 'mibuRoof', 'the mission should end on the helipad');
+    await through(['mibuRoof:<', 'mibuPenthouse:<', 'mibuOffices:<', 'mibuLobby:D'], null); // all the way down and out
     has(log.lines, "MIBU: Pier 9, midnight tomorrow. Hayami's aboard. Kill him for me, would you?", 'outro'); has(log.lines, p === 'police' ? "SAWADA: (arriving, cuffing him) Ryūji Mibu, you're under arrest." : 'SAEKO: (arriving, her men lifting MIBU) Mibu-san.', 'outro');
     has(log.cards, 'LAST STAND — COMPLETE | Unlocked: Black Iron (Legendary)', 'card'); need(o.keep.blackIron, 'Black Iron not unlocked');
-    return '2 waves, Mibu in 3 phases, helicopter down';
+    return 'lobby and office floors, Mibu in 3 phases in the penthouse, helicopter down on the roof';
   });
 
   // ----- M23 Tsukuyomi -----
   for (const p of ['yakuza', 'police']) await mission(`M23 Tsukuyomi [${p}]`, async () => {
     await start('M23', p);
-    await obj('Break into Tsukuyomi Tower.'); pathLines(p); await toMarker();
+    await obj('Break into Tsukuyomi Tower.'); pathLines(p);
+    need(await room() === 'capsule', 'the briefing should be inside the Glitch hideout');
+    await through(['capsule:D'], null); await through(['tsukuyomiTower'], 'tsukuLobby'); await toMarker();
     const a = await until((o) => o.obj === 'Fight up to floor 40.' && !!o.timer, 'the floors'); need(a.heat === 5, 'not a 5-lantern assault: ' + a.heat);
+    const guardsIn = (id) => ev((id) => { const w = window.__kc; return w.gang.thugs.filter((t) => t.alive && t.data.tag === 'floor' && (w.map.interiorAt(t.x, t.y) || {}).id === id).length; }, id);
+    await kill('lobby'); need(await guardsIn('tsuku1a') === 4, 'four Yatagarasu on the first floors');
+    await through(['tsukuLobby:>'], 'tsuku1a'); // up the stairs: the guards there go for Jun
+    await until(() => ev(() => window.__kc.gang.thugs.some((t) => t.data.room === 'tsuku1a' && t.state === 'chase')), 'the guards on the first floors to notice Jun');
+    await kill('floor'); await until(async () => (await guardsIn('tsuku1b')) === 4, 'the next room up to be manned');
+    await through(['tsuku1a:>'], 'tsuku1b');
+    await through(['tsuku1b:<', 'tsuku1a:<', 'tsukuLobby:D'], null); await through(['tsukuyomiTower'], 'tsukuLobby'); // out, and back in with five lanterns up
     const floors = [];
     const climb = (to) => until((o) => { if (o.floor && !floors.includes(o.floor)) floors.push(o.floor); return o.floor >= to || o.obj === "Reach Amane's office."; }, 'floor ' + to, () => kill());
     await climb(20);
@@ -293,9 +348,12 @@ function audit() {
       await ev(() => window.__kc.playerDied());
       await until((o) => o.mode === 'dead', 'the OWARI screen'); const r = await until((o) => o.mode === 'play' && o.obj === 'Fight up to floor 40.', 'the checkpoint restart');
       need(r.floor === 20 && r.heat === 5, `restart should be at floor 20 with 5 lanterns, got floor ${r.floor}, heat ${r.heat}`);
+      const at = await room(); need(at === 'tsuku3a', 'the floor 20 checkpoint should be the landing of floors 21-25, Jun is in ' + at);
+      need(await guardsIn('tsuku3a') === 4, 'the room after the checkpoint should be manned');
     }
     const top = await climb(40); need(/^FLOOR \d+ \/ 40$/.test(a.timer), 'floor meter');
-    await obj("Reach Amane's office."); await toMarker(); const o = await done();
+    await obj("Reach Amane's office."); await ev(() => window.__kc.enterRoom('tsuku4b', '1')); await through(['tsuku4b:>'], 'tsukuTop'); await toMarker(); const o = await done();
+    need(await room() === 'tsukuTop', "the mission should end in Amane's office");
     need(floors.join() === '10,20,30,40' || top.floor === 40, 'floors: ' + floors); need(o.heat === 0, 'heat should be cleared at the end');
     has(log.radio, 'KOGANE FM | DJ ŌKAMI: Tsukuyomi Tower is under attack!', 'radio'); has(log.phone, "KENTA: Raijin's blocking the ramps.", 'call');
     has(log.lines, p === 'police' ? "SAWADA: (entering with officers) Kaoru Amane, you're under arrest." : 'SAEKO: (entering) The police are on their way, Amane-san.', 'outro');
@@ -307,6 +365,7 @@ function audit() {
   const ENDS = { shogun: ['Keep it', 'SHADOW SHOGUN'], oldtown: ['Give it to Asagiri', 'OLD TOWN'], cleanslate: ['Sink it', 'CLEAN SLATE'] };
   const ending = async (p, end) => {
     const c = await until((o) => !!o.choice, 'the gold choice'); need(c.choice.join('|') === 'Keep it|Give it to Asagiri|Sink it', 'gold choice options');
+    need(await room() === null, 'the deck scene should be out on the deck');
     has(log.lines, 'JUN: I was never your work.', 'the deck');
     const before = log.lines.length;
     await ev((i) => window.__kc.story.choose(i), Object.keys(ENDS).indexOf(end));
@@ -325,6 +384,9 @@ function audit() {
       await ev(() => { window.__kc.story.radio = null; }); // after the credits: the ticker adds one more line
       await until((x) => !!x.radio && x.radio.includes('Fishermen in Kogane Bay report gold bars in their nets. Experts advise: keep fishing.'), 'the fishermen line', null, 5000);
     }
+    const where = await room(), want = { shogun: 'rokkakuTop', oldtown: 'ramen', cleanslate: null }[end];
+    need(where === want, `the ${end} ending should be in ${want}, is in ${where}`);
+    if (want) await through(end === 'shogun' ? ['rokkakuTop:<', 'rokkakuStairs:<', 'rokkakuLobby:D'] : ['ramen:D'], null); // free roam: Jun can walk out
     need(o.keep.ending === end, 'ending not remembered'); need(o.id === null && o.mode === 'play' && !o.active, 'the city should be open for free roam after the ending');
     return o;
   };
@@ -342,8 +404,10 @@ function audit() {
     }
     await until((o) => o.obj === 'Reach the bridge deck.', 'the deck waves', () => kill('deck'));
     await toMarker(); await obj('Beat Tetsu.'); await wait(300);
+    need(await room() === 'shipBridge' && await roomOf('tetsu') === 'shipBridge', 'the duel should be on the bridge deck');
     await boss('tetsu', 0.5); await wait(2200); need(await ev(() => window.__kc.story.vars.phase === 2), 'Tetsu phase 2');
     await boss('tetsu', 0.2); await wait(400); need(await ev(() => window.__kc.story.vars.phase === 3 && window.__kc.story.vars.tetsu.data.gun === true), 'Tetsu phase 3');
+    need(await roomOf('tetsu') === 'shipHold', 'in phase 3 Tetsu should be down in the hold'); await through(['shipBridge:<'], 'shipHold');
     await boss('tetsu', 0);
     await ending(p, end);
     return `5 objectives${die ? ', checkpoint restart at the climb aboard' : ''}, ending card "${ENDS[end][1]}"`;

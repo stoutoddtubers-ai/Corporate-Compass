@@ -47,7 +47,29 @@ export const near = (w: WorldScene, s: Story): boolean => {
   return Math.hypot(p.pos.x - m.x, p.pos.y - m.y) < m.r;
 };
 
+/**
+ * Puts Jun inside a room for a scene: at the room's spot `spot`, moved over by (dx, dy) tiles.
+ * `door` is the story place whose street door the room's way out then leads back to.
+ */
+export function goInside(w: WorldScene, s: Story, room: string, spot: string, door?: string, dx = 0, dy = 0): void {
+  const q = s.place(`${room}:${spot}`);
+  if (!q) return;
+  if (w.player.car) w.player.exitCar();
+  if (door) { const d = s.place(door); w.lastDoor = { x: d.x, y: d.y }; }
+  w.moveJun(q.x + dx * TS, q.y + dy * TS);
+}
+/** A spot inside a room, moved over by (dx, dy) tiles. */
+export function roomSpot(s: Story, id: string, dx = 0, dy = 0): { x: number; y: number } {
+  const q = s.place(id);
+  return { x: q.x + dx * TS, y: q.y + dy * TS };
+}
+/** In front of Mika's counter in Sakamaki Ramen. */
+const ramenCounter = (s: Story) => roomSpot(s, 'ramen:n', T.ramenCounter[0], T.ramenCounter[1]);
+
 export const HOOKS: Record<string, Hook> = {
+  /** "Go home" / "Return to the shop": the spot is inside, at the counter. The shop door opens for Jun even if the police are about. */
+  ramenMarker(_w, s) { const c = ramenCounter(s); s.marker = { x: c.x, y: c.y, r: T.ramenRadius }; s.flags.doorsOpen = true; },
+
   // ----- M01 Gate Out -----
   m01Setup(w, s) {
     const door = s.place('prison'), lot = nearestLot(w, door.x, door.y);
@@ -77,6 +99,7 @@ export const HOOKS: Record<string, Hook> = {
     s.vars.ishii = npc(w, s, 'cop', s.place('policeBox').x + 4, s.place('policeBox').y + -18);
     s.showSpill = true;
     s.marker = null;
+    goInside(w, s, 'ramen', 'n', 'ramen', T.ramenCounter[0], T.ramenCounter[1]); // the lunch rush: the scene plays at the counter
   },
   m02Arcade(w, s) { deliver(w, s, s.vars.taba as Actor, B.m02Taba); },
   m02Bath(w, s) { deliver(w, s, s.vars.ueda as Actor, B.m02Ueda); },
@@ -97,6 +120,9 @@ export const HOOKS: Record<string, Hook> = {
     s.junCarLine = B.m03JunCar;
     s.flags.quietBreakIn = true; // the alarm is handled by the mission itself
     s.vars.loseT = 0;
+    // the scene with Goro plays inside the garage
+    const g = s.place('goroGarage:1'); npc(w, s, 'goro', g.x, g.y);
+    goInside(w, s, 'goroGarage', '3', 'garage');
   },
   m03Alarm(w, s) {
     const z = s.vars.zenki as Car;
@@ -227,8 +253,18 @@ Object.assign(HOOKS, {
   m04Go(w, s) { w.player.putInCar(s.vars.zenki as Car); w.traffic.blockRing = true; },
 
   // ----- M05 Signal Lost -----
-  m05Setup(w) { w.player.giveWeapon('kitsune9'); w.player.switchTo(w.player.weapons.findIndex((x) => x.def.id === 'kitsune9')); },
+  m05Setup(w, s) {
+    w.player.giveWeapon('kitsune9'); w.player.switchTo(w.player.weapons.findIndex((x) => x.def.id === 'kitsune9'));
+    // Hikari is at a machine inside the cat arcade; the scene plays there
+    const h = roomSpot(s, 'arcade:1', T.hikariArcade[0], T.hikariArcade[1]);
+    s.vars.hikari = npc(w, s, 'hikari', h.x, h.y);
+    goInside(w, s, 'arcade', '1', 'catArcade');
+    s.flags.doorsOpen = true; // the hideout lets Jun in even with the police about
+  },
   m05Van(w, s) {
+    // by the time Jun is back, Hikari is at her desk in the hideout
+    const h = s.vars.hikari as Actor, d = roomSpot(s, 'capsule:1', T.hikariDesk[0], T.hikariDesk[1]);
+    h.body.reset(d.x, d.y);
     const van = laneCar(w, s, VEHICLES.truck, 0, s.place('ambush'), 800, 120);
     s.vars.van = van; s.vars.stopT = 0;
     s.timer = { label: 'CAMERAS', value: T.vanCameraTime, max: T.vanCameraTime, kind: 'time' };
@@ -270,20 +306,29 @@ Object.assign(HOOKS, {
 
   // ----- M08 Evidence -----
   m08Setup(w, s) {
-    const lot = s.place('warehouse').rect!, tr = s.place('truck');
-    s.vars.guards = [0.3, 0.7].map((k) => { const g = w.police.spawnCopAt(free(w, lot.x + lot.w * k, lot.y + lot.h * 0.5), false); g.state = 'guard'; return g; });
-    s.vars.fileP = { x: lot.x + 40, y: lot.y + 40 }; s.vars.tapeP = { x: lot.x + lot.w - 40, y: lot.y + lot.h - 40 };
+    const tr = s.place('truck');
+    // inside the warehouse: two guards among the shelves (spots 3 and 4) and the desk sergeant in his office (spot 5)
+    s.vars.guards = ['3', '4', '5'].map((k) => { const g = w.police.spawnCopAt(s.place('evidence:' + k), false); g.state = 'guard'; return g; });
+    s.vars.fileP = s.place('evidence:1'); s.vars.tapeP = s.place('evidence:2');
     const truck = storyCar(w, VEHICLES.truck, tr.x, tr.y, 0, 1); truck.unlocked = true; // Goro's tow truck
     s.cars.push(truck);
+    s.flags.doorsOpen = true; // the warehouse door works even if a guard has raised the alarm
+    // the planning scene plays inside Goro's garage: Goro at his bench, Hikari at the toolbox
+    const g = s.place('goroGarage:1'), h = s.place('goroGarage:2');
+    npc(w, s, 'goro', g.x, g.y); npc(w, s, 'hikari', h.x + T.hikariToolbox[0] * TS, h.y + T.hikariToolbox[1] * TS);
+    goInside(w, s, 'goroGarage', '3', 'garage');
   },
   m08FileMarker(_w, s) { const p = s.vars.fileP as { x: number; y: number }; s.marker = { x: p.x, y: p.y, r: 28 }; },
   m08File(w) { w.fx.bark(w.player.pos, B.m08JunFile, '#e8b923'); },
   m08TapeMarker(_w, s) { const p = s.vars.tapeP as { x: number; y: number }; s.marker = { x: p.x, y: p.y, r: 28 }; },
   m08Tape(w, s) {
     s.flags.tagDead = true; // the ankle tag is dead: the river no longer matters, but every cop is coming
+    s.flags.doorsOpen = false; // from here on, doors are shut to a wanted man as usual
     w.heat.crime('tagDead');
     B.m08Police.forEach((line, i) => w.time.delayedCall(2500 + i * 5000, () => w.police.barkAny(line)));
   },
+  /** "Get out": the marker is the compound's gate (indoors it shows as the way out). */
+  m08OutMarker(_w, s) { const g = s.place('warehouseGate'); s.marker = { x: g.x, y: g.y, r: 0 }; },
   m08Swap(w, s) {
     const tr = s.place('truck'), f = free(w, tr.x + 20, tr.y + 46);
     const clean = storyCar(w, VEHICLES.sedan, f.x, f.y, 0, 2);
@@ -444,5 +489,6 @@ Object.assign(CHECKS, {
   // ----- M08 -----
   m08Inside: (w, s) => { m08Watch(w, s); return near(w, s); },
   m08AtPoint: (w, s) => { m08Watch(w, s); return near(w, s); },
-  m08Out: (w, s) => { const l = s.place('warehouse').rect!; return dist(w.player.pos, { x: l.x + l.w / 2, y: l.y + l.h / 2 }) > Math.max(l.w, l.h) / 2 + 140; },
+  /** Out of the building, and clear of the compound. */
+  m08Out: (w, s) => { const l = s.place('warehouse').rect!, p = w.player.pos; return !w.map.interiorAt(p.x, p.y) && dist(p, { x: l.x + l.w / 2, y: l.y + l.h / 2 }) > Math.max(l.w, l.h) / 2 + 140; },
 } as Record<string, Check>);

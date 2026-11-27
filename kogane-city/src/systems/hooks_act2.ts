@@ -11,13 +11,13 @@ import type { WorldScene } from '../scenes/WorldScene';
 import type { Story } from './Story';
 import type { Hook, Check } from './missionHooks';
 import { HOOKS, CHECKS, free, npc, near, storyCar, laneCar, dist, nearestLot } from './missionHooks';
+import type { Interior } from './CityMap';
 
 // The game logic for Act 2 (missions 9-16). The words and numbers are in data/missions_act2.ts.
-// The engine has no interiors, so indoor scenes are staged in the nearest yard or alley:
-// "rooms" and "floors" are marked spots, "rooftops" are spots at building doors.
+// Indoor scenes are played in real rooms (data/interiors_act2.ts and the shared rooms in data/interiors.ts).
+// A room's numbered spots are written "room:number", e.g. spot(s, 'mansion', '7').
 
 type Pt = { x: number; y: number };
-type Box = { x: number; y: number; w: number; h: number };
 const pick = <X>(list: readonly X[]): X => list[Math.floor(Math.random() * list.length)];
 const RED = '#ff9a9a', WARM = '#ffe9c0', GOLD = '#e8b923', PALE = '#f0f0f0', CROWD = '#d9e2ff';
 
@@ -115,36 +115,101 @@ function stopped(w: WorldScene, s: Story, car: Car, hpShare: number, dt: number)
   return true;
 }
 
-/** Keeps parked cars out of a car park the mission is using as a room. */
-function clearLot(w: WorldScene, r: Box): void {
-  for (const c of w.cars) if (!c.story && !c.unlocked && !c.removed && c.driver === 'none' && c.x > r.x && c.x < r.x + r.w && c.y > r.y && c.y < r.y + r.h) c.destroy();
+// ---------- rooms ----------
+
+/** A numbered spot in a room, optionally moved a few tiles right (dx) and down (dy). */
+function spot(s: Story, room: string, ch: string, dx = 0, dy = 0): Pt {
+  const p = s.place(`${room}:${ch}`);
+  return { x: p.x + dx * TS, y: p.y + dy * TS };
+}
+
+/** Puts Jun at a spot inside a room. `door` is the story place whose street door the way out then leads to. */
+function putInside(w: WorldScene, s: Story, room: string, ch: string, door: string): void {
+  const d = s.place(door);
+  w.lastDoor = { x: d.x, y: d.y };
+  w.enterRoom(room, ch);
+}
+
+const roomOf = (w: WorldScene, id: string): Interior => w.map.interiors.find((i) => i.id === id)!;
+/** Is this person in the same space as Jun (the same room, or both out on the street)? */
+const withJun = (w: WorldScene, a: Pt): boolean => w.map.interiorAt(a.x, a.y) === w.map.interiorAt(w.player.pos.x, w.player.pos.y);
+
+/** Where an enemy comes into a room: one of the given ways in, preferring those Jun cannot see from where he stands. */
+function comeIn(w: WorldScene, ways: Pt[]): Pt {
+  const p = w.player.pos;
+  const hidden = ways.filter((q) => dist(q, p) > 200 || !w.map.los(q.x, q.y, p.x, p.y));
+  const q = pick(hidden.length ? hidden : ways);
+  return free(w, q.x + (Math.random() - 0.5) * 40, q.y + (Math.random() - 0.5) * 24);
+}
+
+/** Runs something when the mission ends or restarts (the game tidies up a mission's people; this rides along with them). */
+function onCleanup(s: Story, fn: () => void): void {
+  s.actors.push({ alive: false, x: 0, y: 0, animate() { /* nothing to animate */ }, destroy: fn } as unknown as Actor);
+}
+
+/**
+ * A shop's owner for a mission scene: stands where the shopkeeper usually stands (the room's "n").
+ * The everyday shopkeeper is tucked away while the mission runs, so there are not two of them.
+ * Owners can be hurt, so they are made like gang members who never fight.
+ */
+function ownerAt(w: WorldScene, s: Story, room: string, look: string): Actor {
+  const at = spot(s, room, 'n');
+  const keeper = (w as unknown as { keepers: Actor[] }).keepers.find((k) => dist(k, at) < 8);
+  if (keeper) {
+    keeper.sprite.setVisible(false); keeper.body.enable = false;
+    onCleanup(s, () => { keeper.sprite.setVisible(true); keeper.body.enable = true; });
+  }
+  const o = thug(w, at, look, 'idle');
+  o.sprite.rotation = Math.PI / 2;
+  return o;
 }
 
 // =====================================================================================
 // M10 Pachinko Panic: machines, waves
 // =====================================================================================
 
-interface Machine { x: number; y: number; dead: boolean; spill: number; box: Phaser.GameObjects.Rectangle }
+/** One pachinko machine: a 2 x 2 block of the hall's machine tiles. (x, y) is its middle; (sx, sy) is where someone stands to play or smash it. */
+interface Machine { x: number; y: number; sx: number; sy: number; dead: boolean; spill: number; field: Int16Array | null }
+
+/** Finds the machines in the Golden Ball hall from its map: every 2 x 2 block of "P" tiles is one machine. */
+function m10Machines(w: WorldScene): Machine[] {
+  const inn = roomOf(w, 'pachinko'), map = inn.def.map, used = new Set<string>(), out: Machine[] = [];
+  const isP = (i: number, j: number) => map[j]?.[i] === 'P' && !used.has(i + ',' + j);
+  for (let j = 0; j < map.length; j++) for (let i = 0; i < map[j].length; i++) {
+    if (!(isP(i, j) && isP(i + 1, j) && isP(i, j + 1) && isP(i + 1, j + 1))) continue;
+    for (const k of [[0, 0], [1, 0], [0, 1], [1, 1]]) used.add(i + k[0] + ',' + (j + k[1]));
+    // people stand in the aisle below the machine; for the last row (the aisle by the front wall is hard to see), the aisle above
+    const below = j + 3 < map.length - 1;
+    out.push({ x: inn.x + (i + 1) * TS, y: inn.y + (j + 1) * TS, sx: inn.x + (i + 1) * TS, sy: inn.y + (below ? j + 2.5 : j - 0.5) * TS, dead: false, spill: 0, field: null });
+  }
+  return out;
+}
+
+/** The ways into the hall: the front door, the two front corners, and the back door by the lockers. */
+function m10Ways(w: WorldScene, s: Story): Pt[] {
+  const inn = roomOf(w, 'pachinko');
+  return [spot(s, 'pachinko', 'D', 0, -1), spot(s, 'pachinko', '2'), spot(s, 'pachinko', '3'), { x: inn.x + 4.5 * TS, y: inn.y + 1.5 * TS }];
+}
 
 function m10Wave(w: WorldScene, s: Story): void {
-  const floor = s.place('pachinkoFloor');
+  const ways = m10Ways(w, s);
   for (let i = 0; i < T.m10Waves[s.vars.wave as number]; i++) {
     // most raiders come for Jun; some smash machines; one goes for the cash office
     const job = i % 3 === 1 ? 'smash' : i === 3 ? 'office' : 'chase';
-    const t = thug(w, arrive(w, floor), 'thug', job === 'chase' ? 'chase' : 'smash', false, i < 2 ? B.m10Raiders[i] : '');
+    const t = thug(w, comeIn(w, ways), 'thug', job === 'chase' ? 'chase' : 'smash', false, i < 2 ? B.m10Raiders[i] : '');
     t.data.job = job; t.data.m = -1;
   }
 }
 
-/** A machine is wrecked. A shot one spills its steel balls across the floor. */
+/** A machine is wrecked. A shot one spills its steel balls across the aisles beside it. */
 function m10Break(w: WorldScene, s: Story, m: Machine, shot: boolean): void {
   m.dead = true;
-  m.box.setFillStyle(0x2a2622);
   s.vars.lost = (s.vars.lost as number) + 1;
   w.fx.spark(m.x, m.y);
+  for (let k = 0; k < 4; k++) w.fx.puff(m.x + (Math.random() - 0.5) * 40, m.y + (Math.random() - 0.5) * 40, 0x2a2622, 22, 0.9, 0, -30, 1.6, 0.8);
   if (!shot) return;
   m.spill = T.m10SpillTime;
-  for (let k = 0; k < 12; k++) w.fx.mark(m.x + (Math.random() - 0.5) * 50, m.y + (Math.random() - 0.5) * 50, 'dot', 0, 0.22, 0.22, 0xd8dce4, 0.9, T.m10SpillTime);
+  for (let k = 0; k < 14; k++) w.fx.mark(m.x + (Math.random() - 0.5) * 84, m.y + (k % 2 ? 1 : -1) * (TS * 1.5 + (Math.random() - 0.5) * 22), 'dot', 0, 0.22, 0.22, 0xd8dce4, 0.9, T.m10SpillTime);
   w.fx.bark((s.vars.saeko as Actor).sprite, B.m10Saeko, PALE, 'saeko', 6);
 }
 
@@ -191,19 +256,14 @@ function m15Sus(s: Story, add: number): void {
   if (v >= 1) { s.flags.caught = true; s.vars.failHint = B.m15Card; }
 }
 
-/** The floor 9 guard walks his round (the four corners of the archive building). */
-function m15Patrol(s: Story): Actor {
-  const g = s.vars.patrol as Actor, loop = s.vars.loop as Pt[], to = loop[s.vars.leg as number];
-  if (g.moveTo(to.x, to.y, s.flags.rush ? T.m15PatrolRush : T.m15PatrolSpeed) < 8) s.vars.leg = ((s.vars.leg as number) + 1) % loop.length;
-  return g;
-}
+/** A floor 9 guard: `leg` is the corner of the corridor he is walking to. */
+interface Patrol { a: Actor; leg: number }
 
-/** The gala floor: guards ignore a caterer with a tray unless he runs (a dodge roll) or drives in; and Ogata has met Jun. */
+/** The gala floor: guards ignore a caterer with a tray unless he runs (a dodge roll); and Ogata has met Jun. */
 function m15Gala(w: WorldScene, s: Story, dt: number): void {
   const p = w.player.pos, ogata = s.vars.ogata as Actor;
   const seen = (s.vars.guards as Actor[]).some((g) => dist(g, p) < 260 && w.map.los(g.x, g.y, p.x, p.y));
   let add = -T.m15Drain * dt;
-  if (seen && w.player.car) add = T.m15FillFar * dt;
   if (seen && w.player.rolling && !s.flags.rolled) add = T.m15RunJump;
   s.flags.rolled = w.player.rolling;
   const t = s.vars.linger as number;
@@ -212,11 +272,22 @@ function m15Gala(w: WorldScene, s: Story, dt: number): void {
   m15Sus(s, add);
 }
 
-/** Floor 9: no tray, no excuse. The patrolling guard notices Jun by distance and line of sight. */
+/** Floor 9: no excuse for being here. Two guards walk the corridor round the floor, one behind the other; each notices Jun by distance and line of sight. */
 function m15Floor9(w: WorldScene, s: Story, dt: number): void {
-  const g = m15Patrol(s), p = w.player.pos, d = dist(g, p);
-  const sees = d < T.m15SeeDist && w.map.los(g.x, g.y, p.x, p.y);
-  m15Sus(s, (sees ? (d < T.m15SeeDist * 0.45 ? T.m15FillNear : T.m15FillFar) : -T.m15Drain) * dt);
+  const p = w.player.pos, loop = s.vars.loop as Pt[], guards = s.vars.patrols as Patrol[];
+  if (!s.flags.up) { // the elevator doors open: one guard is at the far corner walking away, the other is on his way round
+    s.flags.up = true;
+    guards.forEach((g, i) => { const c = loop[i * 2 % loop.length]; g.a.body.reset(c.x, c.y); g.leg = (i * 2 + 1) % loop.length; });
+  }
+  let add = -T.m15Drain * dt;
+  for (const g of guards) {
+    const to = loop[g.leg];
+    if (g.a.moveTo(to.x, to.y, s.flags.rush ? T.m15PatrolRush : T.m15PatrolSpeed) < 8) g.leg = (g.leg + 1) % loop.length;
+    const d = dist(g.a, p);
+    if (d < T.m15SeeDist && w.map.los(g.a.x, g.a.y, p.x, p.y)) add = Math.max(add, (d < T.m15SeeDist * 0.45 ? T.m15FillNear : T.m15FillFar) * dt);
+  }
+  if (s.flags.tray) add = T.m15FillNear * dt; // up here before Hikari has the elevator: a caterer and his tray, where caterers don't go
+  m15Sus(s, add);
 }
 
 // =====================================================================================
@@ -225,10 +296,15 @@ function m15Floor9(w: WorldScene, s: Story, dt: number): void {
 
 function m16Wave(w: WorldScene, s: Story): void {
   const gate = s.place('mansionGate'), path = s.keep.path === 'police' ? 'police' : 'yakuza';
-  const wave = s.vars.wave as number, allies = s.vars.allies as Actor[];
-  for (let i = 0; i < T.m16Waves[wave]; i++) // every fourth soldier goes for Genzō's room; every third has a gun
-    thug(w, arrive(w, gate, 330, 560), 'thug', i % 4 === 3 ? 'smash' : 'chase', i % 3 === 0, i < 2 ? B.m16Soldiers[i] : '');
-  w.fx.bark(allies[1 + (wave % (allies.length - 1))].sprite, B.m16Squad[path], WARM);
+  const wave = s.vars.wave as number, allies = s.vars.allies as Actor[], n = T.m16Waves[wave];
+  // the first soldiers of each wave come at the gate; the rest get over the east wall into the garden (and, in the last wave, in through the hall)
+  const ways = [spot(s, 'mansion', '5'), spot(s, 'mansion', '6'), ...(wave >= 2 ? [spot(s, 'mansion', '4')] : [])];
+  for (let i = 0; i < n; i++) { // every fourth soldier goes for Genzō's room; every third has a gun
+    const indoors = i >= n - T.m16Inside[wave];
+    const t = thug(w, indoors ? comeIn(w, ways) : arrive(w, gate, 330, 560), 'thug', i % 4 === 3 ? 'smash' : 'chase', i % 3 === 0, i < 2 ? B.m16Soldiers[i] : '');
+    t.data.indoors = indoors;
+  }
+  w.fx.bark(allies[1 + (wave % T.m16Squad)].sprite, B.m16Squad[path], WARM);
   if (wave === 1) w.time.delayedCall(2500, () => s.active && allies[0].alive && w.fx.bark(allies[0].sprite, B.m16Leader[path], PALE));
 }
 

@@ -2,7 +2,8 @@ import type { Mission, Line } from './missions';
 
 // Missions 17-24 and the three endings, copied line for line from the Script and Writing doc
 // ("Act 3 script" tab). Text lives here; the game logic each mission needs is the named
-// "hooks" in src/systems/hooks_act3.ts.
+// "hooks" in src/systems/hooks_act3.ts. The rooms the indoor scenes happen in are drawn in
+// src/data/interiors_act3.ts; a marker such as 'mibuPenthouse:1' means spot 1 on that room's map.
 //
 // Lines the script marks _A are the yakuza path, _B the police path. Where the script has a
 // CALL with a stage direction, the stage direction is a one-line cutscene and the rest is the call.
@@ -60,7 +61,7 @@ export const ACT3_TUNING = {
   m21FireTime: 24, // seconds until the fire reaches Mika
 
   // M22 Last Stand
-  m22Waves: [4, 5], // Mibu's men per "floor"
+  m22Waves: [4, 5], // Mibu's men in the lobby, and on the office floors above it
   m22MibuHp: 450,
   m22Rate1: 0.8, m22Rate2: 1.3, // seconds between Mibu's shots in phases 1 and 2
   m22Bodyguards: 3,
@@ -69,8 +70,8 @@ export const ACT3_TUNING = {
 
   // M23 Tsukuyomi
   m23Floors: 40, m23PerCheckpoint: 10, // (script)
-  m23Waves: [4, 4], // Yatagarasu per wave; each stretch of ten floors is this many waves
-  m23Lobby: 3,
+  m23Waves: [4, 4], // Yatagarasu per room; each stretch of ten floors is two rooms
+  m23Lobby: 3, // Yatagarasu in the lobby
   m23CopsThrough: 2, // the allies hold the streets: this many officers (and patrol cars) reach the tower at a time
   m23RaijinTime: 45, // seconds no police get through after Kenta's call
 
@@ -256,11 +257,12 @@ export const MISSIONS_ACT3: Mission[] = [
         { who: 'HIKARI', text: 'Then you learn what the insurance excess is on a ¥40 million car.' },
       ] },
       { t: 'obj', text: 'Park three cars without damage.', enter: 'm20Valet', done: 'm20Parked' },
-      { t: 'obj', text: 'Carry coats up to the roof.', marker: 'rokkakuRoof', radius: 120, done: 'atMarker' },
+      { t: 'obj', text: 'Carry coats up to the roof.', marker: 'rokkakuTop:1', radius: 60, done: 'atMarker' },
       { t: 'obj', text: 'Get close to Amane.', done: 'm20Close' },
       { t: 'obj', text: 'Plant the bug on her phone.', done: 'm20Plant', after: 'm20Kirishima' },
       { t: 'obj', text: 'Listen in.', done: 'm20Listen' },
       { t: 'cut', lines: [D('through the glass, JUN sees a silver-haired man from behind, shoulders shaking with laughter')] },
+      { t: 'run', hook: 'm20Stairwell' }, // (moves Jun to the stairwell)
       { t: 'cut', lines: [D('A service stairwell. JUN leans against the wall.')] },
       { t: 'call', lines: [
         { who: 'HIKARI', text: 'Parole? You went quiet. Quieter.' },
@@ -339,7 +341,7 @@ export const MISSIONS_ACT3: Mission[] = [
         P('SAWADA', 'Alive. I want him in a courtroom, not a morgue.'),
       ] },
       { t: 'obj', text: 'Fight up through the tower.', enter: 'm22Lobby', done: 'm22Floors' },
-      { t: 'obj', text: 'Reach the penthouse.', marker: 'mibuTower', radius: 40, done: 'atMarker' },
+      { t: 'obj', text: 'Reach the penthouse.', marker: 'mibuPenthouse:1', radius: 50, done: 'atMarker' },
       { t: 'obj', text: 'Beat Mibu.', enter: 'm22Mibu', done: 'm22Boss' },
       { t: 'obj', text: 'Bring down the helicopter.', hint: "shoot the rotor, or harpoon the skid with Umibōzu's Hook", enter: 'm22Heli', done: 'm22HeliDown' },
       { t: 'cut', lines: [
@@ -371,19 +373,20 @@ export const MISSIONS_ACT3: Mission[] = [
         { who: 'JUN', text: 'Floor by floor.' },
         { who: 'HIKARI', text: "Forty floors. …I didn't say it was a good plan." },
       ] },
-      { t: 'obj', text: 'Break into Tsukuyomi Tower.', marker: 'towerPlaza', radius: 150, enter: 'm23Lobby', done: 'atMarker', after: 'm23BreakIn' },
+      { t: 'obj', text: 'Break into Tsukuyomi Tower.', marker: 'tsukuLobby:1', radius: 70, enter: 'm23Lobby', done: 'atMarker', after: 'm23BreakIn' },
       { t: 'radio', text: 'DJ ŌKAMI: Tsukuyomi Tower is under attack! Folks, this is the most exciting Tuesday in Kogane history.' },
       // "Fight up to floor 40. (checkpoints at floors 10, 20 and 30)"
+      // Each stretch of ten floors is two rooms, one above the other; a checkpoint is the landing where the next stretch begins.
       { t: 'obj', text: 'Fight up to floor 40.', enter: 'm23Floors', done: 'm23Climb' },
-      { t: 'checkpoint', place: 'towerPlaza', setup: 'm23Floor10' },
+      { t: 'checkpoint', place: 'tsuku2a:<', setup: 'm23Floor10' },
       { t: 'call', lines: [{ who: 'KENTA', text: "Raijin's blocking the ramps. Cops are stuck in traffic. Thunder!" }] },
       { t: 'run', hook: 'm23Raijin' },
       { t: 'obj', text: 'Fight up to floor 40.', enter: 'm23Floors', done: 'm23Climb', after: 'm23Ogata' },
-      { t: 'checkpoint', place: 'towerPlaza', setup: 'm23Floor20' },
+      { t: 'checkpoint', place: 'tsuku3a:<', setup: 'm23Floor20' },
       { t: 'obj', text: 'Fight up to floor 40.', enter: 'm23Floors', done: 'm23Climb' },
-      { t: 'checkpoint', place: 'towerPlaza', setup: 'm23Floor30' },
+      { t: 'checkpoint', place: 'tsuku4a:<', setup: 'm23Floor30' },
       { t: 'obj', text: 'Fight up to floor 40.', enter: 'm23Floors', done: 'm23Climb' },
-      { t: 'obj', text: "Reach Amane's office.", marker: 'tsukuyomiTower', radius: 40, done: 'atMarker', after: 'm23Office' },
+      { t: 'obj', text: "Reach Amane's office.", marker: 'tsukuTop:1', radius: 50, done: 'atMarker', after: 'm23Office' },
       { t: 'cut', lines: [
         D("The top floor. Glass walls, the whole city below. AMANE stands calmly at the window. In the distance, Mirai-zaka's screens glow."),
         { who: 'AMANE', text: "Mr. Sakamaki. You're late. Mr. Kirishima predicted eleven minutes." },

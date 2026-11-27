@@ -346,7 +346,7 @@ export const MAP = {
     // ---- SIDE STORY PLACES ----
     raijinClubhouse: { block: '3-0', kind: 'building', pick: 0, label: 'RAIJIN\nCLUBHOUSE' },
     // Daigo's Road (S-R): Bones Tamura's three chop shops in Tetsugawa
-    srChopCanal: { block: '3-1b', kind: 'lot', pick: 1 }, // the canal-side shop
+    srChopCanal: { block: '3-1b', kind: 'building', pick: 0, label: 'CHOP SHOP' }, // the canal-side shop
     srChopRail: { block: '3-1a', kind: 'building', pick: 0 }, // the shed at the south end of the rail yard
     srBones: { block: '3-2a', kind: 'building', pick: 0, label: "BONES'S\nGARAGE" },
     // Building 41 (S-G)
@@ -357,12 +357,15 @@ export const MAP = {
     sgKurodaYard: { block: '2-3', kind: 'lot', pick: 0 }, // Kuroda Construction's yard
     sgIzakaya: { block: '0-2', kind: 'lot', pick: 0 }, // the izakaya in Asagiri where Mr. Endō waits
     sgStation: { block: '2-1', kind: 'building', pick: 0, label: 'TETSUGAWA\nSTATION' },
-    sgLockers: { block: '2-1', kind: 'lot', pick: 1 }, // the station forecourt, where the lockers are
+    sgLockers: { block: '2-1', kind: 'lot', pick: 1 }, // the station forecourt, where Jun parks (the lockers are inside the station)
+    sgIzakayaDoor: { block: '0-2', kind: 'building', pick: 1, label: 'IZAKAYA' }, // the izakaya itself (its yard, sgIzakaya, is where the car waits)
+    sgTower: { block: '1-0', kind: 'building', pick: 0, label: 'KOGANE 2040\nTOWER SITE' }, // the half-built tower beside the Building 41 lot
     // Old Debts (S-K)
     // (S-K1 uses Act 2's `mamaRei` and `clubMirage`)
     skSaeko: { tile: [88, 116] }, // the side gate of the Kurogane mansion: Saeko's side stories start here
     skTsuda: { block: '1-3', kind: 'building', pick: 4 }, // Mrs. Tsuda's apartment in Asagiri
     skMibuYard: { block: '3-2b', kind: 'lot', pick: 0 }, // the yard of Mibu's canal warehouse
+    skMibuWarehouse: { block: '3-2b', kind: 'building', pick: 0, label: 'MIBU TRADING\nWAREHOUSE' }, // the warehouse itself
     skMibuRoad: { tile: [299.5, 75] }, // the street outside it (retry point)
     // Sea Spirit (S-U)
     suDock: { block: 'p1', kind: 'lot', pick: 1 }, // the fish market's dock: Hachirō's side stories start here
@@ -402,14 +405,13 @@ export const MAP = {
       { r: [1, 16, 4, 2], kind: 'b', roof: 'container', height: 0.5 }, { r: [8, 16, 2, 3], kind: 'b', roof: 'container', height: 0.5 },
       { r: [20, 0, 16, 9], kind: 'b' }, { r: [20, 11, 16, 9], kind: 'b' },
     ],
-    // KMPD evidence facility: a fenced compound with one gate (south) and shelving inside
+    // KMPD evidence facility: a fenced compound with one gate (south); the warehouse itself stands in the middle
+    // (its inside is the room "evidence" in data/interiors_act1.ts)
     '2-0': [
-      { r: [4, 4, 20, 16], kind: 'l', place: 'warehouse', label: 'KMPD EVIDENCE' },
+      { r: [4, 4, 20, 16], kind: 'l', place: 'warehouse' },
       { r: [3, 3, 22, 1], kind: 'b', roof: 'fence', height: 0.25 }, { r: [3, 4, 1, 16], kind: 'b', roof: 'fence', height: 0.25 }, { r: [24, 4, 1, 16], kind: 'b', roof: 'fence', height: 0.25 },
       { r: [3, 20, 9, 1], kind: 'b', roof: 'fence', height: 0.25 }, { r: [16, 20, 9, 1], kind: 'b', roof: 'fence', height: 0.25 },
-      { r: [7, 7, 6, 1], kind: 'b', roof: 'shelf', height: 0.3 }, { r: [7, 10, 6, 1], kind: 'b', roof: 'shelf', height: 0.3 },
-      { r: [15, 7, 6, 1], kind: 'b', roof: 'shelf', height: 0.3 }, { r: [15, 10, 6, 1], kind: 'b', roof: 'shelf', height: 0.3 },
-      { r: [15, 14, 6, 1], kind: 'b', roof: 'shelf', height: 0.3 }, { r: [7, 14, 6, 1], kind: 'b', roof: 'shelf', height: 0.3 },
+      { r: [7, 6, 14, 10], kind: 'b', place: 'evidence', door: 's', label: 'KMPD EVIDENCE' },
     ],
   } as Record<string, { r: number[]; kind: 'b' | 'l' | 'f'; place?: string; door?: 'n' | 's' | 'e' | 'w'; label?: string; roof?: string; height?: number; floor?: 'arcade' | 'rail' }[]>,
   colors: {

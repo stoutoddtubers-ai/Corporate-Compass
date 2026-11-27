@@ -72,6 +72,12 @@ export const MISSION_TUNING = {
   tailCruise: 125,
   listenTime: 2.6, // seconds per overheard line
   guardSeeDist: 190, // evidence warehouse guards
+  // ----- indoor scenes (all PLACEHOLDER) -----
+  ramenCounter: [4, 1], // where Jun stands in Sakamaki Ramen: tiles right of / below Mika's spot behind the counter
+  ramenRadius: 34, // px: how close counts as "home"
+  hikariArcade: [-2, 0], // Hikari in the cat arcade: tiles from the arcade's spot 1
+  hikariDesk: [-2, -4], // Hikari at her desk in the hideout: tiles from the capsule hotel's spot 1
+  hikariToolbox: [1, 0], // Hikari by the toolbox in Goro's garage: tiles from the garage's spot 2
 };
 
 const ACT1: Mission[] = [
@@ -103,7 +109,7 @@ const ACT1: Mission[] = [
       { t: 'obj', text: 'Steal a car.', hint: 'Press E near a car to break in', done: 'inCar' },
       { t: 'radio', text: "DJ ŌKAMI: Good morning, Kogane! Rain's clearing, traffic's crawling, and word is a certain famous getaway driver walks free today. Lock up your gold, folks!" },
       { t: 'obj', text: 'Drive to Asagiri.', marker: 'asagiri', radius: 110, need: 'car', done: 'atMarker' },
-      { t: 'obj', text: 'Go home.', marker: 'ramen', radius: 34, done: 'atMarker' },
+      { t: 'obj', text: 'Go home.', enter: 'ramenMarker', done: 'atMarker' }, // inside the shop, at the counter
       { t: 'cut', lines: [
         D('Sakamaki Ramen. A CLOSED sign. MIKA wipes the counter with her back to the door.'),
         { who: 'MIKA', text: "We're closed." },
@@ -144,7 +150,7 @@ const ACT1: Mission[] = [
       { t: 'obj', text: 'Deliver to the arcade.', hint: 'The spill meter fills with bumps, crashes and hard turns.', marker: 'arcade', radius: 40, need: 'scooter', done: 'm02Deliver', after: 'm02Arcade' },
       { t: 'obj', text: 'Deliver to the bathhouse.', marker: 'bathhouse', radius: 40, need: 'scooter', done: 'm02Deliver', after: 'm02Bath' },
       { t: 'obj', text: 'Deliver to the police box.', marker: 'policeBox', radius: 44, need: 'scooter', done: 'm02Deliver', after: 'm02Police' },
-      { t: 'obj', text: 'Return to the shop.', marker: 'ramen', radius: 40, done: 'atMarker' },
+      { t: 'obj', text: 'Return to the shop.', enter: 'ramenMarker', done: 'atMarker' }, // inside, at the counter
       { t: 'cut', lines: [
         D('Back at the shop. MIKA counts the tips into a jar.'),
         { who: 'MIKA', text: "That's… actually decent." },
@@ -252,7 +258,7 @@ const ACT1: Mission[] = [
       { t: 'obj', text: 'Deal with the guards.', done: 'm05GuardsDone' },
       { t: 'obj', text: 'Grab the server rack.', done: 'm05Grab' },
       { t: 'call', lines: [{ who: 'HIKARI', text: "Drive like you're carrying a bomb. You're not. Probably." }] },
-      { t: 'obj', text: 'Get it to the Glitch hideout.', marker: 'hideout', radius: 60, done: 'atMarker' },
+      { t: 'obj', text: 'Get it to the Glitch hideout.', marker: 'capsule:1', radius: 40, done: 'atMarker' }, // inside the capsule hotel
       { t: 'cut', lines: [
         D('The Glitch hideout: a capsule-hotel floor full of monitors. HIKARI types while code scrolls.'),
         { who: 'HIKARI', text: "We're in. Oh, look at you." },
@@ -292,7 +298,7 @@ const ACT1: Mission[] = [
         { who: 'OGATA', text: "We're building the future, Mr. Sakamaki. You're a parking space." },
         { who: 'JUN', text: 'Tell your boss the parking space says no.' },
       ] },
-      { t: 'obj', text: 'Return to the shop.', hint: 'Turf defended. Asagiri Arcade is yours — owned turf pays daily and sends you recruits.', marker: 'ramen', radius: 44, done: 'atMarker' },
+      { t: 'obj', text: 'Return to the shop.', hint: 'Turf defended. Asagiri Arcade is yours — owned turf pays daily and sends you recruits.', enter: 'ramenMarker', done: 'atMarker' }, // inside, at the counter
       { t: 'cut', lines: [
         D("Sakamaki Ramen, after closing. MIKA bandages JUN's knuckles."),
         { who: 'MIKA', text: 'You looked scary.' },
@@ -358,12 +364,12 @@ const ACT1: Mission[] = [
         { who: 'JUN', text: "Last time someone said I'd be a ghost, I did six years." },
         { who: 'GORO', text: "(quietly) Last time, it wasn't my plan." },
       ] },
-      { t: 'obj', text: 'Get into the warehouse.', marker: 'warehouse', radius: 70, done: 'm08Inside' },
+      { t: 'obj', text: 'Get into the warehouse.', marker: 'evidence:6', radius: 40, done: 'm08Inside' }, // just inside the warehouse door
       { t: 'call', lines: [{ who: 'HIKARI', text: 'Cameras looping. Five minutes. Shelf 14-C, cold cases. Cold, like your personality.' }] },
       { t: 'obj', text: 'Find the heist file.', enter: 'm08FileMarker', done: 'm08AtPoint', after: 'm08File' },
       { t: 'obj', text: 'Find the tip tape.', enter: 'm08TapeMarker', done: 'm08AtPoint', after: 'm08Tape' },
       { t: 'call', lines: [{ who: 'HIKARI', text: "Got it? Good. Tag's dead. Run." }] },
-      { t: 'obj', text: 'Get out.', done: 'm08Out' },
+      { t: 'obj', text: 'Get out.', enter: 'm08OutMarker', done: 'm08Out' },
       { t: 'obj', text: "Reach Goro's tow truck.", marker: 'truck', radius: 70, done: 'atMarker', after: 'm08Swap' },
       { t: 'call', lines: [{ who: 'GORO', text: "In. Swap's done. Drive normal. Normal, kid!" }] },
       { t: 'obj', text: 'Lose the police.', done: 'heatClear' },

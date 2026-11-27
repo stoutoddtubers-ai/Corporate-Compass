@@ -14,6 +14,7 @@ const D = (text: string): Line => ({ who: '', text }); // stage direction
 /** PLACEHOLDER numbers the script does not give (numbers the script does give are marked "script"). */
 export const SIDE_TUNING = {
   reach: 28, // how close counts as "at the spot" on foot, px
+  roomReach: 40, // the same, for a marked spot inside a room
   loadDist: 46, // how close to a truck to load something onto it
   /** Following without being spotted (same numbers as mission 7's courier). */
   tail: { seeDist: 300, footDist: 120, fillFar: 0.14, fillNear: 0.45, drain: 0.12, cruise: 125, dawdle: 45, farBehind: 700 },
@@ -89,12 +90,13 @@ export const SIDE_TUNING = {
     nearStation: 420,
     waves: [3, 4], // Kuroda thugs per wave at the lockers
     endoHits: 14, // blows Endō can take
+    dropOff: 170, // Endō gets out when Jun's car stops this close to the station door
   },
 
   // ----- S-G3 Broadcast -----
   sg3: {
     gateGuards: 4,
-    floors: 3, // marked spots that stand for the floors of the tower
+    floors: 3, // floors of the tower below the open top floor (the rooms towerF1-towerF3)
     floorGuards: 2,
     kurodaRuns: 2, kurodaSpeed: 125, scareDist: 100, cornerDist: 40,
     streamTime: 20, // seconds to keep him on camera
@@ -109,7 +111,7 @@ export const SIDE_TUNING = {
   sk2: { wait: 6, stayDist: 260, sharks: 4, leaderHp: 90, fleeAt: 25, burnTime: 2.2 },
 
   // ----- S-K3 The Temple Bell -----
-  sk3: { guards: 4, gunmen: 2, bellGuards: 2, chasers: 1, templeRadius: 80 },
+  sk3: { guards: 4, gunmen: 2, bellGuards: 2, chasers: 1, templeRadius: 80, loadDist: 90 }, // loadDist: how close to the warehouse door the truck must back up
 
   // ----- S-U1 Bad Omen -----
   su1: { whistleRadius: 110, spotDist: 300, fleeCruise: 150, stopHp: 0.5, thieves: 2 },
@@ -223,10 +225,10 @@ export const MISSIONS_SIDE: Mission[] = [
         { who: 'JUN', text: 'And Bones?' },
         { who: 'KENTA', text: 'Bones gets to keep his teeth. Probably.' },
       ] },
-      { t: 'obj', text: 'Get the engine from the canal-side shop.', marker: 'srChopCanal', radius: 28, enter: 'sr1EngineSpot', done: 'sideOnFoot', after: 'sr1Engine' },
-      { t: 'obj', text: 'Get the frame from the rail-yard shop.', marker: 'srChopRail', radius: 28, done: 'sideOnFoot', after: 'sr1Frame' },
-      { t: 'obj', text: "Get the fuel tank from Bones's garage.", marker: 'srBones', radius: 28, done: 'sideOnFoot', after: 'sr1Tank' },
-      { t: 'obj', text: 'Bring the parts to the clubhouse.', marker: 'raijinClubhouse', radius: 44, done: 'atMarker' },
+      { t: 'obj', text: 'Get the engine from the canal-side shop.', marker: 'chopCanal:1', radius: 28, done: 'sideOnFoot', after: 'sr1Engine' }, // each part is inside its shop
+      { t: 'obj', text: 'Get the frame from the rail-yard shop.', marker: 'chopRail:1', radius: 28, done: 'sideOnFoot', after: 'sr1Frame' },
+      { t: 'obj', text: "Get the fuel tank from Bones's garage.", marker: 'bonesGarage:1', radius: 28, done: 'sideOnFoot', after: 'sr1Tank' },
+      { t: 'obj', text: 'Bring the parts to the clubhouse.', marker: 'raijinClub:2', radius: 40, done: 'atMarker' }, // inside, by Kenta
       { t: 'cut', lines: [
         D('The clubhouse. The parts lie on a sheet. KENTA runs a hand over the dented purple tank.'),
         { who: 'KENTA', text: 'Still has the dent from when he hit a vending machine in Asagiri.' },
@@ -341,8 +343,8 @@ export const MISSIONS_SIDE: Mission[] = [
       ] },
       { t: 'obj', text: 'Drive Mr. Endō to Tetsugawa station.', done: 'sg2Drive' },
       { t: 'obj', text: "Lose Kuroda's men.", done: 'sg2Lose' },
-      { t: 'obj', text: 'Protect Endō at the lockers.', marker: 'sgLockers', radius: 60, done: 'sg2Protect' },
-      { t: 'obj', text: 'Get the evidence to the Glitch hideout.', marker: 'hideout', radius: 60, done: 'atMarker' },
+      { t: 'obj', text: 'Protect Endō at the lockers.', done: 'sg2Protect' }, // the lockers are inside the station
+      { t: 'obj', text: 'Get the evidence to the Glitch hideout.', marker: 'capsule:1', radius: 40, done: 'atMarker' }, // inside the capsule hotel
       { t: 'cut', lines: [
         D('The hideout. Photos cover a table: scorched floors, a red can. Behind HIKARI, a small grey-haired woman knits in an armchair: GRANDMA NISHINO.'),
         { who: 'HIKARI', text: 'It was arson. I always knew. Now I can prove it.' },
@@ -381,7 +383,7 @@ export const MISSIONS_SIDE: Mission[] = [
         { who: 'KURODA', text: "The old lady was still inside. We pulled her out ourselves. That's all I know!" },
         D("On HIKARI's laptop, the viewer count passes 200,000."),
       ] },
-      { t: 'obj', text: 'Keep him on camera.', enter: 'sg3Stream', done: 'sg3Hold' },
+      { t: 'obj', text: 'Keep him on camera.', enter: 'sg3Stream', done: 'sg3Hold', after: 'sg3Home' },
       { t: 'cut', lines: [
         D("The hideout. Sirens on every screen. GRANDMA NISHINO wraps a hand-knitted scarf around JUN's neck."),
         { who: 'GRANDMA NISHINO', text: 'They pulled me out themselves. After they set the fire. Imagine.' },
@@ -412,10 +414,10 @@ export const MISSIONS_SIDE: Mission[] = [
         { who: 'JUN', text: 'You want me to steal an ice machine.' },
         { who: 'MAMA REI', text: 'I want you to liberate one. Warm whisky is a crime too.' },
       ] },
-      { t: 'obj', text: "Get into Club Mirage's kitchen.", marker: 'clubMirage', radius: 30, done: 'sideOnFoot' },
+      { t: 'obj', text: "Get into Club Mirage's kitchen.", marker: 'mirageKitchen:1', radius: 30, done: 'sideOnFoot' }, // just inside the kitchen door
       { t: 'obj', text: 'Steal the ice machine.', enter: 'sk1MachineSpot', done: 'sideOnFoot', after: 'sk1Steal' },
       { t: 'obj', text: 'Load it onto a truck.', hint: "The ice machine is heavy. You can't run while carrying it.", done: 'sk1Load', after: 'sk1Loaded' },
-      { t: 'obj', text: "Deliver it to Mama Rei's.", marker: 'mamaRei', radius: 170, done: 'sk1Deliver' },
+      { t: 'obj', text: "Deliver it to Mama Rei's.", marker: 'mamaRei', radius: 170, done: 'sk1Deliver', after: 'sk1Home' },
       { t: 'cut', lines: [
         D("Mama Rei's. The new machine hums. A perfect round cube drops into a glass."),
         { who: 'MAMA REI', text: 'Look at that. Round. Like a little moon.' },
@@ -440,7 +442,7 @@ export const MISSIONS_SIDE: Mission[] = [
       { t: 'obj', text: 'Deliver the condolence money to Mrs. Tsuda.', marker: 'skTsuda', radius: 34, done: 'sideOnFoot', after: 'sk2Deliver' },
       { t: 'obj', text: 'Wait for the loan sharks.', done: 'sk2Wait' },
       { t: 'obj', text: 'Run them out of Asagiri.', enter: 'sk2Fight', done: 'sk2Run', after: 'sk2Ledger' },
-      { t: 'obj', text: 'Burn their ledger.', done: 'sk2Burn' },
+      { t: 'obj', text: 'Burn their ledger.', done: 'sk2Burn', after: 'sk2Home' },
       { t: 'cut', lines: [
         D("Mrs. Tsuda's small apartment. She sets a cup of tea in front of JUN."),
         { who: 'MRS. TSUDA', text: "My husband always said the old man's family paid its debts." },
@@ -462,7 +464,7 @@ export const MISSIONS_SIDE: Mission[] = [
         { who: 'JUN', text: 'You want me to steal a temple bell.' },
         { who: 'SAEKO', text: "I want you to finish my father's sentence." },
       ] },
-      { t: 'obj', text: "Break into Mibu's canal warehouse.", marker: 'skMibuYard', radius: 70, done: 'sk3Inside' },
+      { t: 'obj', text: "Break into Mibu's canal warehouse.", marker: 'mibuWarehouse:1', radius: 40, done: 'sk3Inside' }, // inside the warehouse door
       { t: 'obj', text: 'Find the bell.', enter: 'sk3BellSpot', done: 'sideOnFoot' },
       { t: 'call', lines: [{ who: 'GORO', text: "A bell? Kid, my truck's rated for cars, not religion." }] },
       { t: 'obj', text: "Load it onto Goro's tow truck.", enter: 'sk3Truck', done: 'sk3Load', after: 'sk3Loaded' },

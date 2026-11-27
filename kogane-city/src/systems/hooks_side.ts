@@ -1,4 +1,4 @@
-import { HOOKS, CHECKS, free, npc, near, storyCar, laneCar, aiDrive, dist } from './missionHooks';
+import { HOOKS, CHECKS, free, npc, near, storyCar, laneCar, aiDrive, dist, goInside } from './missionHooks';
 import type { Hook, Check } from './missionHooks';
 import { SIDE_BARKS as B, SIDE_TUNING as T, SIDE_LABELS as L, DAIGO_ZOKUSHA, SIDE_LIGHT } from '../data/missions_side';
 import { VEHICLES, BLACK_SEDAN } from '../data/vehicles';
@@ -22,6 +22,8 @@ const BUBBLE = 60;
 const V = <X>(s: Story, k: string): X => s.vars[k] as X;
 const spot = (r: Rect, kx: number, ky: number): P => ({ x: r.x + r.w * kx, y: r.y + r.h * ky });
 const onFootAt = (w: WorldScene, s: Story): boolean => !w.player.car && near(w, s);
+/** Is Jun inside this room? */
+const inRoom = (w: WorldScene, id: string): boolean => w.map.interiorAt(w.player.pos.x, w.player.pos.y)?.id === id;
 const call = (s: Story, from: string, text: string): void => { s.phone.push({ from, text, t: 3.2 }); };
 const gone = (c: Car | undefined): boolean => !!c && (c.wreck || c.removed);
 /** An AI car stops where it is and stays there. */
@@ -113,20 +115,21 @@ function shopAlarm(w: WorldScene, s: Story, shop: number, line: string): void {
 
 Object.assign(HOOKS, {
   sr1Setup(w, s) {
-    const canal = s.place('srChopCanal'), rail = s.place('srChopRail'), garage = s.place('srBones');
-    const spots: P[] = [spot(canal.rect!, 0.5, 0.28), { x: rail.x, y: rail.y }, { x: garage.x, y: garage.y }];
-    s.vars.spots = spots;
-    spots.forEach((p, i) => {
+    // each chop shop is a room: the part is at its spot 1, the workers at spots 2 and 3
+    ['chopCanal', 'chopRail', 'bonesGarage'].forEach((room, i) => {
       for (let k = 0; k < T.sr1.workers; k++) {
-        const f = free(w, p.x + (k % 2 ? 36 : -36), p.y + 8 + 16 * (k >> 1));
+        const q = s.place(`${room}:${2 + (k % 2)}`), f = free(w, q.x + 24 * (k >> 1), q.y);
         w.gang.spawnThug(f.x, f.y, 'builder', 'guard').data.shop = i;
       }
     });
-    const f = free(w, spots[2].x, spots[2].y + 34);
-    const bones = w.gang.spawnThug(f.x, f.y, 'courier', 'guard', T.sr1.bonesHp); // Bones Tamura himself
+    const q = s.place('bonesGarage:4');
+    const bones = w.gang.spawnThug(q.x, q.y, 'courier', 'guard', T.sr1.bonesHp); // Bones Tamura himself
     bones.data.shop = 2; s.vars.bones = bones;
+    // the scenes with Kenta play inside the clubhouse
+    const k = s.place('raijinClub:1'); npc(w, s, 'kenta', k.x, k.y);
+    goInside(w, s, 'raijinClub', '2', 'raijinClubhouse');
+    s.flags.doorsOpen = true;
   },
-  sr1EngineSpot(_w, s) { const p = V<P[]>(s, 'spots')[0]; s.marker = { x: p.x, y: p.y, r: T.reach }; },
   sr1Engine(w, s) { shopAlarm(w, s, 0, B.sr1Worker[0]); },
   sr1Frame(w, s) { shopAlarm(w, s, 1, B.sr1Worker[1]); },
   sr1Tank(w, s) {
@@ -387,6 +390,7 @@ function lastRun(w: WorldScene, s: Story, dt: number): number {
 Object.assign(HOOKS, {
   sr3Setup(w, s) {
     w.setAmbience(SIDE_LIGHT.dawn);
+    goInside(w, s, 'raijinClub', '2', 'raijinClubhouse'); // the opening scene is in the clubhouse; the run starts from the on-ramp
     const st = s.place('raceStart'), cps = eastLap(st.x), start = { x: st.x, y: cps[0].y }, t = T.sr3;
     for (const c of [...w.cars]) if (c !== w.player.car && dist(c, st) < 300) c.destroy(); // clear the start line
     const car = ownCar(w, s, VEHICLES.sports, { x: start.x + 120, y: start.y }, 1);
@@ -446,7 +450,10 @@ Object.assign(CHECKS, {
 // =====================================================================================
 
 Object.assign(HOOKS, {
-  sg1Setup(_w, s) { s.vars.cams = ['sgCam1', 'sgCam2', 'sgCam3', 'sgCam4'].map((id) => s.place(id)); s.vars.fixed = 0; s.vars.eye = 0; },
+  sg1Setup(w, s) {
+    s.vars.cams = ['sgCam1', 'sgCam2', 'sgCam3', 'sgCam4'].map((id) => s.place(id)); s.vars.fixed = 0; s.vars.eye = 0;
+    goInside(w, s, 'capsule', '1', 'hideout'); // the opening scene is inside the Glitch hideout
+  },
   sg1Van(w, s) {
     const van = laneCar(w, s, VEHICLES.truck, 0, s.place('sgVan'), 0, T.tail.cruise);
     van.driver = 'none'; van.vx = van.vy = 0; // parked with the engine running until Jun finds it
@@ -518,12 +525,11 @@ function endoRide(w: WorldScene, car: Car): void {
   if (hit > 60) w.fx.bark(car, B.sg2Endo[1], WARM, 'endo', 5);
   else if (car.slip > 70) w.fx.bark(car, B.sg2Endo[0], WARM, 'endo', 5);
 }
+/** Kuroda's men come into the locker hall: by the street door and from the far end. */
 function kurodaWave(w: WorldScene, s: Story): void {
-  const lk = V<P>(s, 'lockers'), endo = V<Actor>(s, 'endo'), n = T.sg2.waves[V<number>(s, 'wave')];
+  const endo = V<Actor>(s, 'endo'), n = T.sg2.waves[V<number>(s, 'wave')], ways = [s.place('stationHall:D'), s.place('stationHall:3')];
   for (let i = 0; i < n; i++) {
-    let pos = w.map.randomWalkNear(lk.x, lk.y, 240, 420);
-    for (let k = 0; k < 6 && pos && w.onScreen(pos.x, pos.y, 20); k++) pos = w.map.randomWalkNear(lk.x, lk.y, 240, 420);
-    const f = pos ?? free(w, lk.x - 300, lk.y);
+    const at = ways[i % 2], f = free(w, at.x + 26 * ((i >> 1) % 3) - 26, at.y - (i % 2 ? 0 : 40));
     const forEndo = i % 2 === 0 && w.map.los(f.x, f.y, endo.x, endo.y); // half of them go for the old man, the rest for Jun
     const t = w.gang.spawnThug(f.x, f.y, 'builder', forEndo ? 'smash' : 'chase');
     if (forEndo) { t.tx = endo.x; t.ty = endo.y; }
@@ -533,10 +539,13 @@ function kurodaWave(w: WorldScene, s: Story): void {
 
 Object.assign(HOOKS, {
   sg2Setup(w, s) {
-    const iz = s.place('sgIzakaya').rect!, lk = s.place('sgLockers').rect!;
-    s.vars.endo = npc(w, s, 'elder', iz.x + iz.w * 0.5 + 36, iz.y + iz.h * 0.3);
-    ownCar(w, s, VEHICLES.sedan, spot(iz, 0.5, 0.8), 0);
-    Object.assign(s.vars, { lockers: spot(lk, 0.5, 0.35), hits: 0, rideT: 0, wave: 0 });
+    const iz = s.place('sgIzakaya').rect!, st = s.place('sgStation');
+    const car = ownCar(w, s, VEHICLES.sedan, spot(iz, 0.5, 0.8), 0);
+    const by = free(w, car.x + 40, car.y - 10); // Endō waits by the car outside
+    s.vars.endo = npc(w, s, 'elder', by.x, by.y);
+    Object.assign(s.vars, { lockers: { x: st.x, y: st.y }, hits: 0, rideT: 0, wave: 0 }); // `lockers`: the station door, where the car pulls up
+    goInside(w, s, 'izakaya', '1', 'sgIzakayaDoor'); // the opening scene is inside the izakaya
+    s.flags.doorsOpen = true;
   },
 } as Record<string, Hook>);
 
@@ -568,10 +577,17 @@ Object.assign(CHECKS, {
     if (!s.flags.atLockers) {
       if (w.player.car !== car) { s.marker = { x: car.x, y: car.y, r: 30 }; return false; }
       s.marker = { x: lk.x, y: lk.y, r: 60 };
-      if (dist(car, lk) > 70 || car.speed > 60) return false;
-      s.flags.atLockers = true; // Endō gets out and opens his locker
-      const f = free(w, lk.x, lk.y - 34);
-      endo.body.enable = true; endo.body.reset(f.x, f.y); endo.sprite.setVisible(true);
+      if (dist(car, lk) > T.sg2.dropOff || car.speed > 60) return false;
+      s.flags.atLockers = true; // Endō gets out and goes in to his locker
+      const at = s.place('stationHall:1');
+      endo.body.enable = true; endo.body.reset(at.x, at.y); endo.sprite.setVisible(true);
+      return false;
+    }
+    if (!s.flags.inHall) { // Jun follows him inside
+      const by = s.place('stationHall:2');
+      s.marker = { x: by.x, y: by.y, r: T.roomReach };
+      if (!inRoom(w, 'stationHall')) return false;
+      s.flags.inHall = true;
       say(w, s, endo.sprite, B.sg2EndoLocker, WARM);
       later(w, s, 1500, () => kurodaWave(w, s));
       s.flags.waveDue = true;
@@ -597,8 +613,18 @@ Object.assign(CHECKS, {
 } as Record<string, Check>);
 
 // =====================================================================================
-// S-G3 Broadcast: the construction site on the Building 41 lot; "floors" are marked spots
+// S-G3 Broadcast: the site yard on the Building 41 lot, then up through the half-built tower
+// (rooms towerF1-towerF3 and towerTop in data/interiors_side.ts)
 // =====================================================================================
+
+const TOWER = ['towerF1', 'towerF2', 'towerF3', 'towerTop'];
+/** Site security waiting on one floor of the tower (at its spots 2 and 3). */
+function towerGuards(w: WorldScene, s: Story, floor: number): void {
+  for (let i = 0; i < T.sg3.floorGuards; i++) {
+    const q = s.place(`${TOWER[floor]}:${2 + (i % 2)}`), f = free(w, q.x + 24 * (i >> 1), q.y);
+    w.gang.spawnThug(f.x, f.y, 'guard', 'guard');
+  }
+}
 
 Object.assign(HOOKS, {
   sg3Setup(w, s) {
@@ -607,16 +633,20 @@ Object.assign(HOOKS, {
       const f = free(w, lot.x + lot.w * (0.25 + 0.5 * (i % 2)), lot.y + lot.h * (0.1 + 0.12 * (i >> 1)));
       w.gang.spawnThug(f.x, f.y, 'guard', 'guard'); // site security
     }
-    s.vars.floorSpots = Array.from({ length: t.floors }, (_, i) => spot(lot, i % 2 ? 0.75 : 0.25, 0.32 + (0.5 * i) / Math.max(1, t.floors - 1)));
-    s.vars.kurodaSpots = [spot(lot, 0.8, 0.93), spot(lot, 0.18, 0.93), spot(lot, 0.82, 0.74)];
+    s.vars.floorSpots = Array.from({ length: t.floors }, (_, i) => s.place(`${TOWER[i]}:1`)); // the foot of the stairs up, on each floor
+    s.vars.kurodaSpots = ['1', '2', '3'].map((k) => s.place('towerTop:' + k));
     s.vars.floor = 0; s.vars.run = 0;
+    towerGuards(w, s, 0);
+    s.flags.doorsOpen = true;
   },
   sg3Kuroda(w, s) { const p = V<P[]>(s, 'kurodaSpots')[0]; s.vars.kuroda = npc(w, s, 'builder', p.x, p.y); },
   sg3Stream(w, s) {
-    const lot = s.place('sgLot41').rect!, t = T.sg3;
+    const at = s.place('towerTop:5'), t = T.sg3; // more security comes up the stairs
     s.timer = { label: L.onCamera, value: t.streamTime, max: t.streamTime, kind: 'time' };
-    for (let i = 0; i < t.streamGuards; i++) { const f = free(w, lot.x + lot.w * (0.2 + 0.3 * i), lot.y + lot.h * 0.3); w.gang.spawnThug(f.x, f.y, 'guard', 'chase'); }
+    for (let i = 0; i < t.streamGuards; i++) { const f = free(w, at.x + 28 * i, at.y); w.gang.spawnThug(f.x, f.y, 'guard', 'chase'); }
   },
+  /** The closing scene is back in the Glitch hideout. */
+  sg3Home(w, s) { goInside(w, s, 'capsule', '1', 'hideout'); },
 } as Record<string, Hook>);
 
 Object.assign(CHECKS, {
@@ -630,11 +660,11 @@ Object.assign(CHECKS, {
     let n = V<number>(s, 'floor');
     const at = spots[Math.min(n, spots.length - 1)];
     s.marker = { x: at.x, y: at.y, r: T.reach };
+    wake(w, 300);
     if (n < spots.length && onFootAt(w, s)) {
       s.vars.floor = ++n;
       if (n === 2) call(s, 'HIKARI', B.sg3Hikari);
-      const up = spots[Math.min(n, spots.length - 1)]; // more security on the next floor
-      for (let i = 0; i < T.sg3.floorGuards; i++) { const f = free(w, up.x + (i ? 44 : -44), up.y + 34); w.gang.spawnThug(f.x, f.y, 'guard', 'chase'); }
+      if (n < spots.length) towerGuards(w, s, n); // more security on the next floor
     }
     return n >= spots.length;
   },
@@ -675,12 +705,17 @@ function carry(w: WorldScene): void {
 Object.assign(HOOKS, {
   sk1Setup(w, s) {
     const door = s.place('clubMirage'), t = T.sk1;
-    s.vars.machine = free(w, door.x + 44, door.y);
-    s.vars.cook = npc(w, s, 'shopkeeper', door.x - 28, door.y - 6);
-    for (let i = 0; i < t.hosts; i++) { const f = free(w, door.x + 92 + 30 * i, door.y - 12); w.gang.spawnThug(f.x, f.y, 'thug', 'guard'); } // Mirage hosts
+    s.vars.machine = s.place('mirageKitchen:2'); // the ice machine, in the kitchen
+    const c = s.place('mirageKitchen:3');
+    s.vars.cook = npc(w, s, 'shopkeeper', c.x, c.y);
+    for (let i = 0; i < t.hosts; i++) { const q = s.place('mirageKitchen:' + (4 + (i % 3))), f = free(w, q.x, q.y + 28 * Math.floor(i / 3)); w.gang.spawnThug(f.x, f.y, 'thug', 'guard'); } // Mirage hosts, out on the club floor
     const kerb = free(w, door.x - 116, door.y); // a truck left on the pavement at the mouth of the kitchen alley
     s.vars.truck = ownCar(w, s, VEHICLES.truck, kerb, 1, Math.PI / 2);
+    goInside(w, s, 'bar', '1', 'mamaRei'); // the opening scene is inside Mama Rei's
+    s.flags.doorsOpen = true;
   },
+  /** The closing scene is back inside Mama Rei's. */
+  sk1Home(w, s) { goInside(w, s, 'bar', '1', 'mamaRei'); },
   sk1MachineSpot(_w, s) { const p = V<P>(s, 'machine'); s.marker = { x: p.x, y: p.y, r: 22 }; },
   sk1Steal(w, s) {
     const cook = V<Actor>(s, 'cook');
@@ -725,6 +760,12 @@ Object.assign(HOOKS, {
   sk2Setup(w, s) { const d = s.place('skTsuda'); s.vars.tsuda = npc(w, s, 'grandmother', d.x + 18, d.y - 4); s.vars.waitT = 0; s.vars.burnT = 0; },
   sk2Deliver(w, s) { say(w, s, V<Actor>(s, 'tsuda').sprite, B.sk2Tsuda, WARM); },
   sk2Fight(w, s) { say(w, s, w.player.pos, B.sk2Jun, GOLD); },
+  /** The closing scene is in Mrs. Tsuda's apartment: she goes in, and Jun sits at her table. */
+  sk2Home(w, s) {
+    const at = s.place('tsudaFlat:1');
+    V<Actor>(s, 'tsuda').body.reset(at.x, at.y);
+    goInside(w, s, 'tsudaFlat', '2', 'skTsuda');
+  },
   /** The sharks have run: their ledger lies where the boss dropped it, and one of them watches from a distance. */
   sk2Ledger(w, s) {
     const at = (s.vars.ledger as P | undefined) ?? s.place('skTsuda'), f = free(w, at.x, at.y);
@@ -782,16 +823,19 @@ Object.assign(CHECKS, {
 
 Object.assign(HOOKS, {
   sk3Setup(w, s) {
-    const yard = s.place('skMibuYard').rect!, temple = s.place('temple').rect!, t = T.sk3, bell = spot(yard, 0.8, 0.82);
-    for (let i = 0; i < t.guards; i++) {
-      const f = free(w, yard.x + yard.w * (0.2 + (0.5 * i) / Math.max(1, t.guards - 1)), yard.y + yard.h * (i % 2 ? 0.3 : 0.55));
-      const g = w.gang.spawnThug(f.x, f.y, 'thug', 'guard'); // Mibu's guards
+    const yard = s.place('skMibuYard').rect!, temple = s.place('temple').rect!, t = T.sk3, door = s.place('skMibuWarehouse');
+    for (let i = 0; i < t.guards; i++) { // Mibu's guards: every other one out in the yard, the rest inside among the crates (spots 4 and 5)
+      const q = s.place('mibuWarehouse:' + (4 + ((i >> 1) % 2)));
+      const f = i % 2 ? free(w, q.x + 24 * (i >> 2), q.y) : free(w, yard.x + yard.w * (0.2 + (0.5 * i) / Math.max(1, t.guards - 1)), yard.y + yard.h * 0.45);
+      const g = w.gang.spawnThug(f.x, f.y, 'thug', 'guard');
       if (i < t.gunmen) { g.data.gun = true; g.data.bark = B.sk3Guard; }
     }
-    for (let i = 0; i < t.bellGuards; i++) { const f = free(w, bell.x - 34 - 30 * i, bell.y - 22); w.gang.spawnThug(f.x, f.y, 'thug', 'guard'); }
-    s.vars.bell = bell;
+    for (let i = 0; i < t.bellGuards; i++) { const q = s.place('mibuWarehouse:' + (6 + (i % 2))), f = free(w, q.x + 24 * (i >> 1), q.y); w.gang.spawnThug(f.x, f.y, 'thug', 'guard'); }
+    s.vars.bell = s.place('mibuWarehouse:2'); // the bell, in the strongroom at the back
+    s.vars.loadAt = { x: door.x, y: door.y }; // the warehouse door: the truck backs up to it
     s.vars.ringAt = spot(temple, 0.5, 0.3);
     s.vars.monk = npc(w, s, 'priest', temple.x + temple.w + 14, temple.y + temple.h * 0.5); // at the temple gate
+    s.flags.doorsOpen = true;
   },
   sk3BellSpot(_w, s) { const p = V<P>(s, 'bell'); s.marker = { x: p.x, y: p.y, r: T.reach }; },
   sk3Truck(w, s) {
@@ -814,12 +858,12 @@ Object.assign(CHECKS, {
     wake(w, 300);
     return near(w, s);
   },
-  /** Back Goro's truck up to the bell. */
+  /** Back Goro's truck up to the warehouse door. */
   sk3Load: (w, s) => {
-    const truck = V<Car>(s, 'truck'), bell = V<P>(s, 'bell');
+    const truck = V<Car>(s, 'truck'), at = V<P>(s, 'loadAt');
     if (w.player.car !== truck) { s.marker = { x: truck.x, y: truck.y, r: 30 }; return false; }
-    s.marker = { x: bell.x, y: bell.y, r: 40 };
-    return dist(truck, bell) < 60 && truck.speed < 80;
+    s.marker = { x: at.x, y: at.y, r: 40 };
+    return dist(truck, at) < T.sk3.loadDist && truck.speed < 80;
   },
   sk3Temple: (w, s) => {
     const truck = V<Car>(s, 'truck'), temple = s.place('temple'), monk = V<Actor>(s, 'monk');

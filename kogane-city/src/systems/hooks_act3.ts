@@ -17,10 +17,13 @@ import type { Story } from './Story';
 // The set pieces for Act 3 (missions 17-24 and the endings). The words are in
 // data/missions_act3.ts; this is only what each mission does.
 //
+// Indoor scenes happen in real rooms (drawn in data/interiors_act3.ts): the harbour office, the
+// fish market hall, Rokkaku Tower and its rooftop party, Mibu Tower from lobby to helipad, Tsukuyomi
+// Tower floor by floor, and the bridge deck and hold of the Amaterasu Maru.
+//
 // What the engine can't do yet, and how it is staged here:
-//  - no interiors: towers are fought in their plazas, "floors" are waves, a "roof" is a marked yard;
 //  - no boats: chases on water are car chases along the shore (bible cut list); the ship is a
-//    drawing in the water beside the north quay, and its "deck" is the quay next to it;
+//    drawing in the water beside the north quay, and its open "deck" is the quay next to it;
 //  - no helicopter: one is drawn over an invisible truck, which is what the bullets hit.
 
 type Pt = { x: number; y: number };
@@ -42,6 +45,44 @@ function foe(w: WorldScene, at: Pt, look: string, tag: string, state: 'wait' | '
   if (gun) t.data.gun = true;
   if (bark) t.data.bark = bark;
   return t;
+}
+
+/** A numbered spot in a room (the digits in the room's map), e.g. spot(s, 'mibuLobby', '2'). */
+const spot = (s: Story, room: string, ch: string): Pt => s.place(`${room}:${ch}`);
+/** A tile of a room, counted across and down from its top-left corner. */
+function tile(w: WorldScene, room: string, tx: number, ty: number): Pt {
+  const r = w.map.interiors.find((i) => i.id === room)!;
+  return { x: r.x + (tx + 0.5) * TS, y: r.y + (ty + 0.5) * TS };
+}
+/**
+ * The story puts Jun inside a room. When he walks out, he comes out of the street door of
+ * `street` (the building's ground-floor room; the room itself unless given).
+ */
+function goIn(w: WorldScene, room: string, ch: string, street = room): void {
+  w.enterRoom(room, ch);
+  const d = w.map.doors.find((o) => o.kind === 'in' && o.interior === street);
+  w.lastDoor = d ? { x: d.x, y: d.y } : null;
+}
+/** Guards posted in a room, one per numbered spot (`at` lists the spots). They stand there until Jun walks in; every other one carries a gun. */
+function post(w: WorldScene, s: Story, room: string, at: string, n: number, look: string, tag: string, bark = ''): Actor[] {
+  const out: Actor[] = [];
+  for (let i = 0; i < n; i++) {
+    const q = spot(s, room, at[i % at.length]), lap = Math.floor(i / at.length);
+    const t = foe(w, { x: q.x + lap * 26, y: q.y + lap * 20 }, look, tag, 'guard', i % 2 === 0, bark);
+    t.data.room = room;
+    out.push(t);
+  }
+  return out;
+}
+/** The guards in the room Jun has just walked into go for him. Returns the ones who have only now noticed. */
+function wake(w: WorldScene, tag: string): Actor[] {
+  const here = w.indoors?.id, out: Actor[] = [];
+  if (here) for (const t of foes(w, tag)) if (t.data.room === here && t.state === 'guard') { t.state = 'chase'; out.push(t); }
+  return out;
+}
+/** Enemies still to deal with: the marker shows the way to the first of them (through the right door or up the right stairs). */
+function hunt(s: Story, left: Actor[]): void {
+  s.marker = left.length ? { x: left[0].x, y: left[0].y, r: 0 } : null;
 }
 
 /** A pavement spot near a point, out of view if there is one: where reinforcements run in from. */
@@ -169,7 +210,7 @@ function m17Watch(w: WorldScene, s: Story, dt: number): void {
 
 Object.assign(HOOKS, {
   m17Setup(w, s) {
-    const gate = s.place('portGate'), lot = s.place('containerPort').rect!, door = s.place('harbourOffice'), office = door.rect!;
+    const gate = s.place('portGate'), lot = s.place('containerPort').rect!, door = s.place('harbourOffice');
     const car = storyCar(w, VEHICLES.sedan, gate.x + 76, gate.y + 14, 0, 1); // Jun's car, just over the bridge
     car.unlocked = true; s.cars.push(car);
     if (s.keep.path === 'police') { // Sawada and a tactical officer; she lends Jun her old revolver
@@ -184,7 +225,7 @@ Object.assign(HOOKS, {
       { x: lot.x + 60, y: lot.y + lot.h * 0.55 }, // the left stack
       { x: lot.x + lot.w - 60, y: lot.y + lot.h * 0.5 }, // the right stack
       { x: door.x - 150, y: door.y - 4 }, // the alley behind the harbour office
-      { x: office.x - 20, y: office.y + office.h / 2 - 90 }, // the office's side door
+      spot(s, 'harbourOffice', '1'), // inside the harbour office, by the stairs
     ];
     s.vars.docks = posts.slice(0, T.m17Guards).map((p) => foe(w, p, 'umibozu', 'dock', 'idle'));
     s.vars.eye = 0;
@@ -203,10 +244,10 @@ Object.assign(HOOKS, {
     w.fx.bark(npc(w, s, 'thug', fire.x + 60, fire.y - 8).sprite, B.m17Soldier, COL.ally);
     [docks[0], docks[2]].forEach((g, i) => { if (g?.alive && g.state === 'idle') { g.state = 'smash'; g.tx = fire.x - 30 + i * 60; g.ty = fire.y + 30; } });
   },
-  /** "Harbour office, second floor": the manifest is at the office's side door. */
-  m17ManifestSpot(w, s) {
-    const r = s.place('harbourOffice').rect!, f = free(w, r.x - 20, r.y + r.h / 2);
-    s.marker = { x: f.x, y: f.y, r: 26 };
+  /** "Harbour office, second floor": the manifest is in the records room upstairs. */
+  m17ManifestSpot(_w, s) {
+    const at = spot(s, 'harbourRecords', '1');
+    s.marker = { x: at.x, y: at.y, r: 30 };
   },
   m17Manifest(_w, s) { s.flags.manifest = true; s.vars.eye = 0; },
   m17Unlock(_w, s) { s.keep.inspectorRevolver = 'inspectorRevolver'; },
@@ -245,17 +286,20 @@ function m18Fight(w: WorldScene, s: Story, who: Actor[]): void {
 
 Object.assign(HOOKS, {
   m18Setup(w, s) {
-    const yard = s.place('fishMarketYard').rect!, cx = yard.x + yard.w / 2, cy = yard.y + yard.h / 2 + 10;
+    // the market hall: Jun is just inside the door, Hachirō in the middle of the floor among the tuna
+    goIn(w, 'fishHall', '4');
+    const mid = spot(s, 'fishHall', '1'), cx = mid.x, cy = mid.y;
     const boss = foe(w, { x: cx, y: cy }, 'hachiro', 'boss', 'wait');
     boss.hp = BOSS_PAD + T.m18BossHp;
     boss.sprite.setScale(boss.sprite.scaleX * 1.25); // "huge in rubber boots"
     s.vars.boss = boss;
     for (let i = 0; i < T.m18Crew; i++) { // his crew, in a half circle behind him
       const a = -0.4 + (i / Math.max(1, T.m18Crew - 1)) * (Math.PI + 0.8);
-      foe(w, { x: cx + Math.cos(a) * 130, y: cy + Math.sin(a) * 90 }, 'umibozu', 'crew', 'wait');
+      foe(w, { x: cx + Math.cos(a) * 150, y: cy - Math.sin(a) * 45 }, 'umibozu', 'crew', 'wait');
     }
-    s.vars.auctioneer = npc(w, s, 'shopkeeper', yard.x + 36, yard.y + 36);
-    s.vars.knife = free(w, yard.x + yard.w - 44, yard.y + yard.h - 44);
+    const bell = spot(s, 'fishHall', '2');
+    s.vars.auctioneer = npc(w, s, 'shopkeeper', bell.x, bell.y);
+    s.vars.knife = spot(s, 'fishHall', '3');
   },
   /** "Not enough cash forces the fight." */
   m18Chosen(w, s) { if (s.keep.hachiro === 'hachiroPaid' && w.player.cash < T.m18Price) s.keep.hachiro = 'hachiroFought'; },
@@ -419,15 +463,14 @@ function m20Guest(w: WorldScene, s: Story): void {
 }
 
 /**
- * Amane on the roof. She paces along the rail and sees what is in front of her; once the bug
+ * Amane at the rooftop party. She paces along the rail and sees what is in front of her; once the bug
  * is planted she stops and looks out over the rail. If she notices Jun, the bug is found.
  */
 function m20Amane(w: WorldScene, s: Story, dt: number, pace: boolean): { a: Actor; d: number; unseen: boolean } {
-  const a = s.vars.amane as Actor, roof = s.place('rokkakuRoof').rect!, p = w.player.pos;
-  clearLot(w, roof);
+  const a = s.vars.amane as Actor, north = spot(s, 'rokkakuTop', '3'), south = spot(s, 'rokkakuTop', '4'), p = w.player.pos;
   let face = num(s, 'face'); // the way she is walking: south (+) or north (-)
   if (pace) {
-    if (a.moveTo(a.x, face > 0 ? roof.y + roof.h - 30 : roof.y + 30, 42) < 4) { face = -face; s.vars.face = face; }
+    if (a.moveTo(north.x, face > 0 ? south.y : north.y, 42) < 4) { face = -face; s.vars.face = face; }
   } else { a.body.setVelocity(0, 0); a.sprite.rotation = Math.PI; }
   const look = pace ? face : Math.PI;
   const off = Math.abs(Phaser.Math.Angle.Wrap(Math.atan2(p.y - a.y, p.x - a.x) - look));
@@ -441,26 +484,26 @@ function m20Amane(w: WorldScene, s: Story, dt: number, pace: boolean): { a: Acto
 
 Object.assign(HOOKS, {
   m20Setup(w, s) {
-    const roof = s.place('rokkakuRoof').rect!;
-    // the party on the roof: guests, and Amane by the rail
-    const looks = ['salaryman', 'customer', 'elder', 'student', 'mama'];
-    s.vars.guests = Array.from({ length: T.m20Guests }, (_, i) => npc(w, s, looks[i % looks.length], roof.x + roof.w * 0.45 + (i % 3) * 38, roof.y + 40 + Math.floor(i / 3) * 70 + (i % 2) * 20));
-    const amane = npc(w, s, 'amane', roof.x + 36, roof.y + roof.h / 2);
+    // the party on the roof of Rokkaku Tower: guests among the tables, and Amane by the rail
+    const mid = spot(s, 'rokkakuTop', '2'), rail = spot(s, 'rokkakuTop', '3'), looks = ['salaryman', 'customer', 'elder', 'student', 'mama'];
+    s.vars.guests = Array.from({ length: T.m20Guests }, (_, i) => { const f = free(w, mid.x - 50 + (i % 3) * 50, mid.y - 40 + Math.floor(i / 3) * 70 + (i % 2) * 16); return npc(w, s, looks[i % looks.length], f.x, f.y); });
+    const amane = npc(w, s, 'amane', rail.x, (rail.y + spot(s, 'rokkakuTop', '4').y) / 2);
     amane.body.setImmovable(false);
     s.vars.amane = amane; s.vars.face = Math.PI / 2; s.vars.eye = 0;
   },
   m20Valet(w, s) { m20Guest(w, s); },
   /** The bug is in: Kirishima joins her at the rail, his back to the party. */
   m20Kirishima(w, s) {
-    const a = s.vars.amane as Actor, k = npc(w, s, 'tetsu', a.x - 30, a.y - 8);
+    const a = s.vars.amane as Actor, f = free(w, a.x + 2, a.y - 30), k = npc(w, s, 'tetsu', f.x, f.y);
     k.sprite.rotation = Math.PI;
   },
+  /** "A service stairwell. JUN leans against the wall." */
+  m20Stairwell(w) { goIn(w, 'rokkakuStairs', '1', 'rokkakuLobby'); },
 } as Record<string, Hook>);
 
 Object.assign(CHECKS, {
   m20Parked: (w, s) => {
     const v = s.vars.valet as Valet, car = v.car, p = w.player, done = num(s, 'parked');
-    clearLot(w, s.place('rokkakuRoof').rect!);
     if (car.wreck || car.burning || car.removed) { s.flags.wrecked = true; return false; }
     const driving = p.car === car;
     s.marker = driving ? { x: v.bay.x, y: v.bay.y, r: 30 } : { x: car.x, y: car.y, r: 0 };
@@ -522,6 +565,14 @@ Object.assign(HOOKS, {
   m21Setup(w, s) {
     const home = s.place('ramen'), yard = s.place('temple').rect!;
     arm(w, T.sidearm);
+    // Jun is in the ramen shop when the phone rings; Mika is not behind her counter tonight
+    goIn(w, 'ramen', '1');
+    const counter = w.map.interiors.find((i) => i.id === 'ramen')?.spots.n;
+    const mikaAtWork = counter && (w as unknown as { keepers: Actor[] }).keepers.find((k) => dist(k, counter) < 8);
+    if (mikaAtWork) {
+      mikaAtWork.sprite.setVisible(false);
+      s.actors.push({ alive: false, x: 0, y: 0, sprite: mikaAtWork.sprite, animate() { /* nothing to animate */ }, destroy() { mikaAtWork.sprite.setVisible(true); } } as unknown as Actor); // she is back when the mission ends
+    }
     // Yatagarasu are already hunting Jun through the arcade
     [-230, 230, 300, -300].slice(0, T.m21ArcadeGuards).forEach((dy, i) => foe(w, { x: home.x + 40, y: home.y + dy }, 'yatagarasu', 'arcade', 'guard', i === 0, B.m21Yata[0]));
     // the temple courtyard: Mika tied to a bench, Tetsu with his teacup
@@ -608,6 +659,7 @@ Object.assign(HOOKS, {
   m22Setup(w, s) {
     const base = s.place('mibuStaging'), lot = base.rect!;
     arm(w, T.sidearm); vest(w);
+    s.flags.doorsOpen = true; // the tower's doors are not shut to Jun tonight
     if (s.keep.path === 'police') { // a police command van, Sawada and her unit
       s.cars.push(storyCar(w, VEHICLES.truck, lot.x + 80, lot.y + 34, 0, 0));
       npc(w, s, 'sawada', base.x - 30, base.y - 20);
@@ -618,23 +670,22 @@ Object.assign(HOOKS, {
       for (let i = 0; i < 4; i++) npc(w, s, 'thug', base.x + 16 + i * 24, base.y - 20);
     }
   },
-  /** The lobby: Mibu's men hold the plaza under his tower. */
+  /** Mibu's men hold the lobby of his tower, and the office floors above it. */
   m22Lobby(w, s) {
-    const plaza = s.place('mibuPlaza'), r = plaza.rect!;
-    s.marker = { x: plaza.x, y: plaza.y, r: 0 };
-    for (let i = 0; i < T.m22Waves[0]; i++) foe(w, { x: r.x + 40 + (i % 2) * (r.w - 80), y: r.y + 50 + Math.floor(i / 2) * 90 }, 'thug', 'floor', 'guard', i % 2 === 0);
-    s.vars.wave = 0;
+    post(w, s, 'mibuLobby', '1234', T.m22Waves[0], 'thug', 'floor');
+    post(w, s, 'mibuOffices', '12345', T.m22Waves[1], 'thug', 'floor');
+    hunt(s, foes(w, 'floor'));
   },
-  /** Phase 1, pistol duel. */
+  /** Phase 1, pistol duel: Mibu is behind his desk in the penthouse. */
   m22Mibu(w, s) {
-    const plaza = s.place('mibuPlaza'), m = foe(w, plaza, 'mibu', 'mibu', 'chase', true);
+    const m = foe(w, spot(s, 'mibuPenthouse', '2'), 'mibu', 'mibu', 'chase', true);
     m.hp = BOSS_PAD + T.m22MibuHp; m.data.rate = T.m22Rate1;
     s.vars.mibu = m; s.vars.phase = 1;
     w.fx.bark(m.sprite, B.m22Phase1, COL.mibu);
   },
-  /** Phase 3, helipad: Mibu is aboard and the rotor is turning. */
+  /** Phase 3, the helipad on the roof: Mibu is aboard and the rotor is turning. */
   m22Heli(w, s) {
-    const m = s.vars.mibu as Actor, plaza = s.place('mibuPlaza'), at = free(w, plaza.x, plaza.y);
+    const m = s.vars.mibu as Actor, at = spot(s, 'mibuRoof', '1');
     w.gang.thugs = w.gang.thugs.filter((t) => t !== m);
     m.destroy();
     const body = storyCar(w, VEHICLES.truck, at.x, at.y, 0, 0); // what bullets hit; the helicopter is drawn over it
@@ -648,22 +699,17 @@ Object.assign(HOOKS, {
 } as Record<string, Hook>);
 
 Object.assign(CHECKS, {
-  /** "Floors" are waves: the lobby guards, then the men who come down to meet Jun. */
+  /** The lobby, then the office floors: each room's guards go for Jun when he walks in. */
   m22Floors: (w, s) => {
-    const plaza = s.place('mibuPlaza'), left = foes(w, 'floor');
+    const left = foes(w, 'floor');
     noPolice(w);
-    s.marker = { x: plaza.x, y: plaza.y, r: 0 };
-    if (!s.flags.intercom && dist(w.player.pos, plaza) < 330) { // Mibu, over the intercom
+    wake(w, 'floor');
+    hunt(s, left);
+    if (!s.flags.intercom && w.indoors?.id === 'mibuLobby') { // Mibu, over the intercom at the reception desk
       s.flags.intercom = true;
-      for (const t of left) t.state = 'chase';
-      w.fx.bark(s.place('mibuTower'), B.m22Intercom, COL.mibu);
+      w.fx.bark(spot(s, 'mibuLobby', '5'), B.m22Intercom, COL.mibu);
     }
-    if (left.length) return false;
-    const next = num(s, 'wave') + 1;
-    if (next >= T.m22Waves.length) return true;
-    s.vars.wave = next;
-    wave(w, T.m22Waves[next], plaza, 'thug', 'floor');
-    return false;
+    return left.length === 0;
   },
   m22Boss: (w, s) => {
     const m = s.vars.mibu as Actor, hp = m.hp - BOSS_PAD, max = T.m22MibuHp;
@@ -672,7 +718,7 @@ Object.assign(CHECKS, {
     if (hp <= (max * 2) / 3 && num(s, 'phase') < 2) { // phase 2, bodyguards
       s.vars.phase = 2; m.data.rate = T.m22Rate2;
       w.fx.bark(m.sprite, B.m22Phase2, COL.mibu);
-      wave(w, T.m22Bodyguards, m, 'thug', 'bodyguard');
+      for (let i = 0; i < T.m22Bodyguards; i++) foe(w, spot(s, 'mibuPenthouse', '345'[i % 3]), 'thug', 'bodyguard', 'chase', i % 2 === 0); // they come in through the side doors
     }
     if (hp > max / 3) return false;
     w.fx.bark({ x: m.x, y: m.y }, B.m22Phase3, COL.mibu); // phase 3: he runs for the helicopter
@@ -683,13 +729,17 @@ Object.assign(CHECKS, {
     const h = s.vars.heli as Car, at = s.vars.heliAt as Pt, g = s.vars.rotor as Graphics, p = w.player;
     const t = num(s, 'heliT') - dt, now = w.time.now / 1000;
     s.vars.heliT = t;
+    s.marker = { x: at.x, y: at.y, r: 0 }; // up the stairs to the roof
     noPolice(w);
     if (p.entering?.car === h) p.entering = null; // nobody steals a helicopter
     h.x = at.x + Math.sin(now * 1.3) * 14; h.y = at.y + Math.cos(now * 0.9) * 8; h.vx = h.vy = 0; // it sways on the pad as it spools up
     drawChopper(g, h.x, h.y - 8, now * (12 + 30 * (1 - t / T.m22HeliTime))); // drawn right over what the bullets hit; the rotor spins up as it gets ready to leave
     s.timer = { label: L.helicopter, value: t, max: T.m22HeliTime, kind: 'time' };
     if (h.hp <= 0 || h.burning || h.wreck) { // down it comes
-      g.clear(); scuttle(w, h); s.timer = null;
+      g.clear(); scuttle(w, h); s.timer = null; s.marker = null;
+      const knees = free(w, h.x - 30, h.y + 56), door = spot(s, 'mibuRoof', '<'); // Mibu crawls out of the wreck; the ally comes up the stairs
+      npc(w, s, 'mibu', knees.x, knees.y);
+      npc(w, s, s.keep.path === 'police' ? 'sawada' : 'saeko', door.x + 34, door.y - 6);
       return true;
     }
     if (t <= 0) s.flags.escaped = true; // "Mibu's helicopter escapes."
@@ -702,10 +752,9 @@ Object.assign(CHECKS, {
 // M23 Tsukuyomi
 // =====================================================================================
 
-/** Where the current stretch of floors is fought: a little further up the plaza each time. */
-function m23Spot(s: Story): Pt {
-  const r = s.place('towerPlaza').rect!, k = Math.floor(num(s, 'floor') / T.m23PerCheckpoint);
-  return { x: r.x + r.w / 2, y: r.y + r.h - 70 - k * ((r.h - 140) / 3) };
+/** The room where the current wave is fought: each stretch of ten floors is two rooms (tsuku1a, tsuku1b, tsuku2a ...). */
+function m23Room(s: Story): string {
+  return `tsuku${Math.floor(num(s, 'floor') / T.m23PerCheckpoint) + 1}${'ab'[num(s, 'wave')] ?? 'b'}`;
 }
 /** The floor Jun has fought up to: every guard down is another step up the stretch of ten. */
 function m23Floor(w: WorldScene, s: Story): number {
@@ -713,10 +762,9 @@ function m23Floor(w: WorldScene, s: Story): number {
   const down = sent - foes(w, 'floor').length;
   return Math.min(T.m23Floors, num(s, 'floor') + 1 + Math.floor(((T.m23PerCheckpoint - 1) * down) / total));
 }
+/** The Yatagarasu holding the next room up: they are at their posts before Jun gets there. */
 function m23Wave(w: WorldScene, s: Story): void {
-  const spot = m23Spot(s), made = wave(w, T.m23Waves[num(s, 'wave')], spot, 'yatagarasu', 'floor', B.m23Yata[1]);
-  s.marker = { x: spot.x, y: spot.y, r: 0 };
-  later(w, s, 1200, () => { const a = made.find((t) => t.alive); if (a) w.fx.bark(a.sprite, B.m23Yata[0].replace('{n}', String(m23Floor(w, s))), COL.foe); });
+  post(w, s, m23Room(s), '1234', T.m23Waves[num(s, 'wave')], 'yatagarasu', 'floor', B.m23Yata[1]);
 }
 /**
  * Five lanterns, and every cop in the city on the way; but the allies hold the streets, so only
@@ -735,18 +783,24 @@ function m23Hold(w: WorldScene, s: Story, dt: number): void {
 function m23Resume(w: WorldScene, s: Story, floor: number): void {
   s.vars.floor = floor;
   w.heat.crime('story5');
+  const d = w.map.doors.find((o) => o.kind === 'in' && o.interior === 'tsukuLobby'); // (the way out is still the tower's front door)
+  w.lastDoor = d ? { x: d.x, y: d.y } : null;
 }
 
 Object.assign(HOOKS, {
   m23Setup(w, s) {
-    const den = s.place('glitchAlley');
     arm(w, T.sidearm); arm(w, T.longGun); vest(w);
-    ['hikari', 'pip', 'kenta', 'goro'].forEach((look, i) => npc(w, s, look, den.x - 52 + i * 28 + (i > 1 ? 24 : 0), den.y + 4 + (i % 2) * 14)); // the crew
+    // inside the Glitch hideout: the crew crowd round the desks at the back
+    goIn(w, 'capsule', '1');
+    ['hikari', 'pip', 'kenta', 'goro'].forEach((look, i) => { const at = tile(w, 'capsule', [3, 5, 9, 11][i], 2); npc(w, s, look, at.x, at.y); });
+    // Amane is at her window on the top floor the whole time
+    const win = spot(s, 'tsukuTop', '2');
+    npc(w, s, 'amane', win.x, win.y).sprite.rotation = -Math.PI / 2;
     s.vars.floor = 0;
+    s.flags.doorsOpen = true; // five lanterns or not, Jun is going through that door
   },
   m23Lobby(w, s) {
-    const r = s.place('towerPlaza').rect!;
-    for (let i = 0; i < T.m23Lobby; i++) foe(w, { x: r.x + 50 + i * 70, y: r.y + r.h - 50 }, 'yatagarasu', 'lobby', 'guard', i === 1);
+    post(w, s, 'tsukuLobby', '234', T.m23Lobby, 'yatagarasu', 'lobby').forEach((t, i) => { t.data.gun = i === 1; });
   },
   /** A 5-lantern assault: every cop in the city comes. */
   m23BreakIn(w) {
@@ -761,27 +815,30 @@ Object.assign(HOOKS, {
   m23Raijin(w, s) { w.police.standDown(false); s.vars.rampsT = T.m23RaijinTime; },
   /** Floor 20: Ogata, hiding under a desk. */
   m23Ogata(w, s) {
-    const p = w.player.pos, o = npc(w, s, 'ogata', p.x + 46, p.y + 20);
+    const at = spot(s, 'tsuku2b', '5'), o = npc(w, s, 'ogata', at.x, at.y);
     w.fx.bark(o.sprite, B.m23Ogata, COL.ogata);
     later(w, s, 2200, () => w.fx.bark(w.player.pos, B.m23Jun, COL.jun));
   },
   /** The top floor: the assault is over, and the city is watching. */
   m23Office(w, s) {
-    const door = s.place('tsukuyomiTower');
+    const door = spot(s, 'tsukuTop', '3'); // the ally comes in from the stairs
     w.heat.clear(false); w.police.standDown(true);
     s.timer = null;
-    npc(w, s, 'amane', door.x + 30, door.y - 6);
-    npc(w, s, s.keep.path === 'police' ? 'sawada' : 'saeko', door.x - 34, door.y + 8);
+    npc(w, s, s.keep.path === 'police' ? 'sawada' : 'saeko', door.x, door.y);
   },
 } as Record<string, Hook>);
 
 Object.assign(CHECKS, {
-  /** Ten floors at a time: waves of Yatagarasu, then a floor checkpoint. */
+  /** Ten floors at a time: two rooms of Yatagarasu, one above the other, then a floor checkpoint on the next landing. */
   m23Climb: (w, s, dt) => {
-    const floor = m23Floor(w, s);
+    const floor = m23Floor(w, s), left = [...foes(w, 'lobby'), ...foes(w, 'floor')];
     m23Hold(w, s, dt);
     s.timer = { label: `${L.floor} ${floor} / ${T.m23Floors}`, value: floor, max: T.m23Floors, kind: 'bar' };
-    if (foes(w, 'floor').length + foes(w, 'lobby').length) return false;
+    wake(w, 'lobby');
+    const seen = wake(w, 'floor');
+    if (seen.length) w.fx.bark(seen[0].sprite, B.m23Yata[0].replace('{n}', String(floor)), COL.foe);
+    hunt(s, left);
+    if (left.length) return false;
     const next = num(s, 'wave') + 1;
     if (next < T.m23Waves.length) { s.vars.wave = next; m23Wave(w, s); return false; }
     s.vars.floor = num(s, 'floor') + T.m23PerCheckpoint;
@@ -877,9 +934,10 @@ Object.assign(HOOKS, {
     later(w, s, 2000, () => w.fx.bark({ x: q.x + 140, y: q.y - 50 }, B.m24Loudspeaker, COL.tetsu)); // the ship's loudspeaker
   },
   m24BridgeDeck(_w, s) { const at = m24Stern(s); s.marker = { x: at.x, y: at.y, r: 40 }; },
-  /** Phase 1: the cane-sword duel. */
+  /** Phase 1: the cane-sword duel. Jun goes in through the door under the bridge; Tetsu is waiting inside. */
   m24Tetsu(w, s) {
-    const at = m24Stern(s), t = foe(w, { x: at.x + 70, y: at.y }, 'tetsu', 'tetsu', 'chase');
+    goIn(w, 'shipBridge', '1');
+    const t = foe(w, spot(s, 'shipBridge', '2'), 'tetsu', 'tetsu', 'chase');
     t.hp = BOSS_PAD + T.m24TetsuHp;
     s.vars.tetsu = t; s.vars.phase = 1; s.vars.shells = []; s.vars.shellT = 1; s.vars.talkT = 1.5; s.vars.said = 0;
   },
@@ -887,13 +945,22 @@ Object.assign(HOOKS, {
   m24Ending(w, s) {
     const end = s.keep.ending, police = s.keep.path === 'police', p = w.player;
     if (end === 'cleanslate') s.flags[police ? 'cleanPolice' : 'cleanYakuza'] = true;
-    const where = s.place(end === 'shogun' ? 'rokkakuTower' : end === 'oldtown' ? 'ramen' : 'centralStation');
+    const ally = police ? 'sawada' : 'saeko';
     if (p.car) p.exitCar();
-    const at = free(w, where.x, where.y + 22);
-    p.actor.body.reset(at.x, at.y);
     w.setAmbience(AMBIENCE[end === 'oldtown' ? 'day' : 'night']);
-    if (end !== 'shogun') npc(w, s, 'mika', at.x + 24, at.y - 6);
-    if (end === 'oldtown' || (end === 'shogun' && !police)) npc(w, s, police ? 'sawada' : 'saeko', at.x - 26, at.y - 4);
+    if (end === 'shogun') { // "A Rokkaku Hills penthouse": the top of Rokkaku Tower (Sawada is only on the phone)
+      goIn(w, 'rokkakuTop', '2', 'rokkakuLobby');
+      const at = free(w, p.pos.x - 30, p.pos.y - 6);
+      if (!police) npc(w, s, ally, at.x, at.y);
+    } else if (end === 'oldtown') { // in the ramen shop: Mika is behind her counter as always, the ally at the end of it
+      goIn(w, 'ramen', '1');
+      const at = tile(w, 'ramen', 8, 2);
+      npc(w, s, ally, at.x, at.y).sprite.rotation = -Math.PI / 2;
+    } else { // the station forecourt, with Mika
+      const where = s.place('centralStation'), at = free(w, where.x, where.y + 22);
+      p.actor.body.reset(at.x, at.y);
+      npc(w, s, 'mika', at.x + 24, at.y - 6);
+    }
   },
   /** After the credits, Clean Slate only: one more line on the ticker. */
   m24Fishermen(w, s) { radioLater(w, s, KOGANE_TALK, B.endFishermen); },
@@ -930,8 +997,14 @@ Object.assign(CHECKS, {
     if (phase > num(s, 'phase')) {
       s.vars.phase = phase;
       if (phase === 2) w.fx.bark(t.sprite, B.m24Phase2, COL.tetsu);
-      if (phase === 3) { t.data.gun = true; t.data.rate = T.m24Rate3; w.fx.bark(t.sprite, B.m24Phase3, COL.tetsu); }
+      if (phase === 3) { // he goes below, to make his stand among the gold crates in the hold
+        w.fx.bark({ x: t.x, y: t.y }, B.m24Phase3, COL.tetsu);
+        const hold = spot(s, 'shipHold', '2');
+        t.body.reset(hold.x, hold.y);
+        t.data.gun = true; t.data.rate = T.m24Rate3; t.data.bark = B.m24Phase3;
+      }
     }
+    s.marker = { x: t.x, y: t.y, r: 0 }; // (shows the stairs down when he is in the hold)
     if (phase === 1) {
       s.vars.talkT = num(s, 'talkT') - dt;
       if (num(s, 'talkT') <= 0) { s.vars.talkT = 4.5; w.fx.bark(t.sprite, B.m24Phase1[num(s, 'said') % B.m24Phase1.length], COL.tetsu); s.vars.said = num(s, 'said') + 1; }
@@ -942,12 +1015,14 @@ Object.assign(CHECKS, {
     }
     if (phase === 2) m24Fireworks(w, s, dt);
     if (hp > 0) return false;
-    // beaten: he sits against a split crate, alive for what comes next
-    const at = { x: t.x, y: t.y };
+    // beaten: back out on the container deck in the rain, he sits against a split crate, alive for what comes next
+    const stern = m24Stern(s), at = free(w, stern.x + 44, stern.y), jun = free(w, stern.x - 10, stern.y + 6);
     w.gang.thugs = w.gang.thugs.filter((x) => x !== t);
     t.destroy();
     npc(w, s, 'tetsu', at.x, at.y);
-    s.timer = null;
+    w.moveJun(jun.x, jun.y);
+    w.lastDoor = null;
+    s.timer = null; s.marker = null;
     return true;
   },
 } as Record<string, Check>);
