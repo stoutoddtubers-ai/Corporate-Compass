@@ -238,6 +238,29 @@ export const MAP = {
     bayBridge: { tile: [226, 136] },
     // ---- SIDE STORY PLACES ----
     raijinClubhouse: { block: '3-0', kind: 'building', pick: 0, label: 'RAIJIN\nCLUBHOUSE' },
+    // Daigo's Road (S-R): Bones Tamura's three chop shops in Tetsugawa
+    srChopCanal: { block: '3-1b', kind: 'lot', pick: 1 }, // the canal-side shop
+    srChopRail: { block: '3-1a', kind: 'building', pick: 0 }, // the shed at the south end of the rail yard
+    srBones: { block: '3-2a', kind: 'building', pick: 0, label: "BONES'S\nGARAGE" },
+    // Building 41 (S-G)
+    sgYard: { block: '1-1', kind: 'lot', pick: 0 }, // the yard beside the Glitch hideout: Hikari's side stories start here
+    sgLot41: { block: '1-0', kind: 'lot', pick: 0 }, // the empty lot where Building 41 stood (later the tower site)
+    sgCam1: { tile: [223.5, 33.5] }, sgCam2: { tile: [223.5, 8.5] }, sgCam3: { tile: [196.5, 8.5] }, sgCam4: { tile: [196.5, 33.5] }, // Hikari's cameras, at the corners of the 41 block
+    sgVan: { tile: [210, 35.5] }, // where the white van waits
+    sgKurodaYard: { block: '2-3', kind: 'lot', pick: 0 }, // Kuroda Construction's yard
+    sgIzakaya: { block: '0-2', kind: 'lot', pick: 0 }, // the izakaya in Asagiri where Mr. Endō waits
+    sgStation: { block: '2-1', kind: 'building', pick: 0, label: 'TETSUGAWA\nSTATION' },
+    sgLockers: { block: '2-1', kind: 'lot', pick: 1 }, // the station forecourt, where the lockers are
+    // Old Debts (S-K)
+    skMamaRei: { block: 'w3-3', kind: 'building', pick: 4, label: "MAMA REI'S" },
+    skMirage: { block: 'w2-2', kind: 'building', pick: 1, label: 'CLUB MIRAGE' }, // the door is the kitchen door
+    skSaeko: { tile: [88, 116] }, // the side gate of the Kurogane mansion: Saeko's side stories start here
+    skTsuda: { block: '1-3', kind: 'building', pick: 4 }, // Mrs. Tsuda's apartment in Asagiri
+    skMibuYard: { block: '3-2b', kind: 'lot', pick: 0 }, // the yard of Mibu's canal warehouse
+    skMibuRoad: { tile: [299.5, 75] }, // the street outside it (retry point)
+    // Sea Spirit (S-U)
+    suDock: { block: 'p1', kind: 'lot', pick: 1 }, // the fish market's dock: Hachirō's side stories start here
+    suSalvage: { block: 'p0', kind: 'lot', pick: 1 }, // the quay where the salvage "barge" works
   } as Record<string, { block?: string; kind?: 'building' | 'lot'; pick?: number; tile?: number[]; label?: string; color?: string }>,
   /** The river-cruise pier: planks out over the water [x, y, w, h]. */
   pier: [152, 107, 6, 3],
