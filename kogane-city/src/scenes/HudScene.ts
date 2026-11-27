@@ -31,6 +31,10 @@ export class HudScene extends Phaser.Scene {
   private big!: Phaser.GameObjects.Text;
   private sub!: Phaser.GameObjects.Text;
   private shownCash = 0;
+  // third-person view: a crosshair, and the world's floating text drawn here instead
+  private x3!: Phaser.GameObjects.Graphics;
+  private x3prompt!: Phaser.GameObjects.Text;
+  private x3barks: Phaser.GameObjects.Text[] = [];
   // story
   private hint!: Phaser.GameObjects.Text;
   private dlgBox!: Phaser.GameObjects.Graphics;
@@ -57,6 +61,9 @@ export class HudScene extends Phaser.Scene {
 
   create(): void {
     this.world = this.scene.get('World') as WorldScene;
+    this.x3 = this.add.graphics().setDepth(5);
+    this.x3prompt = this.add.text(0, 0, '', { ...FONT, fontSize: '12px' }).setOrigin(0.5, 1).setDepth(5).setVisible(false);
+    for (let i = 0; i < 10; i++) this.x3barks.push(this.add.text(0, 0, '', { ...FONT, fontSize: '11px' }).setOrigin(0.5, 1).setDepth(5).setVisible(false));
     this.lanterns = [];
     this.rainG = this.add.graphics();
     this.rain = Array.from({ length: 90 }, () => ({ x: Math.random() * GW, y: Math.random() * GH, v: 500 + Math.random() * 300 }));
@@ -153,6 +160,7 @@ export class HudScene extends Phaser.Scene {
       : 'WASD move · mouse aim · click fire · right-click focus · V melee · Space roll · 1-5 / wheel weapon · R reload · E car / door / drink');
 
     this.drawMinimap();
+    this.draw3d();
 
     // death / arrest screens
     const over = w.mode === 'dead' || w.mode === 'arrested';
@@ -306,6 +314,43 @@ export class HudScene extends Phaser.Scene {
   }
 
   /** Round minimap, bottom left: roads as lines, police as dots, the search circle. */
+  /** In the third-person view: the crosshair, prompts, progress bars and speech, placed over the 3D picture. */
+  private draw3d(): void {
+    const w = this.world, v = w.view3d, g = this.x3, p = w.player;
+    g.clear();
+    const on = !!v?.active;
+    this.x3prompt.setVisible(false);
+    for (const b of this.x3barks) b.setVisible(false);
+    if (!on || !v) return;
+    const play = w.mode === 'play';
+    if (play && !p.car) { // crosshair
+      const cx = GW / 2, cy = GH / 2, gap = p.focus ? 3 : 6, len = 5, armed = p.weapon.def.mag > 0;
+      g.lineStyle(3, 0x000000, 0.5);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) g.lineBetween(cx + dx * gap, cy + dy * gap, cx + dx * (gap + len), cy + dy * (gap + len));
+      g.lineStyle(1.5, armed ? 0xffffff : 0xe8b923, 0.9);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) g.lineBetween(cx + dx * gap, cy + dy * gap, cx + dx * (gap + len), cy + dy * (gap + len));
+      if (!w.input.mouse?.locked) this.x3prompt.setText(t('UI_CLICK_TO_LOOK')).setPosition(GW / 2, GH / 2 + 46).setVisible(true);
+    }
+    const pr = w.prompt;
+    if (pr.visible && pr.text) {
+      const q = v.project(pr.x, pr.y, 40);
+      if (q) this.x3prompt.setText(pr.text).setPosition(q.x, q.y).setVisible(true);
+    }
+    w.fx.barks.forEach((b, i) => {
+      const txt = this.x3barks[i];
+      if (!txt || b.life <= 0 || !b.follow) return;
+      const q = v.project(b.follow.x, b.follow.y, 36 + b.dy);
+      if (!q) return;
+      txt.setText(b.txt.text).setColor(b.txt.style.color as string).setAlpha(b.txt.alpha).setPosition(q.x, q.y).setVisible(true);
+    });
+    const bar = (frac: number, color: number) => { // a small bar under the crosshair
+      g.fillStyle(0x000000, 0.7).fillRect(GW / 2 - 31, GH / 2 + 22, 62, 7);
+      g.fillStyle(color, 1).fillRect(GW / 2 - 30, GH / 2 + 23, 60 * Math.min(1, frac), 5);
+    };
+    if (p.entering && p.entering.need > 0) bar(p.entering.t / p.entering.need, 0xe8b923);
+    if (w.police.arrestProgress > 0.05 && play) bar(w.police.arrestProgress, 0x4a8cff);
+  }
+
   private drawMinimap(): void {
     const w = this.world, m = this.mm, p = w.player.pos, S = MM.scale, R = MM.r;
     m.clear();

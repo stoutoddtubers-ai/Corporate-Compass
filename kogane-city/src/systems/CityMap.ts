@@ -27,6 +27,7 @@ export interface Furniture { x: number; y: number; key: string; h: number; solid
 export interface Roof { img: Phaser.GameObjects.Image | Phaser.GameObjects.Text; x: number; y: number; h: number; rect?: Rect; wall?: number; sway?: boolean; smoke?: boolean; beacon?: boolean; awn?: number[]; dead?: boolean;
   /** Rooftops only: the picture's name, how to paint it, and whether it is painted right now. */
   /** no windows on its walls (fences, containers, interior walls) */ noWin?: boolean;
+  /** the roof's main colour (for the 3D view) */ top?: number;
   key?: string; paint?: () => void; made?: boolean; /** near the screen this frame */ seen?: boolean; /** on the drawing list */ listed?: boolean }
 export interface Junction { id: number; x: number; y: number; lit: boolean; offset: number; /** half its width and height, px */ hw: number; hh: number }
 /** A room you can walk into: where it is kept (px), and its named spots. */
@@ -74,6 +75,9 @@ export class CityMap {
   readonly lights: Light[] = [];
   readonly places: Record<string, Place> = {};
   readonly interiors: Interior[] = [];
+  /** The ground picture of every tile and the decal on it (255 = none), for the 3D view. */
+  readonly groundIdx = new Uint8Array(W * H);
+  readonly decalIdx = new Uint8Array(W * H).fill(255);
   /** The railway loop: its four corners (px, clockwise from the north-west), its length, and its stations. */
   readonly railCorners: { x: number; y: number }[] = [];
   railLength = 0;
@@ -846,6 +850,7 @@ export class CityMap {
       ground.push(row);
     }
     for (let i = 0; i < this.decals.length; i++) if (this.decals[i] < -1) this.decals[i] = -1;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { this.groundIdx[y * W + x] = ground[y][x]; const d = this.decals[y * W + x]; if (d >= 0) this.decalIdx[y * W + x] = d; }
     const map = scene.make.tilemap({ data: ground, tileWidth: TS, tileHeight: TS });
     const set = map.addTilesetImage('tiles', 'tiles', TS, TS, 1, 2)!;
     this.groundLayer = map.createLayer(0, set, 0, 0) as Phaser.Tilemaps.TilemapLayer;
@@ -923,7 +928,7 @@ export class CityMap {
         g.fillStyle = 'rgba(0,0,0,0.38)'; g.fillRect(0, h - 4, w, 4); g.fillRect(w - 4, 0, 4, h);
         tex.refresh();
       };
-      out.push({ img: scene.add.image(r.x + r.w / 2, r.y + r.h / 2, 'dot').setDepth(20).setVisible(false), x: r.x + r.w / 2, y: r.y + r.h / 2, h: hgt, rect: r, wall: r.tint ? parseInt(r.tint[1].slice(1), 16) : D.walls[i % D.walls.length], noWin: !!r.roof,
+      out.push({ top: parseInt((plain ?? st.base).slice(1), 16), img: scene.add.image(r.x + r.w / 2, r.y + r.h / 2, 'dot').setDepth(20).setVisible(false), x: r.x + r.w / 2, y: r.y + r.h / 2, h: hgt, rect: r, wall: r.tint ? parseInt(r.tint[1].slice(1), 16) : D.walls[i % D.walls.length], noWin: !!r.roof,
         smoke: !r.roof && r.district === 'tetsugawa' && i % 3 === 0, beacon: !r.roof && hgt > 0.14,
         awn: plain ? undefined : D.awnings.map((c) => parseInt(c.slice(1), 16)), key, paint });
     });

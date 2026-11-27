@@ -9,6 +9,8 @@ import { WEAPONS } from '../data/weapons';
 import { BARKS, pick, t } from '../data/strings';
 import { CityMap, Roof, Furniture, Interior, Door } from '../systems/CityMap';
 import { INTERIOR } from '../data/interiors';
+import { View3D } from '../view3d/View3D';
+import { VIEW3D } from '../data/view3d';
 import { DAY } from '../data/missions';
 import { Fx } from '../systems/Fx';
 import { Projectiles } from '../systems/Projectiles';
@@ -29,7 +31,7 @@ import { Actor } from '../entities/Actor';
 import { Car } from '../entities/Car';
 import { Player } from '../entities/Player';
 
-type Keys = Record<'W' | 'A' | 'S' | 'D' | 'E' | 'R' | 'SPACE' | 'SHIFT' | 'ONE' | 'TWO' | 'THREE' | 'FOUR' | 'FIVE' | 'UP' | 'DOWN' | 'ENTER' | 'V' | 'F3' | 'F4' | 'F6', Phaser.Input.Keyboard.Key>;
+type Keys = Record<'C' | 'W' | 'A' | 'S' | 'D' | 'E' | 'R' | 'SPACE' | 'SHIFT' | 'ONE' | 'TWO' | 'THREE' | 'FOUR' | 'FIVE' | 'UP' | 'DOWN' | 'ENTER' | 'V' | 'F3' | 'F4' | 'F6', Phaser.Input.Keyboard.Key>;
 interface Pickup { x: number; y: number; kind: 'cash' | 'weapon'; value: number; weapon: string; obj: Phaser.GameObjects.Rectangle; label: Phaser.GameObjects.Text | null; respawn: number; hidden: number }
 
 /** The city block: owns every system and runs them in order each frame. */
@@ -84,6 +86,10 @@ export class WorldScene extends Phaser.Scene {
   lastDoor: { x: number; y: number } | null = null;
   private roomMask!: Phaser.GameObjects.Graphics;
   private rail!: Rail;
+  /** The third-person 3D view (C switches between it and the three-quarter view). */
+  view3d: View3D | null = null;
+  /** The rooftops and street furniture as the 2.5D view draws them (the 3D view builds from these). */
+  get roofList(): Roof[] { return this.roofs; }
   private keepers: Actor[] = [];
   heat!: HeatSystem;
   projectiles!: Projectiles;
@@ -95,7 +101,7 @@ export class WorldScene extends Phaser.Scene {
   bill = 0;
   debugOn = false; // F3 shows the debug overlay
   private cam = { x: 0, y: 0, zoom: 1 };
-  private prompt!: Phaser.GameObjects.Text;
+  prompt!: Phaser.GameObjects.Text;
   private bars!: Phaser.GameObjects.Graphics;
 
   constructor() {
@@ -174,7 +180,7 @@ export class WorldScene extends Phaser.Scene {
     const near = [...this.map.lots].sort((a, b) => Math.hypot(a.x - start.x, a.y - start.y) - Math.hypot(b.x - start.x, b.y - start.y));
     guns.forEach((id, i) => { const l = near[i + 1] ?? near[0]; this.addPickup(l.x + l.w - 24, l.y + 22, 'weapon', 0, id, PICKUPS.weaponRespawn); });
 
-    this.keys = this.input.keyboard!.addKeys('W,A,S,D,E,R,V,SPACE,SHIFT,ONE,TWO,THREE,FOUR,FIVE,UP,DOWN,ENTER,F3,F4,F6') as Keys;
+    this.keys = this.input.keyboard!.addKeys('C,W,A,S,D,E,R,V,SPACE,SHIFT,ONE,TWO,THREE,FOUR,FIVE,UP,DOWN,ENTER,F3,F4,F6') as Keys;
     this.input.mouse?.disableContextMenu();
     this.input.setDefaultCursor('crosshair');
     this.input.on('wheel', (_p: unknown, _o: unknown, _dx: number, dy: number) => {
@@ -193,13 +199,33 @@ export class WorldScene extends Phaser.Scene {
     this.story.begin();
     this.cam.x = this.player.actor.x; this.cam.y = this.player.actor.y;
     cam.centerOn(this.cam.x, this.cam.y);
+    // the third-person view. Automated tests keep the three-quarter view unless the address has ?3d
+    const q = new URLSearchParams(location.search);
+    let want: string = VIEW3D.defaultView;
+    try { want = localStorage.getItem('kogane.view') ?? want; } catch { /* no storage */ }
+    if (navigator.webdriver && !q.has('3d')) want = '2d';
+    if (q.has('3d')) want = '3d';
+    if (q.has('2d')) want = '2d';
+    if (want === '3d') this.setView3d(true);
+    this.input.on('pointerdown', () => { if (this.view3d?.active && !this.input.mouse?.locked) this.input.mouse?.requestPointerLock(); });
+    this.input.on('pointermove', (ptr: Phaser.Input.Pointer) => { if (this.view3d?.active && this.input.mouse?.locked) this.view3d.look(ptr.movementX, ptr.movementY); });
     this.scene.launch('Hud');
     (window as unknown as { __kc: WorldScene }).__kc = this; // handy for testing from the browser console
+  }
+
+  /** Switches between the third-person 3D view and the three-quarter view. */
+  setView3d(on: boolean): void {
+    if (on && !this.view3d) this.view3d = new View3D(this);
+    this.view3d?.setActive(on);
+    this.cameras.main.setVisible(!on); // the 3D view draws the world; Phaser only draws the HUD on top
+    if (!on && this.input.mouse?.locked) this.input.mouse.releasePointerLock();
+    try { localStorage.setItem('kogane.view', on ? '3d' : '2d'); } catch { /* no storage */ }
   }
 
   // ---------- helpers used by the systems ----------
 
   onScreen(x: number, y: number, margin: number): boolean {
+    if (this.view3d?.active) return this.view3d.onScreen(x, y, margin);
     const v = this.cameras.main.worldView;
     return x > v.x - margin && x < v.right + margin && y > v.y - margin && y < v.bottom + margin;
   }
@@ -567,7 +593,8 @@ export class WorldScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys.F4)) this.story.jumpTo(this.story.index + 1);
     if (Phaser.Input.Keyboard.JustDown(this.keys.F6)) this.story.jumpTo(0);
     this.story.update(dt);
-    if (this.mode === 'cut') { this.player.actor.body.setVelocity(0, 0); this.updateCamera(dt); this.updateWorldUi(); return; } // the world waits during cutscenes
+    if (Phaser.Input.Keyboard.JustDown(this.keys.C)) this.setView3d(!this.view3d?.active);
+    if (this.mode === 'cut') { this.player.actor.body.setVelocity(0, 0); this.updateCamera(dt); this.updateWorldUi(); this.view3d?.update(dt); return; } // the world waits during cutscenes
 
     if (this.mode === 'play') this.player.update(dt);
     else {
@@ -625,6 +652,7 @@ export class WorldScene extends Phaser.Scene {
     this.slowT -= dt;
     if (this.slowT <= 0) { this.slowT = 0.3; this.slowUpdate(); }
     this.updateWorldUi();
+    this.view3d?.update(dt);
   }
 
   /** On foot: lead toward the aim. In a car: look ahead and zoom out with speed. */
@@ -677,6 +705,7 @@ export class WorldScene extends Phaser.Scene {
     // slide the rooftops away from the middle of the screen so buildings look tall
     // 2.5D buildings: each roof slides and grows away from the middle of the screen, and
     // walls are drawn from the footprint up to it, so buildings look tall (the GTA 2 trick).
+    if (this.view3d?.active) { this.wallG.clear(); this.occl.length = 0; return; } // the 3D view draws the buildings
     const mid = cam.midPoint, vw = cam.worldView, g = this.wallG, pp = this.player.pos;
     const lit = this.ambience.lights > 0.4;
     g.clear();

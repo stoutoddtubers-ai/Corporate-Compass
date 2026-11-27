@@ -37,6 +37,15 @@ from `dist/assets/` beside it.
 
 ## Controls
 
+**Third-person view (the default).** Click the game to capture the mouse (Esc lets it go).
+Mouse turns the camera; WASD walks relative to the camera; guns aim at the crosshair; right
+click steadies your aim (the camera moves over the shoulder). Fists and blades face the way
+you walk. In a car the camera swings back behind you when you stop moving the mouse.
+**C switches between the third-person view and the original three-quarter view.** The
+choice is remembered. `?3d` or `?2d` on the address forces one.
+
+**Three-quarter view:**
+
 On foot: WASD move, mouse aim, left click fire, right click steady aim, Space dodge roll,
 1-5 or mouse wheel switch weapon, R reload, V punch or swing, E get in a car / go through
 a door / use. Doors stay shut while the police are after you.
@@ -84,6 +93,23 @@ between street and room when he uses a door (E).
   `hooks_act3.ts` / `hooks_side.ts` (the logic each mission needs), Heat, Police, Traffic,
   Peds, Gangs, Turf, SideJobs, Shop, SaveGame, Projectiles, Fx.
 - `src/entities`: Actor (a person), Player, Car.
+
+## The third-person view (`src/view3d/View3D.ts`)
+
+The game still runs on the flat map exactly as before: movement, collisions, AI, missions.
+The 3D view only draws that world with three.js on a canvas under the HUD:
+
+- the ground is the game's own tile sheet, looked up per tile by a shader;
+- buildings are boxes; one shader draws windows (lit at night), shop fronts and awnings;
+- people are built from blocks in their look's colours and animated (walk, aim, punch, roll,
+  fall); cars, scooters and trucks are block models in their paint colour;
+- street furniture, the railway viaduct, the castle keep, smoke, sparks, bullet tracers and
+  the beams that mark where to go;
+- indoors, only the room you are in is drawn, the camera rises, and walls between the
+  camera and Jun are cut away.
+
+Its numbers (camera distances, mouse speed, storey height, fog, colours) are in
+`src/data/view3d.ts`. The automated tests play in the three-quarter view.
 
 ## Art (Blender)
 

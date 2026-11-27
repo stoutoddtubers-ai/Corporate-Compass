@@ -15,7 +15,8 @@ interface Bullet {
  * Each frame every bullet is swept along its path so fast shots can't skip through people.
  */
 export class Projectiles {
-  private pool: Bullet[] = [];
+  /** Every bullet, flying or not (the 3D view draws the flying ones). */
+  readonly pool: Bullet[] = [];
   active = 0;
 
   constructor(private world: WorldScene) {}

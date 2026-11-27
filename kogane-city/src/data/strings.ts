@@ -17,6 +17,7 @@ export const STRINGS = {
   PROMPT_DRINK: 'E — Drink ¥{price}', // new wording, not yet in the script doc
   PROMPT_ENTER: 'E — {name}', // NEW: at a door you can go through
   PROMPT_LEAVE: 'E — Leave', // NEW
+  UI_CLICK_TO_LOOK: 'Click to look around with the mouse · C switches camera', // NEW: third-person view
   PROMPT_LOCKED: 'Locked. The police are looking for you.', // NEW: shops shut their doors on a wanted man
 } as const;
 

@@ -33,7 +33,12 @@ export class Actor {
   private dir = 0;
   /** Which way the person faces, in radians. */
   facing = 0;
-  private punchT = 0;
+  /** Seconds left of the punching pose (read by the 3D view). */
+  punchT = 0;
+  /** Everyone alive in the world right now (the 3D view draws from this list). */
+  static all = new Set<Actor>();
+  /** Which look (data/characters.ts) this person wears. */
+  readonly look: string;
   /** True while this person is holding a gun out (shows the aiming pose when standing still). */
   armed = false;
 
@@ -42,6 +47,8 @@ export class Actor {
 
   constructor(scene: WorldScene, readonly kind: ActorKind, x: number, y: number, look: string, hp: number) {
     this.base = 'p_' + look;
+    this.look = look;
+    Actor.all.add(this);
     const sheet = SHEET[this.base + '_0_d0'];
     this.dirs = !!sheet;
     this.sprite = sheet ? scene.physics.add.image(x, y, sheet, this.base + '_0_d0').setDepth(4) : scene.physics.add.image(x, y, this.base).setDepth(4);
@@ -105,6 +112,7 @@ export class Actor {
 
   destroy(): void {
     this.alive = false;
+    Actor.all.delete(this);
     this.sprite.destroy();
   }
 }

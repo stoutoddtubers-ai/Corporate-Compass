@@ -6,8 +6,10 @@ interface Bark { txt: Phaser.GameObjects.Text; life: number; follow: { x: number
 
 /** Cheap visual effects: smoke, sparks, explosions, and floating "bark" text. */
 export class Fx {
-  private parts: Part[] = [];
-  private barks: Bark[] = [];
+  /** Smoke, sparks and flames (read by the 3D view). */
+  readonly parts: Part[] = [];
+  /** Floating lines over people (the 3D view shows these on the HUD). */
+  readonly barks: Bark[] = [];
   private lastBark = new Map<string, number>();
   private marks: { img: Phaser.GameObjects.Image; life: number; max: number; a: number }[] = [];
   private markI = 0;

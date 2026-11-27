@@ -28,7 +28,7 @@ export class Player {
   private fireT = 0;
   baseScale = 1;
   private rollSpin = 0;
-  private focus = false;
+  focus = false;
   private rollDir = { x: 1, y: 0 };
   private combo = 0;
   private comboT = 0;
@@ -120,8 +120,16 @@ export class Player {
     const ml = Math.hypot(mx, my);
     if (ml) { mx /= ml; my /= ml; }
     const ptr = w.input.activePointer;
-    const wp = ptr.positionToCamera(w.cameras.main) as Phaser.Math.Vector2;
-    this.aim = Math.atan2(wp.y - a.y, wp.x - a.x);
+    if (w.view3d?.active) {
+      // third person: W walks the way the camera looks, A/D step sideways; guns aim where the camera looks
+      const yaw = w.view3d.aimYaw, fx = Math.cos(yaw), fy = Math.sin(yaw), fwd = -my, side = mx;
+      mx = fx * fwd - fy * side; my = fy * fwd + fx * side;
+      const melee = this.weapon.def.mag === 0;
+      this.aim = melee && ml && !ptr.rightButtonDown() ? Math.atan2(my, mx) : yaw; // fists and blades face the way you walk
+    } else {
+      const wp = ptr.positionToCamera(w.cameras.main) as Phaser.Math.Vector2;
+      this.aim = Math.atan2(wp.y - a.y, wp.x - a.x);
+    }
 
     if (this.rolling) {
       this.rollT += dt;
