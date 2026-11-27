@@ -317,6 +317,9 @@ export class HudScene extends Phaser.Scene {
     };
     for (const r of w.map.water) rect(r.x, r.y, r.w, r.h, 0x2a5a78);
     for (const b of w.map.blocks) rect(b.x, b.y, b.w, b.h, FACTIONS[w.turf.owners[b.id]].color, 0.3); // turf: who owns each block
+    { const c = w.map.railCorners, t = 44; // the railway loop, in the line's green
+      rect(c[0].x, c[0].y - t / 2, c[1].x - c[0].x, t, 0x6fae48, 0.9); rect(c[3].x, c[3].y - t / 2, c[2].x - c[3].x, t, 0x6fae48, 0.9);
+      rect(c[0].x - t / 2, c[0].y, t, c[3].y - c[0].y, 0x6fae48, 0.9); rect(c[1].x - t / 2, c[1].y, t, c[2].y - c[1].y, 0x6fae48, 0.9); }
     for (const r of w.map.roads) { const thin = r.w < r.h; rect(r.x + (thin ? 34 : 0), r.y + (thin ? 0 : 34), r.w - (thin ? 68 : 0), r.h - (thin ? 0 : 68), 0x6f7386); }
     const dot = (x: number, y: number, color: number, size: number) => {
       const dx = (x - p.x) * S, dy = (y - p.y) * S;

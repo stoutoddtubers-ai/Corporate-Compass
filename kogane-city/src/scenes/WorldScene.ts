@@ -21,6 +21,7 @@ import { Story } from '../systems/Story';
 import { TurfSystem } from '../systems/TurfSystem';
 import { SideJobs } from '../systems/SideJobs';
 import { Shop } from '../systems/Shop';
+import { Rail } from '../systems/Rail';
 import { SaveGame } from '../systems/SaveGame';
 import { createSideJobs } from '../systems/sideJobsImpl';
 import { GARAGE } from '../data/garage';
@@ -82,6 +83,7 @@ export class WorldScene extends Phaser.Scene {
   /** The street door he last walked in by (the way out leads back here). */
   lastDoor: { x: number; y: number } | null = null;
   private roomMask!: Phaser.GameObjects.Graphics;
+  private rail!: Rail;
   private keepers: Actor[] = [];
   heat!: HeatSystem;
   projectiles!: Projectiles;
@@ -160,6 +162,7 @@ export class WorldScene extends Phaser.Scene {
     this.turf = new TurfSystem(this);
     this.side = createSideJobs(this);
     this.shop = new Shop(this);
+    this.rail = new Rail(this, this.map);
     SaveGame.load(this);
     this.saveGame = () => SaveGame.save(this);
 
@@ -637,6 +640,7 @@ export class WorldScene extends Phaser.Scene {
     }
     if (inn) { const l = inn.def.light ?? INTERIOR.defaultLight; this.shade.setFillStyle(l.color, l.alpha); }
     for (const k of this.keepers) k.animate(dt);
+    this.rail.update(dt, cam.midPoint);
     let fx: number, fy: number, zoom: number = CAMERA.footZoom;
     if (p.car) {
       const c = p.car;

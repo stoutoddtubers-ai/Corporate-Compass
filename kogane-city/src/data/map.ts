@@ -199,7 +199,7 @@ export const MAP = {
   sideWidth: SIDE_W,
   /** The city ends at this row. Below it, out of sight, is a band of tiles where building interiors are kept (data/interiors.ts). */
   cityH: LH.main[6] + 8,
-  interiorBand: { y: LH.main[6] + 18, rows: 68 },
+  interiorBand: { y: LH.main[6] + 18, rows: 124 },
   /** Old-plan tile -> this plan (see `places`). */
   tx, ty,
   /** The Kurokawa River: first water tile and width. Every east-west avenue crosses it on a bridge (5 bridges, bible). */
@@ -214,6 +214,22 @@ export const MAP = {
   canal: { x: tx(279), w: 3, rows: [1, 2] },
   /** Kogane Castle: a moated garden in the middle of the west side, as the Imperial Palace sits in Tokyo. It takes the south-east corner of this big block. */
   castle: { block: 'w3-1' },
+  /**
+   * The Kanjō Line: an elevated railway loop over four side streets (Tokyo's Yamanote Line).
+   * `v` and `h` name the side streets it runs above, as [gap between avenues, which side street in it].
+   * Those streets always exist, so there is a road under the viaduct, as in Tokyo.
+   */
+  rail: {
+    v: [[1, 0], [6, 1]], h: [[0, 1], [2, 1]],
+    height: 0.09, // how high the deck is (the same scale as building heights)
+    trains: 3, cars: 5, carLength: 54, // px
+    speed: 300, stopTime: 5, // px/s, and seconds at each station
+    /** Stations: which side of the loop (n/e/s/w), how far along it (0-1), and the name on the platform. */
+    stations: [
+      { side: 'n', at: 0.12, name: 'ROKKAKU HILLS' }, { side: 'n', at: 0.42, name: 'MARUKANE' }, { side: 'n', at: 0.8, name: 'DENPA-CHŌ' },
+      { side: 's', at: 0.14, name: 'MIRAI-ZAKA' }, { side: 's', at: 0.42, name: 'HANABI-CHŌ' }, { side: 's', at: 0.82, name: 'ASAGIRI' },
+    ],
+  },
   /** Which district a tile is in. */
   districtAt(x: number, y: number): string {
     if (y >= LH.main[4] + 6) return 'shiokaze';

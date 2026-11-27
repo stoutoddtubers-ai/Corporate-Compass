@@ -74,6 +74,10 @@ export class CityMap {
   readonly lights: Light[] = [];
   readonly places: Record<string, Place> = {};
   readonly interiors: Interior[] = [];
+  /** The railway loop: its four corners (px, clockwise from the north-west), its length, and its stations. */
+  readonly railCorners: { x: number; y: number }[] = [];
+  railLength = 0;
+  readonly stations: { x: number; y: number; at: number; name: string; horizontal: boolean }[] = [];
   readonly doors: Door[] = [];
   readonly widthPx = W * TS;
   readonly heightPx = H * TS;
@@ -91,6 +95,7 @@ export class CityMap {
     this.build();
     this.buildLanes();
     this.resolvePlaces();
+    this.buildRail();
     this.buildInteriors();
     this.decorate();
   }
@@ -129,6 +134,7 @@ export class CityMap {
      * nothing (the small blocks either side join up). Decided per district, the same every time.
      */
     const span = (axis: 'v' | 'h', Gi: number, Gj: number, k: number): 'road' | 'lane' | 'none' => {
+      if ((axis === 'v' ? MAP.rail.v : MAP.rail.h).some(([g, n]) => g === (axis === 'v' ? Gi : Gj) && n === k)) return 'road'; // a street under the railway
       if (blockName(Gi, Gj) === MAP.castle.block) return k === 0 ? 'road' : 'none';
       const d = GRAIN[MAP.districtAt((MAP.vRoads[Gi] + MAP.vRoads[Gi + 1]) / 2, (MAP.hRoads[Gj] + MAP.hRoads[Gj + 1]) / 2)];
       const r = seeded((axis === 'v' ? 7919 : 104729) + Gi * 131 + Gj * 977 + k * 31337);
@@ -337,7 +343,7 @@ export class CityMap {
     const kw = Math.min(10, iw - 12), kh = Math.min(8, ih - 12), kx = cx + 1 - (kw >> 1), ky = cy - 3 - kh;
     this.setFloor(kx - 2, ky - 2, kw + 4, kh + 5, T.path);
     this.fill(kx, ky, kw, kh, Tile.Building);
-    const keep: Plot = { x: kx * TS, y: ky * TS, w: kw * TS, h: kh * TS, district, block, height: 0.2 };
+    const keep: Plot = { x: kx * TS, y: ky * TS, w: kw * TS, h: kh * TS, district, block, roof: 'room', height: 6, tint: ['#4f7f6c', '#ece6d6'] }; // white walls, a green copper roof
     this.buildings.push(keep);
     this.laid.push({ id: 'castle', plot: keep, door: 's', label: 'KOGANE\nCASTLE' });
     for (let j = iy; j < iy + ih; j++) for (let i = ix; i < ix + iw; i++) {
@@ -431,6 +437,30 @@ export class CityMap {
       }
       this.places[id] = { x, y, sx: cx, sy: cy, label: spec.label ?? '', rect: r };
     }
+  }
+
+  /** Works out where the railway loop runs (over the side streets named in MAP.rail). */
+  private buildRail(): void {
+    const sideOf = (L: RoadLine[], gap: number, n: number) => { let g = -1, k = -1; for (const r of L) { if (r.main >= 0) { g = r.main; k = -1; } else if (g === gap && ++k === n) return (r.t + r.w / 2) * TS; } return 0; };
+    const R = MAP.rail, x0 = sideOf(this.rv, R.v[0][0], R.v[0][1]), x1 = sideOf(this.rv, R.v[1][0], R.v[1][1]), y0 = sideOf(this.rh, R.h[0][0], R.h[0][1]), y1 = sideOf(this.rh, R.h[1][0], R.h[1][1]);
+    this.railCorners.push({ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 });
+    const w = x1 - x0, h = y1 - y0;
+    this.railLength = 2 * (w + h);
+    for (const s of R.stations) {
+      const side = s.side as string;
+      const at = side === 'n' ? w * s.at : side === 'e' ? w + h * s.at : side === 's' ? w + h + w * (1 - s.at) : 2 * w + h + h * (1 - s.at);
+      const q = this.railPoint(at);
+      this.stations.push({ x: q.x, y: q.y, at, name: s.name, horizontal: q.horizontal });
+    }
+  }
+  /** The point this far round the loop (px, clockwise from the north-west corner). */
+  railPoint(d: number): { x: number; y: number; horizontal: boolean } {
+    const c = this.railCorners, w = c[1].x - c[0].x, h = c[2].y - c[1].y;
+    d = ((d % this.railLength) + this.railLength) % this.railLength;
+    if (d < w) return { x: c[0].x + d, y: c[0].y, horizontal: true };
+    if (d < w + h) return { x: c[1].x, y: c[1].y + d - w, horizontal: false };
+    if (d < 2 * w + h) return { x: c[2].x - (d - w - h), y: c[2].y, horizontal: true };
+    return { x: c[3].x, y: c[3].y - (d - 2 * w - h), horizontal: false };
   }
 
   /** Which interior the point is in, or null on the street. */
@@ -902,6 +932,38 @@ export class CityMap {
       const x = b.x + it.r[0] * TS + cw / 2, y = b.y + it.r[1] * TS + ch / 2;
       out.push({ img: scene.add.image(x, y, key).setScale(2).setDepth(20), x, y, h: MAP.roofHeight * 0.6 });
       for (let ly = b.y + 80; ly < b.y + ch; ly += 128) this.lights.push({ x, y: ly, color: 0xffc070, scale: 1.2, alpha: 0.5 }); // lanterns under the canopy
+    }
+    // the railway viaduct: deck pieces floating above the street, each with a shadow on the road below
+    {
+      const R = MAP.rail, piece = 256, dw = 40;
+      for (const [key, w, h] of [['railH', piece, dw], ['railV', dw, piece]] as [string, number, number][]) {
+        const t = scene.textures.createCanvas(key, w, h)!, g = t.getContext(), hz = w > h;
+        g.fillStyle = '#6d6a64'; g.fillRect(0, 0, w, h);
+        g.fillStyle = '#4a4742'; for (let k = 2; k < piece; k += 8) hz ? g.fillRect(k, 3, 3, h - 6) : g.fillRect(3, k, w - 6, 3); // sleepers
+        g.fillStyle = '#b9bdc2'; for (const o of [8, 14, 25, 31]) hz ? g.fillRect(0, o, w, 1) : g.fillRect(o, 0, 1, h); // two tracks
+        g.fillStyle = '#8d8a84'; hz ? (g.fillRect(0, 0, w, 2), g.fillRect(0, h - 2, w, 2)) : (g.fillRect(0, 0, 2, h), g.fillRect(w - 2, 0, 2, h)); // parapets
+        t.refresh();
+      }
+      const pt = scene.textures.createCanvas('platform', 220, 64)!, pg = pt.getContext();
+      pg.fillStyle = '#e6e0d2'; pg.fillRect(0, 0, 220, 64); pg.fillStyle = '#7fbf4f'; pg.fillRect(0, 0, 220, 5); pg.fillRect(0, 59, 220, 5);
+      pg.fillStyle = 'rgba(0,0,0,0.12)'; for (let x = 0; x < 220; x += 22) pg.fillRect(x, 5, 1, 54);
+      pt.refresh();
+      const c = this.railCorners;
+      for (let side = 0; side < 4; side++) {
+        const a = c[side], b = c[(side + 1) % 4], len = Math.abs(b.x - a.x) + Math.abs(b.y - a.y), hz = a.y === b.y;
+        const dx = Math.sign(b.x - a.x), dy = Math.sign(b.y - a.y), key = hz ? 'railH' : 'railV';
+        for (let d = piece / 2 - 20; d < len + 20; d += piece - 24) { // (pieces overlap a little, so no gaps open up as they slide)
+          const x = a.x + dx * Math.min(d, len - piece / 2 + 20), y = a.y + dy * Math.min(d, len - piece / 2 + 20);
+          out.push({ img: scene.add.image(x, y + 10, key).setTint(0x000000).setAlpha(0.28).setDepth(2), x, y: y + 10, h: 0 });
+          out.push({ img: scene.add.image(x, y, key).setDepth(20.5), x, y, h: R.height });
+        }
+      }
+      for (const s of this.stations) {
+        out.push({ img: scene.add.image(s.x, s.y, 'platform').setDepth(20.6), x: s.x, y: s.y, h: R.height + 0.004 });
+        const sign = scene.add.text(s.x, s.y, s.name + '\nSTATION', { fontFamily: 'monospace', fontSize: '11px', color: '#22331a', align: 'center' }).setOrigin(0.5).setDepth(20.7);
+        out.push({ img: sign, x: s.x, y: s.y, h: R.height + 0.004 });
+        this.lights.push({ x: s.x, y: s.y, color: 0xdfffd0, scale: 2, alpha: 0.4 });
+      }
     }
     // a river-cruise boat moored at the pier
     const bt = scene.textures.createCanvas('boat', 46, 22)!, bg = bt.getContext();
