@@ -21,6 +21,15 @@ nitro), Shift nitro, E get out. V punches. Click / Space / Enter moves a cutscen
 F3 toggles the debug overlay; F4 skips to the next mission; F6 restarts the story.
 Story progress is saved in the browser.
 
+## Art (Blender)
+
+Cars, people, roof materials and rooftop props are modelled and rendered in Blender by
+`tools/blender/render_assets.py` (needs `pip install bpy pillow`). It writes the sprite
+sheet `public/assets/atlas.png` and `src/data/atlas.json`. Re-run it after changing a
+model or a colour. If the sheet is missing the game falls back to code-drawn placeholders.
+Buildings are 2.5D: roofs slide away from the screen centre and walls are drawn down to
+the footprint; heights and wall colours per district are in `src/data/map.ts`.
+
 ## Folders
 
 - `src/data`     — every balancing number and every line of text. Tune the game here.

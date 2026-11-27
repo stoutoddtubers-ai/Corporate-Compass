@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { LOOKS, Look } from '../data/characters';
 import { VEHICLES, VehicleDef } from '../data/vehicles';
+import ATLAS from '../data/atlas.json';
 
 const hex = (n: number) => '#' + n.toString(16).padStart(6, '0');
 /** Lighten (amt > 0) or darken (amt < 0) a colour. */
@@ -18,6 +19,28 @@ export function shade(color: string, amt: number): string {
 export class BootScene extends Phaser.Scene {
   constructor() {
     super('Boot');
+  }
+
+  preload(): void {
+    // the sprite sheet rendered in Blender (tools/blender/render_assets.py)
+    this.load.image('atlas', 'assets/atlas.png');
+  }
+
+  /**
+   * Cuts each Blender-rendered sprite out of the sheet and uses it in place of the
+   * code-drawn placeholder with the same name. If the sheet is missing, the game still
+   * runs on the placeholders.
+   */
+  private useAtlas(): void {
+    if (!this.textures.exists('atlas')) return;
+    const src = this.textures.get('atlas').getSourceImage() as HTMLImageElement;
+    for (const [key, f] of Object.entries(ATLAS.frames)) {
+      if (this.textures.exists(key)) this.textures.remove(key);
+      const tex = this.textures.createCanvas(key, f.w, f.h)!;
+      tex.getContext().drawImage(src, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+      tex.refresh();
+      tex.setFilter(Phaser.Textures.FilterMode.LINEAR); // rendered art is scaled down smoothly
+    }
   }
 
   private paint(key: string, w: number, h: number, draw: (g: CanvasRenderingContext2D) => void): void {
@@ -138,6 +161,7 @@ export class BootScene extends Phaser.Scene {
       g.globalCompositeOperation = 'source-over';
       g.strokeStyle = '#e8b923'; g.lineWidth = 2; g.beginPath(); g.arc(56, 56, 52, 0, Math.PI * 2); g.stroke();
     });
+    this.useAtlas();
     this.scene.start('World');
   }
 }

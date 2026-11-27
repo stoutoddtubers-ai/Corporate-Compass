@@ -13,6 +13,8 @@ export interface DistrictStyle {
   awnings: string[]; awningChance: number;
   /** Colours of glowing signs on rooftops (empty = none). */
   neon: number[];
+  /** How tall buildings look (0.1 = roof slides 10% of its distance from screen centre), and wall colours. */
+  height: number[]; walls: number[];
   /** Street-lamp colour: the bible's "night light" for the district. */
   lamp: number;
 }
@@ -30,6 +32,7 @@ export const DISTRICTS: Record<string, DistrictStyle> = {
     ],
     awnings: ['#b3312f', '#2f4a6b', '#d8c9a3', '#3f6b4a'], awningChance: 0.7,
     neon: [], lamp: 0xffb860, // warm amber
+    height: [0.07, 0.11], walls: [0x8a6a4c, 0xcbbd9d, 0x6e5a48], // wood and cream plaster
   },
   denpa: {
     name: 'DENPA-CHŌ', kanji: '電波町', tagline: "Everything's for sale. Especially your data.",
@@ -42,6 +45,7 @@ export const DISTRICTS: Record<string, DistrictStyle> = {
     ],
     awnings: ['#19b7c9', '#e8d02a', '#e0408a', '#f2f2f2'], awningChance: 0.8,
     neon: [0x28e0f0, 0xf0e030, 0xf040a0], lamp: 0x9fe8ff, // electric cyan
+    height: [0.13, 0.2], walls: [0xc9c9c2, 0x4a4d57, 0x8b9199], // off-white tile, dark glass
   },
   tetsugawa: {
     name: 'TETSUGAWA', kanji: '鉄川', tagline: 'Iron, rust and engines.',
@@ -54,6 +58,7 @@ export const DISTRICTS: Record<string, DistrictStyle> = {
     ],
     awnings: ['#d8b02a', '#5a5a5a'], awningChance: 0.15,
     neon: [], lamp: 0xff9a40, // sodium orange
+    height: [0.08, 0.13], walls: [0x7a7f84, 0x8a5c40, 0x5a5e64], // concrete and rust
   },
 };
 
@@ -73,7 +78,7 @@ export const MAP = {
     return tx >= 76 ? 'tetsugawa' : ty < 64 ? 'denpa' : 'asagiri';
   },
   /** How strongly rooftops slide away from the screen centre to fake height (the GTA 2 trick). */
-  roofHeight: 0.045,
+  roofHeight: 0.05, // used for low things: fences, containers, the gate
   lampSpacing: 7, // tiles between street lamps
   /**
    * Story places. `block` is "column-row" of the city block (0-0 is top left; the two

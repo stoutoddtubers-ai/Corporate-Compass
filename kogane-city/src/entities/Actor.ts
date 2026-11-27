@@ -24,7 +24,10 @@ export class Actor {
 
   constructor(scene: WorldScene, readonly kind: ActorKind, x: number, y: number, look: string, hp: number) {
     this.sprite = scene.physics.add.image(x, y, 'p_' + look).setDepth(4);
-    this.sprite.setCircle(PLAYER.radius, 1, 1);
+    if (this.sprite.width > 20) { // Blender sprite, drawn at twice game size
+      this.sprite.setScale(0.5);
+      this.sprite.setCircle(PLAYER.radius * 2, this.sprite.width / 2 - PLAYER.radius * 2, this.sprite.height / 2 - PLAYER.radius * 2);
+    } else this.sprite.setCircle(PLAYER.radius, 1, 1);
     this.sprite.setCollideWorldBounds(true);
     scene.people.add(this.sprite); // everyone in this group bumps into buildings
     this.hp = hp;

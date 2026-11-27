@@ -7,7 +7,7 @@ import { PEDS, PARKED, PICKUPS, TRAFFIC } from '../data/ai';
 import { HEAT } from '../data/heat';
 import { WEAPONS } from '../data/weapons';
 import { BARKS, pick, t } from '../data/strings';
-import { CityMap } from '../systems/CityMap';
+import { CityMap, Roof } from '../systems/CityMap';
 import { Fx } from '../systems/Fx';
 import { Projectiles } from '../systems/Projectiles';
 import { HeatSystem } from '../systems/HeatSystem';
@@ -42,7 +42,9 @@ export class WorldScene extends Phaser.Scene {
   /** True while the player's car is parked in Goro's spray booth with the menu up. */
   garageOpen = false;
   ambience: { color: number; alpha: number; lights: number; rain: boolean } = { color: 0, alpha: 0, lights: 0, rain: false };
-  private roofs: { img: Phaser.GameObjects.Image | Phaser.GameObjects.Text; x: number; y: number; h: number }[] = [];
+  private roofs: Roof[] = [];
+  private wallG!: Phaser.GameObjects.Graphics;
+  private halo!: Phaser.GameObjects.Image;
   private shade!: Phaser.GameObjects.Rectangle;
   private glows: Phaser.GameObjects.Image[] = [];
   private slowT = 0;
@@ -72,10 +74,14 @@ export class WorldScene extends Phaser.Scene {
     this.map.makeGround(this);
     // rooftops (they slide with the camera to look tall), and the signs painted on them
     this.roofs = this.map.makeRoofs(this);
+    this.wallG = this.add.graphics().setDepth(19);
+    // a faint gold glow under Jun so he is easy to find, even at night or behind a building
+    this.halo = this.add.image(0, 0, 'glow').setTint(0xe8b923).setScale(0.42).setAlpha(0.4).setDepth(31).setBlendMode(Phaser.BlendModes.ADD);
     for (const pl of Object.values(this.map.places)) {
       if (!pl.label) continue;
       const txt = this.add.text(pl.sx, pl.sy, pl.label, { fontFamily: 'sans-serif', fontSize: '11px', color: '#fff8e8', align: 'center', stroke: '#1a1410', strokeThickness: 3 }).setOrigin(0.5).setDepth(21);
-      this.roofs.push({ img: txt, x: pl.sx, y: pl.sy, h: pl.rect && this.map.buildings.includes(pl.rect as never) ? MAP.roofHeight : 0 });
+      const on = this.roofs.find((r) => r.rect === pl.rect); // a sign sits on its building's roof
+      this.roofs.push({ img: txt, x: pl.sx, y: pl.sy, h: on ? on.h : 0 });
     }
     // night shade over everything, with pools of light on top. Only the lights near the
     // camera are drawn: a small pool of glow sprites is moved to wherever they are needed.
@@ -350,7 +356,7 @@ export class WorldScene extends Phaser.Scene {
     p.actor.body.reset(spot.x, spot.y);
     p.heal();
     this.mode = 'play';
-    p.rollT = -1; p.actor.sprite.setAlpha(1).setScale(1);
+    p.rollT = -1; p.actor.sprite.setAlpha(1).setScale(p.actor.sprite.width > 20 ? 0.5 : 1);
     if (dead) p.armour = 0; // death costs your armour, weapons kept (bible)
     else p.resetWeapons(['fists']); // arrest costs every weapon except melee (bible)
     this.heat.clear(false);
@@ -423,11 +429,39 @@ export class WorldScene extends Phaser.Scene {
     cam.setZoom(this.cam.zoom);
     cam.centerOn(this.cam.x, this.cam.y);
     // slide the rooftops away from the middle of the screen so buildings look tall
-    const mid = cam.midPoint, vw = cam.worldView;
+    // 2.5D buildings: each roof slides and grows away from the middle of the screen, and
+    // walls are drawn from the footprint up to it, so buildings look tall (the GTA 2 trick).
+    const mid = cam.midPoint, vw = cam.worldView, g = this.wallG, pp = this.player.pos;
+    const lit = this.ambience.lights > 0.4;
+    g.clear();
     for (const r of this.roofs) {
-      const on = Math.abs(r.x - mid.x) < vw.width / 2 + 320 && Math.abs(r.y - mid.y) < vw.height / 2 + 320;
+      const on = Math.abs(r.x - mid.x) < vw.width / 2 + 360 && Math.abs(r.y - mid.y) < vw.height / 2 + 360;
       r.img.setVisible(on);
-      if (on) r.img.setPosition(r.x + (r.x - mid.x) * r.h, r.y + (r.y - mid.y) * r.h);
+      if (!on) continue;
+      const k = r.h;
+      r.img.setPosition(r.x + (r.x - mid.x) * k, r.y + (r.y - mid.y) * k);
+      const b = r.rect;
+      if (!b) continue;
+      (r.img as Phaser.GameObjects.Image).setScale(1 + k);
+      const x0 = b.x, y0 = b.y, x1 = b.x + b.w, y1 = b.y + b.h;
+      const X0 = x0 + (x0 - mid.x) * k, Y0 = y0 + (y0 - mid.y) * k, X1 = x1 + (x1 - mid.x) * k, Y1 = y1 + (y1 - mid.y) * k; // roof corners
+      // if the player is hidden behind this building, make it see-through
+      const hidden = pp.x > X0 - 8 && pp.x < X1 + 8 && pp.y > Y0 - 8 && pp.y < Y1 + 8;
+      const alpha = hidden ? 0.4 : 1;
+      r.img.setAlpha(alpha);
+      const col = r.wall ?? 0x666666, dark = Phaser.Display.Color.IntegerToColor(col).darken(28).color;
+      const wall = (ax: number, ay: number, bx: number, by: number, AX: number, AY: number, BX: number, BY: number, c: number) => {
+        g.fillStyle(c, alpha).fillTriangle(ax, ay, bx, by, BX, BY).fillTriangle(ax, ay, BX, BY, AX, AY);
+        if (k < 0.06) return; // low things (fences, containers) get no windows
+        for (const t of [0.38, 0.72]) { // two rows of windows: lit at night
+          g.lineStyle(2, lit ? 0xffd98a : 0x1c2530, alpha * (lit ? 0.55 : 0.5));
+          g.lineBetween(ax + (AX - ax) * t, ay + (AY - ay) * t, bx + (BX - bx) * t, by + (BY - by) * t);
+        }
+      };
+      if (mid.x < x0) wall(x0, y0, x0, y1, X0, Y0, X0, Y1, dark); // we see its west wall
+      else if (mid.x > x1) wall(x1, y0, x1, y1, X1, Y0, X1, Y1, dark); // east wall
+      if (mid.y < y0) wall(x0, y0, x1, y0, X0, Y0, X1, Y0, col); // north wall
+      else if (mid.y > y1) wall(x0, y1, x1, y1, X0, Y1, X1, Y1, col); // south wall
     }
   }
 
@@ -481,6 +515,7 @@ export class WorldScene extends Phaser.Scene {
   private updateWorldUi(): void {
     const p = this.player, g = this.bars;
     g.clear();
+    this.halo.setPosition(p.pos.x, p.pos.y).setVisible(!p.car && this.mode !== 'cut');
     if (this.story.index >= 3 && !this.story.active) { const sp = this.map.places.spray; g.lineStyle(2, 0x7fe0ff, 0.7).strokeCircle(sp.x, sp.y, 30); } // Goro's spray booth
     const mk = this.story.marker;
     if (mk && this.mode !== 'cut') { // the gold ring that shows where to go

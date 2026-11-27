@@ -95,7 +95,7 @@ export class TurfSystem {
     } else { // the lieutenant and two bodyguards
       const boss = this.member(z, 'chase', true, TURF.lieutenantHp);
       boss.data.rate = TURF.lieutenantFireGap;
-      boss.sprite.setScale(1.25);
+      boss.sprite.setScale(boss.sprite.scaleX * 1.25);
       this.member(z, 'chase', false); this.member(z, 'chase', false);
     }
   }

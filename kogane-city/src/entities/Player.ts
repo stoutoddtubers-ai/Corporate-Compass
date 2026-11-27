@@ -26,6 +26,7 @@ export class Player {
   /** Car being broken into / driver being dragged out, with progress. */
   entering: { car: Car; t: number; need: number } | null = null;
   private fireT = 0;
+  private baseScale = 1;
   private focus = false;
   private rollDir = { x: 1, y: 0 };
   private combo = 0;
@@ -35,6 +36,7 @@ export class Player {
   constructor(private world: WorldScene, x: number, y: number) {
     this.actor = new Actor(world, 'player', x, y, 'jun', PLAYER.maxHp);
     this.actor.sprite.setDepth(4.5);
+    this.baseScale = this.actor.sprite.scaleX;
     this.resetWeapons(PLAYER.startWeapons);
   }
 
@@ -114,9 +116,9 @@ export class Player {
     if (this.rolling) {
       this.rollT += dt;
       a.body.setVelocity(this.rollDir.x * PLAYER.roll.speed, this.rollDir.y * PLAYER.roll.speed);
-      a.sprite.setAlpha(this.invulnerable ? 0.45 : 0.8).setScale(0.8);
+      a.sprite.setAlpha(this.invulnerable ? 0.45 : 0.8).setScale(this.baseScale * 0.8);
       a.sprite.rotation += 20 * dt;
-      if (this.rollT >= PLAYER.roll.duration) { this.rollT = -1; a.sprite.setAlpha(1).setScale(1); }
+      if (this.rollT >= PLAYER.roll.duration) { this.rollT = -1; a.sprite.setAlpha(1).setScale(this.baseScale); }
       return;
     }
     if (spaceDown && this.rollCooldown <= 0) {

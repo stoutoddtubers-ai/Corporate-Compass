@@ -19,6 +19,8 @@ export interface Plot extends Rect { district: string; block: string; roof?: str
 export interface Block extends Rect { id: string; district: string }
 export interface Place { x: number; y: number; sx: number; sy: number; label: string; rect: Rect | null }
 export interface Light { x: number; y: number; color: number; scale: number; alpha: number }
+/** Something drawn above the street: a rooftop (with its building's footprint, for walls), a sign, the gate... */
+export interface Roof { img: Phaser.GameObjects.Image | Phaser.GameObjects.Text; x: number; y: number; h: number; rect?: Rect; wall?: number }
 export interface Junction { id: number; x: number; y: number; lit: boolean; offset: number }
 
 /** Small repeatable random number generator, so the city is the same every time. */
@@ -478,16 +480,28 @@ export class CityMap {
   }
 
   /**
-   * One rooftop picture per building (drawn at half size to save memory). The world slides
-   * them slightly away from the middle of the screen, which makes flat buildings look tall.
+   * One rooftop picture per building, built from Blender-rendered materials and props.
+   * The world slides and grows each roof away from the middle of the screen and draws
+   * walls down to the footprint, so buildings have real height (2.5D).
    */
-  makeRoofs(scene: Phaser.Scene): { img: Phaser.GameObjects.Image; x: number; y: number; h: number }[] {
-    const out: { img: Phaser.GameObjects.Image; x: number; y: number; h: number }[] = [];
+  makeRoofs(scene: Phaser.Scene): Roof[] {
+    const out: Roof[] = [];
     const rnd = seeded(21);
     const special = new Map<Rect, string>();
     for (const [id, spec] of Object.entries(MAP.places)) if (spec.color && this.places[id].rect) special.set(this.places[id].rect!, spec.color);
+    const has = (k: string) => scene.textures.exists(k);
+    const src = (k: string) => scene.textures.get(k).getSourceImage() as CanvasImageSource;
+    // roof materials rendered in Blender, shrunk to game size so they can be tiled
+    const mats: Record<string, CanvasPattern | null> = {};
+    for (const k of ['tile', 'flat', 'plank', 'metal']) {
+      if (!has('roof_' + k)) { mats[k] = null; continue; }
+      const c = document.createElement('canvas'); c.width = c.height = 32;
+      c.getContext('2d')!.drawImage(src('roof_' + k), 0, 0, 32, 32);
+      mats[k] = c.getContext('2d')!.createPattern(c, 'repeat');
+    }
+    const props = ['ac', 'ac', 'tank', 'vent', 'skylight', 'dish', 'solar'].filter((k) => has('prop_' + k));
     this.buildings.forEach((r, i) => {
-      const key = 'roof' + i, w = r.w / 2, h = r.h / 2;
+      const key = 'roof' + i, w = r.w, h = r.h;
       const tex = scene.textures.createCanvas(key, w, h)!;
       const g = tex.getContext();
       const D = DISTRICTS[r.district];
@@ -495,38 +509,29 @@ export class CityMap {
       const kinds: Record<string, string[]> = { container: ['#2f7f86', '#b5562e', '#d8b02a', '#3a5f9a'], boxcar: ['#6b3a2a', '#4a4f55'], fence: ['#5a5e63'], shelf: ['#8a7a5a'] };
       const plain = r.roof ? kinds[r.roof][i % kinds[r.roof].length] : special.get(r);
       g.fillStyle = plain ?? st.base; g.fillRect(0, 0, w, h);
-      g.fillStyle = st.line;
-      if (r.roof) { // containers, boxcars, fences, shelves: flat colour with ribs
-        g.fillStyle = 'rgba(0,0,0,0.22)';
-        if (r.roof === 'shelf') for (let x = 3; x < w; x += 8) g.fillRect(x, 3, 5, h - 6);
-        else if (r.roof !== 'fence') for (let k = 3; k < Math.max(w, h); k += 4) w > h ? g.fillRect(k, 0, 1, h) : g.fillRect(0, k, w, 1);
-      } else if (special.has(r)) { /* plain coloured roof for the police box and hospital */ }
-      else if (st.kind === 'tile') { // rows of roof tiles and a ridge beam
-        for (let y = 2; y < h; y += 3) g.fillRect(0, y, w, 1);
-        g.fillStyle = st.trim; w > h ? g.fillRect(3, h / 2 - 2, w - 6, 3) : g.fillRect(w / 2 - 2, 3, 3, h - 6);
-      } else if (st.kind === 'plank') { for (let x = 0; x < w; x += 4) g.fillRect(x, 0, 1, h); }
-      else if (st.kind === 'metal') { // corrugated sheet with skylights
-        for (let x = 0; x < w; x += 3) g.fillRect(x, 0, 1, h);
-        g.fillStyle = 'rgba(190,220,235,0.35)'; for (let y = 8; y < h - 10; y += 18) g.fillRect(6, y, w - 12, 4);
+      const mat = r.roof ? (r.roof === 'fence' ? null : mats.metal) : special.has(r) ? mats.flat : mats[st.kind];
+      if (mat) { // lay the rendered material over the base colour (overlay keeps the colour, adds the relief)
+        g.globalCompositeOperation = 'overlay'; g.fillStyle = mat; g.fillRect(0, 0, w, h); g.globalCompositeOperation = 'source-over';
       }
-      if (!plain && (st.kind === 'flat' || st.kind === 'plank')) { // clutter: AC units, a water tank
-        for (let n = 0; n < Math.round((w * h) / 3500); n++) {
-          const x = 7 + rnd() * (w - 25), y = 7 + rnd() * (h - 25);
-          if (rnd() < 0.3) { g.fillStyle = '#6f7f8a'; g.beginPath(); g.arc(x + 6, y + 6, 6, 0, 7); g.fill(); g.fillStyle = '#8fa0aa'; g.beginPath(); g.arc(x + 5, y + 5, 4, 0, 7); g.fill(); }
-          else { g.fillStyle = '#8f9498'; g.fillRect(x, y, 11, 8); g.fillStyle = '#5a5f63'; g.beginPath(); g.arc(x + 5.5, y + 4, 2.5, 0, 7); g.fill(); }
+      if (!r.roof && st.kind === 'tile') { g.fillStyle = st.trim; w > h ? g.fillRect(8, h / 2 - 4, w - 16, 7) : g.fillRect(w / 2 - 4, 8, 7, h - 16); } // ridge beam
+      if (r.roof === 'shelf') { g.fillStyle = 'rgba(0,0,0,0.25)'; for (let x = 6; x < w; x += 16) g.fillRect(x, 6, 10, h - 12); }
+      if (!plain && props.length && st.kind !== 'tile') { // rooftop clutter: rendered AC units, tanks, vents...
+        for (let n = 0; n < Math.round((w * h) / 9000); n++) {
+          const im = src('prop_' + props[Math.floor(rnd() * props.length)]) as HTMLCanvasElement, pw = im.width / 2, ph = im.height / 2;
+          g.drawImage(im, 8 + rnd() * (w - pw - 16), 8 + rnd() * (h - ph - 16), pw, ph);
         }
       }
-      if (!plain && D.neon.length && rnd() < 0.6 && w > 30 && h > 30) { // a glowing billboard on the roof
-        const c = D.neon[Math.floor(rnd() * D.neon.length)], bx = 6 + rnd() * (w - 30), by = 6 + rnd() * (h - 22);
-        g.fillStyle = '#111'; g.fillRect(bx - 1, by - 1, 20, 10); g.fillStyle = css(c); g.fillRect(bx, by, 18, 8);
-        g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillRect(bx + 2, by + 2, 9, 1); g.fillRect(bx + 2, by + 5, 13, 1);
-        this.lights.push({ x: r.x + (bx + 9) * 2, y: r.y + (by + 4) * 2, color: c, scale: 1.1, alpha: 0.6 });
+      if (!plain && D.neon.length && rnd() < 0.6 && w > 60 && h > 60) { // a glowing billboard on the roof
+        const c = D.neon[Math.floor(rnd() * D.neon.length)], bx = 12 + rnd() * (w - 60), by = 12 + rnd() * (h - 44);
+        g.fillStyle = '#111'; g.fillRect(bx - 2, by - 2, 40, 20); g.fillStyle = css(c); g.fillRect(bx, by, 36, 16);
+        g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillRect(bx + 4, by + 4, 18, 2); g.fillRect(bx + 4, by + 10, 26, 2);
+        this.lights.push({ x: r.x + bx + 18, y: r.y + by + 8, color: c, scale: 1.1, alpha: 0.6 });
       }
-      g.fillStyle = st.trim; g.fillRect(0, 0, w, 2); g.fillRect(0, 0, 2, h); // parapet: light top/left, dark bottom/right
-      g.fillStyle = 'rgba(0,0,0,0.38)'; g.fillRect(0, h - 2, w, 2); g.fillRect(w - 2, 0, 2, h);
+      g.fillStyle = st.trim; g.fillRect(0, 0, w, 4); g.fillRect(0, 0, 4, h); // parapet: light top/left, dark bottom/right
+      g.fillStyle = 'rgba(0,0,0,0.38)'; g.fillRect(0, h - 4, w, 4); g.fillRect(w - 4, 0, 4, h);
       tex.refresh();
-      tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
-      out.push({ img: scene.add.image(r.x + r.w / 2, r.y + r.h / 2, key).setScale(2).setDepth(20), x: r.x + r.w / 2, y: r.y + r.h / 2, h: MAP.roofHeight * (r.height ?? 1) });
+      const hgt = r.roof ? MAP.roofHeight * (r.height ?? 1) : D.height[0] + rnd() * (D.height[1] - D.height[0]);
+      out.push({ img: scene.add.image(r.x + r.w / 2, r.y + r.h / 2, key).setDepth(20), x: r.x + r.w / 2, y: r.y + r.h / 2, h: hgt, rect: r, wall: D.walls[i % D.walls.length] });
     });
     // the Hozuki-mon temple gate: a red beam across the road with one giant lantern
     const gate = this.places.asagiri, gw = (MAP.roadWidth + 2) * TS;

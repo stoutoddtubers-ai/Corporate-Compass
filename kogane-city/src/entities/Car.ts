@@ -73,6 +73,7 @@ export class Car {
     this.colorIndex = colorIndex >= 0 ? colorIndex : Math.floor(Math.random() * Math.max(1, def.colors.length - (def.colors.length > 2 ? 1 : 0)));
     this.shadow = scene.add.image(x, y, 'carShadow').setDepth(2.8).setDisplaySize(def.length, def.width);
     this.sprite = scene.add.image(x, y, `car_${def.id}_${this.colorIndex}`).setDepth(3);
+    if (this.sprite.width > def.length + 2) this.sprite.setScale(0.5); // Blender sprite, drawn at twice game size
     this.beam = scene.add.image(x, y, 'beam').setOrigin(0, 0.5).setDepth(31).setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
     if (isPolice) this.lightbar = scene.add.rectangle(x, y, 4, def.width - 8, 0xff2a2a).setDepth(32);
     this.safe = { x, y, h: heading };
