@@ -76,6 +76,17 @@ export class BootScene extends Phaser.Scene {
         g.fillStyle = '#ffe9a0'; g.fillRect(L - 2, W / 2 - 1, 2, 2);
         return;
       }
+      if (def.shape === 'truck') {
+        g.fillStyle = '#0d0d0d'; for (const x of [8, L - 16]) { g.fillRect(x, 0, 8, 2); g.fillRect(x, W - 2, 8, 2); }
+        g.fillStyle = shade(body, -60); rr(0, 1, L, W - 2, 3);
+        g.fillStyle = body; rr(1, 2, L - 16, W - 4, 2); // cargo box
+        g.fillStyle = shade(body, -18); for (let x = 8; x < L - 18; x += 8) g.fillRect(x, 3, 1, W - 6);
+        g.fillStyle = shade(body, -35); rr(L - 14, 2, 13, W - 4, 3); // cab
+        g.fillStyle = '#16212e'; rr(L - 8, 4, 5, W - 8, 1);
+        g.fillStyle = '#fff3c0'; g.fillRect(L - 2, 3, 2, 4); g.fillRect(L - 2, W - 7, 2, 4);
+        g.fillStyle = '#e03030'; g.fillRect(0, 3, 2, 4); g.fillRect(0, W - 7, 2, 4);
+        return;
+      }
       const sports = def.shape === 'sports', police = def.shape === 'police';
       g.fillStyle = '#0d0d0d'; // tyres peeking out
       for (const x of [6, L - 13]) { g.fillRect(x, 0, 7, 2); g.fillRect(x, W - 2, 7, 2); }

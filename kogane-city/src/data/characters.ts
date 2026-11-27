@@ -10,6 +10,12 @@ export const LOOKS: Record<string, Look> = {
   cop: { jacket: '#27408f', hair: '#f2f2f2', accent: '#e8c84a', accentAt: 'chest' }, // navy uniform, white cap
   thug: { jacket: '#101014', hair: '#0c0c0c', accent: '#8a1c1c', accentAt: 'chest' }, // Kurogane black suit
   raijin: { jacket: '#5b2a8a', hair: '#e8d24a', accent: '#f2f2f2', accentAt: 'back' }, // Raijin bōsōzoku jacket
+  kenta: { jacket: '#f2f2f2', hair: '#e8d24a', accent: '#5b2a8a', accentAt: 'back' }, // white tokkō-fuku coat
+  hikari: { jacket: '#3a3f55', hair: '#28d8e8', accent: '#f040a0', accentAt: 'chest' }, // cyan hair, hoodie
+  ogata: { jacket: '#f4f4f0', hair: '#2a2622', accent: '#c9a84a', accentAt: 'chest' }, // white suit
+  windbreaker: { jacket: '#2f6f8a', hair: '#1c1a1a', accent: '#f2f2f2', accentAt: 'back' }, // Ogata's hired men
+  guard: { jacket: '#5a5f66', hair: '#22242a', accent: '#d8b02a', accentAt: 'chest' }, // rent-a-cops
+  courier: { jacket: '#3a2f2a', hair: '#0c0c0c', accent: '#8a1c1c', accentAt: 'chest' },
   customer: { jacket: '#4f7f8a', hair: '#55504a' },
   elder: { jacket: '#8a7f6a', hair: '#d8d8d8' },
   salaryman: { jacket: '#3d4a6a', hair: '#1c1a1a', accent: '#f2f2f2', accentAt: 'chest' },
@@ -28,6 +34,10 @@ export const SPEAKERS: Record<string, { name: string; color: string; look: strin
   GORO: { name: 'GORO', color: '#b8c0cc', look: 'goro' },
   'THUG 1': { name: 'THUG 1', color: '#c06060', look: 'thug' },
   'THUG 2': { name: 'THUG 2', color: '#c06060', look: 'thug' },
+  KENTA: { name: 'KENTA', color: '#d9a0ff', look: 'kenta' },
+  HIKARI: { name: 'HIKARI', color: '#28d8e8', look: 'hikari' },
+  OGATA: { name: 'OGATA', color: '#f0e8c8', look: 'ogata' },
+  TAPE: { name: 'TAPE', color: '#9a9aa8', look: 'courier' },
   'DJ ŌKAMI': { name: 'DJ ŌKAMI', color: '#7fe0ff', look: 'customer' },
   'UNKNOWN NUMBER': { name: 'UNKNOWN NUMBER', color: '#c9a0ff', look: 'raijin' },
 };

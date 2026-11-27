@@ -3,9 +3,9 @@ export const GAME_WIDTH = 960;
 export const GAME_HEIGHT = 540;
 export const TILE_SIZE = 32;
 
-// Test map size for Milestone 1 (in tiles).
-export const MAP_TILES_W = 64;
-export const MAP_TILES_H = 64;
+// East-bank map size (in tiles). The full game targets 1,024 x 1,024 for all eight districts.
+export const MAP_TILES_W = 160;
+export const MAP_TILES_H = 128;
 
 // Performance budget from the game bible ("Performance budgets").
 export const BUDGET = {

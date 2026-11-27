@@ -49,7 +49,7 @@ export class Projectiles {
       const nx = b.x + b.vx * dt, ny = b.y + b.vy * dt;
 
       // walls (check the middle and the end of this frame's travel)
-      if (w.map.isSolid((b.x + nx) / 2, (b.y + ny) / 2) || w.map.isSolid(nx, ny)) { b.x = nx; b.y = ny; this.end(b, true); continue; }
+      if (w.map.isWall((b.x + nx) / 2, (b.y + ny) / 2) || w.map.isWall(nx, ny)) { b.x = nx; b.y = ny; this.end(b, true); continue; }
 
       // people
       let hit: Actor | null = null, best = 1e9;

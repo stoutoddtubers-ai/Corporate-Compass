@@ -26,6 +26,7 @@ export class Player {
   /** Car being broken into / driver being dragged out, with progress. */
   entering: { car: Car; t: number; need: number } | null = null;
   private fireT = 0;
+  private focus = false;
   private rollDir = { x: 1, y: 0 };
   private combo = 0;
   private comboT = 0;
@@ -125,7 +126,9 @@ export class Player {
       this.entering = null;
       return;
     }
-    a.body.setVelocity(mx * PLAYER.walkSpeed, my * PLAYER.walkSpeed);
+    this.focus = ptr.rightButtonDown(); // focus aim: tighter spread, slower walk (bible controls)
+    const walk = PLAYER.walkSpeed * (this.focus ? PLAYER.focusWalk : 1);
+    a.body.setVelocity(mx * walk, my * walk);
     a.sprite.rotation = this.aim;
 
     // weapons
@@ -165,7 +168,7 @@ export class Player {
     s.mag--;
     this.fireT = 1 / d.rate;
     for (let i = 0; i < d.pellets; i++) {
-      const ang = this.aim + Phaser.Math.DegToRad((Math.random() * 2 - 1) * d.spread);
+      const ang = this.aim + Phaser.Math.DegToRad((Math.random() * 2 - 1) * d.spread * (this.focus ? PLAYER.focusSpread : 1));
       w.projectiles.fire(ox, oy, ang, d, 'player');
     }
     w.fx.puff(ox, oy, 0xfff2a0, 7, 0.06, 0, 0, 0, 0.9);
@@ -214,6 +217,16 @@ export class Player {
     this.actor.sprite.setVisible(false);
     w.fx.bark(c, w.story.junCarLine ?? pick(BARKS.junSteal), '#e8b923', 'jun', w.story.junCarLine ? 0 : 4);
     w.story.junCarLine = null;
+  }
+
+  /** Story helper: sit Jun in a car with no break-in, no crime and no comment. */
+  putInCar(c: Car): void {
+    if (this.car) this.exitCar();
+    c.driver = 'player'; c.unlocked = true; c.seg = null; c.roadblock = false;
+    this.car = c; this.entering = null; this.reloadT = 0;
+    this.actor.body.setVelocity(0, 0);
+    this.actor.body.enable = false;
+    this.actor.sprite.setVisible(false);
   }
 
   exitCar(): void {

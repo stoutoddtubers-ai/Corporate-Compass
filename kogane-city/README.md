@@ -1,8 +1,9 @@
 # Kogane City
 
 Browser-based top-down crime sandbox. Phaser 4 + TypeScript + Vite, WebGL only.
-Currently: start of the vertical slice. One city block themed as Asagiri, story missions 1-3
-(Gate Out, Hot Soup, Wheels), Heat 1-3, placeholder pixel art drawn in code.
+Currently: Act 1 alpha in progress. The east bank (Asagiri, Denpa-chō, Tetsugawa, the
+Kurokawa River and the K-Route ring), story missions 1-8, Heat 1-4, placeholder pixel art
+drawn in code.
 
 ## Run it
 
@@ -27,4 +28,5 @@ Story progress is saved in the browser.
 - `src/systems`  — CityMap, Projectiles, HeatSystem, PoliceSystem, TrafficSystem, PedSystem, GangSystem,
                    Story (mission runner), missionHooks (per-mission logic), Fx
 - `src/data/missions.ts` — all mission text, copied from the script doc
+- `src/data/map.ts` — the city: roads, river, districts and where each story place is
 - `src/entities` — Actor (a person), Player, Car

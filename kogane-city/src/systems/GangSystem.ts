@@ -3,6 +3,7 @@ import { Actor } from '../entities/Actor';
 import { Car } from '../entities/Car';
 import { VehicleDef } from '../data/vehicles';
 import { MISSION_TUNING } from '../data/missions';
+import { WEAPONS } from '../data/weapons';
 import { MAP_TILES_W, MAP_TILES_H } from '../data/config';
 import type { WorldScene } from '../scenes/WorldScene';
 
@@ -18,7 +19,7 @@ export class GangSystem {
 
   constructor(private world: WorldScene) {}
 
-  spawnThug(x: number, y: number, look: string, state: 'wait' | 'guard' | 'chase', hp = 60): Actor {
+  spawnThug(x: number, y: number, look: string, state: 'wait' | 'guard' | 'chase' | 'smash', hp = 60): Actor {
     const a = new Actor(this.world, 'thug', x, y, look, hp);
     a.state = state; a.timer = 0.6;
     this.thugs.push(a);
@@ -34,6 +35,8 @@ export class GangSystem {
 
   /** Thugs still in the fight (not dead, not run away). */
   get activeThugs(): number { return this.thugs.reduce((n, a) => n + (a.alive && a.state !== 'flee' ? 1 : 0), 0); }
+  /** Thugs a bullet can hit are also tracked by the 20-hostile budget. */
+  get count(): number { return this.thugs.reduce((n, a) => n + (a.alive ? 1 : 0), 0) + this.activeChasers.length; }
   get activeChasers(): Car[] { return this.chasers.filter((c) => !c.wreck && !c.removed && c.driver === 'gang'); }
 
   clear(): void {
@@ -66,6 +69,27 @@ export class GangSystem {
         else if (a.body.blocked.up || a.body.blocked.down) { dy = 0; dx = dx >= 0 ? 1 : -1; }
         a.setVelocity(dx * 150, dy * 150);
         if (d > 420 && !w.onScreen(a.x, a.y, 20)) { a.destroy(); this.thugs.splice(i, 1); }
+        continue;
+      }
+      if (a.state === 'smash') { // go and wreck a shop front (mission 6); a.data.shop says which
+        if (a.moveTo(a.tx, a.ty, 120) < 26) { a.body.setVelocity(0, 0); a.timer -= dt; if (a.timer <= 0) { a.timer = 1; a.data.hit = ((a.data.hit as number) || 0) + 1; w.fx.spark(a.tx, a.ty, 0xffe08a); } }
+        continue;
+      }
+      if (a.data.gun) { // armed guard: keep some distance and shoot
+        const sees = d < 320 && w.map.los(a.x, a.y, p.x, p.y);
+        if (sees && d < 170) a.body.setVelocity(0, 0);
+        else if (sees) a.moveTo(p.x, p.y, 110);
+        else { const st = w.map.flowStep(this.field, a.x, a.y); if (st) a.moveTo(st.x, st.y, 110); }
+        a.timer -= dt;
+        if (sees) {
+          const ang = Math.atan2(p.y - a.y, p.x - a.x);
+          a.sprite.rotation = ang;
+          if (a.timer <= 0) {
+            a.timer = 0.8 + Math.random() * 0.4;
+            w.projectiles.fire(a.x + Math.cos(ang) * 12, a.y + Math.sin(ang) * 12, ang + (Math.random() - 0.5) * 0.28, WEAPONS.kitsune9, 'cop');
+            if (a.data.bark) w.fx.bark(a.sprite, a.data.bark as string, '#ffd0a0', 'guard', 3);
+          }
+        }
         continue;
       }
       // chase and punch

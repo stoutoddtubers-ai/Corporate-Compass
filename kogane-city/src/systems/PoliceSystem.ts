@@ -4,9 +4,8 @@ import { Car } from '../entities/Car';
 import { HEAT } from '../data/heat';
 import { WEAPONS } from '../data/weapons';
 import { VEHICLES } from '../data/vehicles';
-import { MAP } from '../data/map';
-import { BARKS, DISTRICT, pick } from '../data/strings';
-import { TILE_SIZE, MAP_TILES_W, MAP_TILES_H } from '../data/config';
+import { BARKS, pick } from '../data/strings';
+import { MAP_TILES_W, MAP_TILES_H } from '../data/config';
 import type { WorldScene } from '../scenes/WorldScene';
 
 /**
@@ -33,7 +32,8 @@ export class PoliceSystem {
 
   private canSee(x: number, y: number): boolean {
     const p = this.world.player.pos;
-    return Math.hypot(p.x - x, p.y - y) < HEAT.cop.visionRange && this.world.map.los(x, y, p.x, p.y);
+    // after a car swap the police don't know what they are looking for, so they must be much closer
+    return Math.hypot(p.x - x, p.y - y) < HEAT.cop.visionRange * (this.world.story.flags.incognito ? 0.35 : 1) && this.world.map.los(x, y, p.x, p.y);
   }
 
   barkAny(text: string): void {
@@ -42,7 +42,7 @@ export class PoliceSystem {
   }
 
   private levelBark(from: { x: number; y: number }): void {
-    const line = pick(BARKS.police[this.world.heat.level] ?? BARKS.police[1]).replace('{district}', DISTRICT.name);
+    const line = pick(BARKS.police[this.world.heat.level] ?? BARKS.police[1]).replace('{district}', this.world.map.districtAt(from.x, from.y).name);
     this.world.fx.bark(from, line, '#9cc0ff', 'cop', 3.5);
   }
 
@@ -55,22 +55,22 @@ export class PoliceSystem {
   }
 
   private spawnFoot(): void {
-    const w = this.world, p = w.player.pos;
-    const box = { x: MAP.policeBox.spawn[0] * TILE_SIZE, y: MAP.policeBox.spawn[1] * TILE_SIZE };
-    if (!w.onScreen(box.x, box.y, 40)) { this.spawnCopAt(box, true); return; }
-    for (let n = 0; n < 40; n++) {
-      const c = w.map.randomWalkPoint();
-      const d = Math.hypot(c.x - p.x, c.y - p.y);
-      if (!w.onScreen(c.x, c.y, 40) && d > HEAT.spawnMinDist * 0.7 && d < 1100) { this.spawnCopAt(c, true); return; }
+    const w = this.world, p = w.player.pos, box = w.map.places.policeBox;
+    // officers walk out of the police box if it is close; otherwise they arrive from round a corner
+    if (Math.hypot(box.x - p.x, box.y - p.y) < 1100 && !w.onScreen(box.x, box.y, 40)) { this.spawnCopAt(box, true); return; }
+    for (let n = 0; n < 8; n++) {
+      const c = w.map.randomWalkNear(p.x, p.y, HEAT.spawnMinDist * 0.8, 850);
+      if (c && !w.onScreen(c.x, c.y, 40)) { this.spawnCopAt(c, true); return; }
     }
   }
 
   private spawnCar(): void {
     const w = this.world, p = w.player.pos;
-    for (let n = 0; n < 30; n++) {
+    for (let n = 0; n < 60; n++) {
       const s = Phaser.Utils.Array.GetRandom(w.map.lanes);
-      const x = s.ax + s.dx * 40, y = s.ay + s.dy * 40;
-      if (w.onScreen(x, y, 80) || Math.hypot(x - p.x, y - p.y) < HEAT.spawnMinDist) continue;
+      const k = Math.random() * 0.8;
+      const x = s.ax + s.dx * s.len * k, y = s.ay + s.dy * s.len * k, d = Math.hypot(x - p.x, y - p.y);
+      if (w.onScreen(x, y, 80) || d < HEAT.spawnMinDist || d > 1200) continue;
       if (w.cars.some((c) => Math.hypot(c.x - x, c.y - y) < 110)) continue;
       const car = w.addCar(VEHICLES.police, x, y, Math.atan2(s.dy, s.dx), true);
       car.driver = 'cop'; car.vx = s.dx * 150; car.vy = s.dy * 150;
@@ -180,9 +180,10 @@ export class PoliceSystem {
         if (resp.armed && d < HEAT.cop.fireRange) {
           a.timer -= dt;
           if (a.timer <= 0) {
-            a.timer = HEAT.cop.fireInterval * (0.8 + Math.random() * 0.4);
+            const riot = lvl >= 4; // riot police carry SMGs
+            a.timer = (riot ? HEAT.cop.riotFireInterval : HEAT.cop.fireInterval) * (0.8 + Math.random() * 0.4);
             const err = Phaser.Math.DegToRad((Math.random() * 2 - 1) * HEAT.cop.aimError);
-            w.projectiles.fire(a.x + Math.cos(ang) * 12, a.y + Math.sin(ang) * 12, ang + err, WEAPONS[HEAT.cop.weapon], 'cop');
+            w.projectiles.fire(a.x + Math.cos(ang) * 12, a.y + Math.sin(ang) * 12, ang + err, WEAPONS[riot ? HEAT.cop.riotWeapon : HEAT.cop.weapon], 'cop');
           }
         }
         if (!onFoot && resp.armed && d < HEAT.cop.fireRange * 0.8) a.body.setVelocity(0, 0); // stand and shoot at the car

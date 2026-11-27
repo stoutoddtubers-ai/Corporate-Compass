@@ -17,7 +17,7 @@ export interface VehicleDef {
   width: number;
   colors: number[];
   /** Which placeholder drawing to use. */
-  shape: 'car' | 'sports' | 'police' | 'scooter' | 'bike';
+  shape: 'car' | 'sports' | 'police' | 'scooter' | 'bike' | 'truck';
   desc: string;
 }
 
@@ -58,9 +58,17 @@ VEHICLES.bike = {
   desc: 'Tall fairing, loud pipes, louder rider.',
 };
 
+VEHICLES.truck = {
+  id: 'truck', name: 'Kotobuki Box Truck', rating: { speed: 4, handling: 3, toughness: 8 },
+  maxSpeed: 290, accel: 200, brake: 420, reverseSpeed: 90, turnRate: 2.0, grip: 8, driftGrip: 2.5,
+  hp: 420, mass: 1.7, length: 56, width: 24, colors: [0xe8e8e8, 0xd8b02a], shape: 'truck',
+  desc: 'Delivers everything. Stops for nothing.',
+};
+
 /** Colour slots with a meaning. Random traffic never uses the black ones. */
 export const BLACK_SEDAN = 5;
 export const BLACK_SPORTS = 4;
+export const WHITE_SEDAN = 4;
 
 export const NITRO = {
   fillPerSecond: 0.35, // bar fills in about 3 s of drifting

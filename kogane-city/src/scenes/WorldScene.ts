@@ -3,7 +3,7 @@ import { GAME_WIDTH, GAME_HEIGHT, TILE_SIZE } from '../data/config';
 import { MAP } from '../data/map';
 import { PLAYER, CAMERA } from '../data/player';
 import { VEHICLES, VehicleDef, CAR_DAMAGE } from '../data/vehicles';
-import { PEDS, PARKED, PICKUPS } from '../data/ai';
+import { PEDS, PARKED, PICKUPS, TRAFFIC } from '../data/ai';
 import { HEAT } from '../data/heat';
 import { WEAPONS } from '../data/weapons';
 import { BARKS, pick, t } from '../data/strings';
@@ -39,7 +39,11 @@ export class WorldScene extends Phaser.Scene {
   ambience: { color: number; alpha: number; lights: number; rain: boolean } = { color: 0, alpha: 0, lights: 0, rain: false };
   private roofs: { img: Phaser.GameObjects.Image | Phaser.GameObjects.Text; x: number; y: number; h: number }[] = [];
   private shade!: Phaser.GameObjects.Rectangle;
-  private glows: { img: Phaser.GameObjects.Image; base: number }[] = [];
+  private glows: Phaser.GameObjects.Image[] = [];
+  private slowT = 0;
+  private lotCars = new Map<number, Car[]>();
+  /** Which district the player is in (HUD shows a title card when it changes). */
+  districtId = '';
   heat!: HeatSystem;
   projectiles!: Projectiles;
   pickups: Pickup[] = [];
@@ -60,29 +64,25 @@ export class WorldScene extends Phaser.Scene {
   create(): void {
     this.cars = []; this.pickups = []; this.mode = 'play';
     this.map = new CityMap();
-    this.map.bake(this, 'city');
-    this.add.image(0, 0, 'city').setOrigin(0).setDepth(0);
+    this.map.makeGround(this);
     // rooftops (they slide with the camera to look tall), and the signs painted on them
     this.roofs = this.map.makeRoofs(this);
-    const sign = (tx: number, ty: number, label: string, size = 11) => {
-      const txt = this.add.text(tx * TILE_SIZE, ty * TILE_SIZE, label, { fontFamily: 'sans-serif', fontSize: size + 'px', color: '#fff8e8', align: 'center', stroke: '#1a1410', strokeThickness: 3 }).setOrigin(0.5).setDepth(21);
-      this.roofs.push({ img: txt, x: tx * TILE_SIZE, y: ty * TILE_SIZE, h: MAP.roofHeight });
-    };
-    for (const spot of [MAP.policeBox, MAP.hospital]) sign(spot.tile[0] + 1, spot.tile[1] + 1, spot.label.replace(' ', '\n'), 10);
-    for (const pl of Object.values(MAP.places)) if (pl.sign) sign(pl.sign[0], pl.sign[1], pl.label);
-    // night shade over everything, with pools of light on top (street lamps, vending machines)
+    for (const pl of Object.values(this.map.places)) {
+      if (!pl.label) continue;
+      const txt = this.add.text(pl.sx, pl.sy, pl.label, { fontFamily: 'sans-serif', fontSize: '11px', color: '#fff8e8', align: 'center', stroke: '#1a1410', strokeThickness: 3 }).setOrigin(0.5).setDepth(21);
+      this.roofs.push({ img: txt, x: pl.sx, y: pl.sy, h: pl.rect && this.map.buildings.includes(pl.rect as never) ? MAP.roofHeight : 0 });
+    }
+    // night shade over everything, with pools of light on top. Only the lights near the
+    // camera are drawn: a small pool of glow sprites is moved to wherever they are needed.
     this.shade = this.add.rectangle(0, 0, this.map.widthPx, this.map.heightPx, 0x000000, 0).setOrigin(0).setDepth(30);
     this.glows = [];
-    for (const l of this.map.lamps) this.glows.push({ img: this.add.image(l.x, l.y, 'glow').setTint(0xffb860).setScale(1.7).setDepth(31).setBlendMode(Phaser.BlendModes.ADD), base: 0.55 });
-    for (const v of this.map.vending) this.glows.push({ img: this.add.image(v.x, v.y, 'glow').setTint(v.color).setScale(0.6).setDepth(31).setBlendMode(Phaser.BlendModes.ADD), base: 0.7 });
-    const gate = this.roofs.find((r) => 'texture' in r.img && (r.img as Phaser.GameObjects.Image).texture.key === 'gate');
-    if (gate) this.glows.push({ img: this.add.image(gate.x, gate.y, 'glow').setTint(0xff5040).setScale(1.3).setDepth(31).setBlendMode(Phaser.BlendModes.ADD), base: 0.8 });
+    for (let i = 0; i < 90; i++) this.glows.push(this.add.image(0, 0, 'glow').setDepth(31).setBlendMode(Phaser.BlendModes.ADD).setVisible(false));
     this.physics.world.setBounds(0, 0, this.map.widthPx, this.map.heightPx);
 
     // Invisible solid boxes for every building, so people can't walk through them.
     this.walls = this.physics.add.staticGroup();
     const W = this.map.widthPx, H = this.map.heightPx, edge = 2 * TILE_SIZE;
-    const solids = [...this.map.buildings, { x: 0, y: 0, w: W, h: edge }, { x: 0, y: H - edge, w: W, h: edge }, { x: 0, y: 0, w: edge, h: H }, { x: W - edge, y: 0, w: edge, h: H }];
+    const solids = [...this.map.buildings, ...this.map.water, { x: 0, y: 0, w: W, h: edge }, { x: 0, y: H - edge, w: W, h: edge }, { x: 0, y: 0, w: edge, h: H }, { x: W - edge, y: 0, w: edge, h: H }];
     for (const r of solids) {
       const z = this.add.zone(r.x + r.w / 2, r.y + r.h / 2, r.w, r.h);
       this.physics.add.existing(z, true);
@@ -94,27 +94,19 @@ export class WorldScene extends Phaser.Scene {
     this.fx = new Fx(this);
     this.projectiles = new Projectiles(this);
     this.heat = new HeatSystem(this);
-    this.player = new Player(this, MAP.playerStart[0] * TILE_SIZE, MAP.playerStart[1] * TILE_SIZE);
+    this.player = new Player(this, this.map.places.prison.x, this.map.places.prison.y);
     this.peds = new PedSystem(this);
     this.police = new PoliceSystem(this);
     this.gang = new GangSystem(this);
     this.story = new Story(this);
 
-    // parked cars in each car park, alternating sedan / sports
-    this.map.lots.forEach((l, li) => {
-      for (let i = 0; i < PARKED.perLot; i++) {
-        const def = (li + i) % 2 ? VEHICLES.sports : VEHICLES.sedan;
-        this.addCar(def, l.x + 56 + i * 96 + (li % 2) * 48, l.y + l.h / 2, -Math.PI / 2);
-      }
-    });
     this.traffic = new TrafficSystem(this);
 
-    // weapon pickups (so you can re-arm after an arrest)
+    // weapon pickups in the three car parks nearest the start
     const guns = ['kitsune9', 'suzume', 'sawnoff'];
-    guns.forEach((id, i) => {
-      const l = this.map.lots[(i + 1) % this.map.lots.length];
-      this.addPickup(l.x + l.w - 24, l.y + 20 + i * 4, 'weapon', 0, id, PICKUPS.weaponRespawn);
-    });
+    const start = this.player.actor;
+    const near = [...this.map.lots].sort((a, b) => Math.hypot(a.x - start.x, a.y - start.y) - Math.hypot(b.x - start.x, b.y - start.y));
+    guns.forEach((id, i) => { const l = near[i + 1] ?? near[0]; this.addPickup(l.x + l.w - 24, l.y + 22, 'weapon', 0, id, PICKUPS.weaponRespawn); });
 
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,E,R,V,SPACE,SHIFT,ONE,TWO,THREE,FOUR,F3,F4,F6') as Keys;
     this.input.mouse?.disableContextMenu();
@@ -156,7 +148,7 @@ export class WorldScene extends Phaser.Scene {
     this.ambience = a;
     this.shade.setFillStyle(a.color, a.alpha);
     Car.lights = a.lights;
-    for (const g of this.glows) g.img.setAlpha(g.base * a.lights).setVisible(a.lights > 0.05);
+    this.slowT = 0;
   }
 
   addCar(def: VehicleDef, x: number, y: number, heading: number, police = false, colorIndex = -1): Car {
@@ -203,7 +195,7 @@ export class WorldScene extends Phaser.Scene {
     if (a.kind === 'player') { this.player.takeDamage(dmg, how === 'bullet'); return; }
     a.hp -= dmg;
     if (a.kind === 'thug') { // gang members: no crime, and they fight back
-      if (a.state === 'wait' || a.state === 'guard') a.state = 'chase';
+      if (a.state === 'wait' || a.state === 'guard' || a.state === 'smash') a.state = 'chase';
       if (a.hp <= 0) { a.kill(); a.timer = 8; this.addPickup(a.x, a.y, 'cash', Phaser.Math.Between(PEDS.cashDrop[0], PEDS.cashDrop[1]), '', 0); }
       return;
     }
@@ -212,7 +204,7 @@ export class WorldScene extends Phaser.Scene {
     if (a.hp > 0) return;
     a.kill();
     a.timer = 8; // how long the body stays
-    if (byPlayer) this.heat.crime('kill');
+    if (byPlayer) { this.heat.crime('kill'); if (a.kind === 'cop') this.heat.officerDown(); }
     if (a.kind === 'ped') this.addPickup(a.x, a.y, 'cash', Phaser.Math.Between(PEDS.cashDrop[0], PEDS.cashDrop[1]), '', 0);
     else if (Math.random() < HEAT.cop.dropChance) this.addPickup(a.x, a.y, 'weapon', 0, HEAT.cop.weapon, 0);
   }
@@ -347,8 +339,8 @@ export class WorldScene extends Phaser.Scene {
     const p = this.player, dead = this.mode === 'dead';
     p.cash -= this.bill;
     if (p.car) p.exitCar();
-    const spot = dead ? MAP.hospital.spawn : MAP.policeBox.spawn;
-    p.actor.body.reset(spot[0] * TILE_SIZE, spot[1] * TILE_SIZE);
+    const spot = dead ? this.map.places.hospital : this.map.places.policeBox;
+    p.actor.body.reset(spot.x, spot.y);
     p.heal();
     this.mode = 'play';
     p.rollT = -1; p.actor.sprite.setAlpha(1).setScale(1);
@@ -397,6 +389,8 @@ export class WorldScene extends Phaser.Scene {
     this.updatePickups(dt);
     this.fx.update(dt);
     this.updateCamera(dt);
+    this.slowT -= dt;
+    if (this.slowT <= 0) { this.slowT = 0.3; this.slowUpdate(); }
     this.updateWorldUi();
   }
 
@@ -419,8 +413,44 @@ export class WorldScene extends Phaser.Scene {
     cam.setZoom(this.cam.zoom);
     cam.centerOn(this.cam.x, this.cam.y);
     // slide the rooftops away from the middle of the screen so buildings look tall
-    const mid = cam.midPoint;
-    for (const r of this.roofs) r.img.setPosition(r.x + (r.x - mid.x) * r.h, r.y + (r.y - mid.y) * r.h);
+    const mid = cam.midPoint, vw = cam.worldView;
+    for (const r of this.roofs) {
+      const on = Math.abs(r.x - mid.x) < vw.width / 2 + 320 && Math.abs(r.y - mid.y) < vw.height / 2 + 320;
+      r.img.setVisible(on);
+      if (on) r.img.setPosition(r.x + (r.x - mid.x) * r.h, r.y + (r.y - mid.y) * r.h);
+    }
+  }
+
+  /** A few times a second: move the light pool to the lamps on screen, and fill / empty nearby car parks. */
+  private slowUpdate(): void {
+    const v = this.cameras.main.worldView, p = this.player.pos, a = this.ambience;
+    let n = 0;
+    if (a.lights > 0.05) for (const l of this.map.lights) {
+      if (n >= this.glows.length) break;
+      if (l.x < v.x - 160 || l.x > v.right + 160 || l.y < v.y - 160 || l.y > v.bottom + 160) continue;
+      this.glows[n++].setPosition(l.x, l.y).setTint(l.color).setScale(l.scale).setAlpha(l.alpha * a.lights).setVisible(true);
+    }
+    for (; n < this.glows.length; n++) this.glows[n].setVisible(false);
+
+    // parked cars exist only in car parks near the player
+    this.map.lots.forEach((l, i) => {
+      const d = Math.hypot(l.x + l.w / 2 - p.x, l.y + l.h / 2 - p.y), have = this.lotCars.get(i);
+      if (!have && d < PARKED.spawnDist && this.cars.length < TRAFFIC.vehicleCap - 4 && !this.onScreen(l.x + l.w / 2, l.y + l.h / 2, Math.max(l.w, l.h) / 2)) {
+        const made: Car[] = [], count = Math.min(PARKED.perLot, Math.floor(l.w / 96));
+        for (let k = 0; k < count; k++) {
+          const x = l.x + 48 + k * 96 + (i % 2) * 48, y = l.y + l.h / 2;
+          if (x > l.x + l.w - 30 || this.cars.some((c) => Math.hypot(c.x - x, c.y - y) < 70)) continue;
+          made.push(this.addCar((i + k) % 3 === 0 ? VEHICLES.sports : VEHICLES.sedan, x, y, (i + k) % 2 ? Math.PI / 2 : -Math.PI / 2));
+        }
+        this.lotCars.set(i, made);
+      } else if (have && d > PARKED.removeDist) {
+        for (const c of have) if (!c.removed && c.driver === 'none' && !c.unlocked && !c.story) c.destroy();
+        this.lotCars.delete(i);
+      }
+    });
+
+    const id = MAP.districtAt(p.x / TILE_SIZE, p.y / TILE_SIZE);
+    if (id !== this.districtId) { this.districtId = id; this.story.stamp = 3; }
   }
 
   /** The "E — Steal" prompt and the break-in / arrest progress bars, drawn in the world. */

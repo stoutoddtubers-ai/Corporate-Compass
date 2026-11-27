@@ -15,10 +15,11 @@ export class PedSystem {
   get aliveCount(): number { return this.list.reduce((n, a) => n + (a.alive ? 1 : 0), 0); }
 
   spawn(offscreenOnly: boolean, at?: { x: number; y: number }): Actor | null {
+    const w = this.world, c = w.player.pos;
     let p = at;
-    for (let n = 0; !p && n < 20; n++) {
-      const c = this.world.map.randomWalkPoint();
-      if (!offscreenOnly || !this.world.onScreen(c.x, c.y, 60)) p = c;
+    for (let n = 0; !p && n < 6; n++) {
+      const q = w.map.randomWalkNear(c.x, c.y, offscreenOnly ? PEDS.bubbleSpawn[0] : 120, PEDS.bubbleSpawn[1]);
+      if (q && (!offscreenOnly || !w.onScreen(q.x, q.y, 60))) p = q;
     }
     if (!p) return null;
     const arch = Math.floor(Math.random() * PEDS.archetypes.length);
@@ -53,6 +54,7 @@ export class PedSystem {
         if (a.timer <= 0) { a.destroy(); this.list.splice(i, 1); }
         continue;
       }
+      if (Math.abs(a.x - w.player.pos.x) + Math.abs(a.y - w.player.pos.y) > PEDS.bubbleRemove * 1.3) { a.destroy(); this.list.splice(i, 1); continue; } // left the bubble
       a.carHitCooldown -= dt;
       if (a.stun > 0) { a.stun -= dt; a.body.setVelocity(0, 0); continue; }
       if (a.state === 'flee') {
@@ -88,6 +90,6 @@ export class PedSystem {
         w.fx.bark(a.sprite, PEDS.archetypes[a.data.arch as number].calm, '#d9e2ff', 'pedcalm', 6);
     }
     this.respawnT -= dt;
-    if (this.aliveCount < PEDS.count && this.respawnT <= 0) { this.respawnT = PEDS.respawnDelay; this.spawn(true); }
+    if (this.aliveCount < PEDS.count && this.respawnT <= 0) { this.respawnT = 0.8; this.spawn(true); }
   }
 }

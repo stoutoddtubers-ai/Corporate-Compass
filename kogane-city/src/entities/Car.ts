@@ -50,6 +50,12 @@ export class Car {
   roadblock = false;
   /** Line this car's driver shouts while chasing (mission riders). */
   data_bark = '';
+  /** Story cars are not removed or steered by the normal traffic rules. */
+  story = false;
+  /** Lanes a story car has been told to follow, in order. */
+  route: LaneSeg[] = [];
+  /** Cruising speed override for AI drivers (0 = default). */
+  cruise = 0;
   age = 0;
   input: CarInput = { ...NO_INPUT };
   private fxT = 0;

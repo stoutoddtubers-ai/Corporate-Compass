@@ -19,6 +19,7 @@ export class HeatSystem {
   /** Counts down after Heat is cleared (HUD shows CLEAN). */
   cleanT = 0;
   private shots: number[] = [];
+  private copKills = 0;
 
   constructor(private world: WorldScene) {}
 
@@ -38,6 +39,11 @@ export class HeatSystem {
     if (!this.seen) { this.lastKnown.x = p.x; this.lastKnown.y = p.y; this.timer = 0; this.searching = true; }
   }
 
+  /** An officer was killed. Several in one chase brings the riot police. */
+  officerDown(): void {
+    if (++this.copKills >= HEAT.copKillsForRiot) this.crime('copKiller');
+  }
+
   /** A gunshot someone witnessed. Enough of them in a short time is "sustained gunfire". */
   witnessedShot(): void {
     const now = this.world.time.now / 1000;
@@ -51,6 +57,7 @@ export class HeatSystem {
       this.cleanT = 2.5;
       this.world.fx.bark(this.world.player.pos, pick(BARKS.junHeatLost), '#e8b923');
     }
+    this.copKills = 0;
     this.level = 0; this.searching = false; this.timer = 0; this.seen = false; this.shots.length = 0;
   }
 

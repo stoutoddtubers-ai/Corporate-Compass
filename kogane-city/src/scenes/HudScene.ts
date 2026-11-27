@@ -1,13 +1,12 @@
 import * as Phaser from 'phaser';
-import { GAME_WIDTH as GW, GAME_HEIGHT as GH, BUDGET, TILE_SIZE } from '../data/config';
+import { GAME_WIDTH as GW, GAME_HEIGHT as GH, BUDGET } from '../data/config';
 import { PLAYER } from '../data/player';
 import { HEAT } from '../data/heat';
-import { MAP } from '../data/map';
+import { DISTRICTS } from '../data/map';
 import { KMH_PER_PX } from '../data/vehicles';
 import { MAX_PROJECTILES } from '../data/weapons';
 import { t } from '../data/strings';
 import { SPEAKERS } from '../data/characters';
-import { DISTRICT_CARD } from '../data/missions';
 import type { WorldScene } from './WorldScene';
 
 const FONT = { fontFamily: 'monospace', fontSize: '12px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 };
@@ -78,8 +77,8 @@ export class HudScene extends Phaser.Scene {
     this.radio = this.add.text(GW, GH - 22, '', { ...FONT, fontSize: '11px', color: '#7fe0ff' });
     this.phoneFrom = this.add.text(GW - 300, GH - 132, '', { ...FONT, fontSize: '11px', color: '#e8b923' });
     this.phoneText = this.add.text(GW - 300, GH - 116, '', { ...FONT, fontSize: '11px', wordWrap: { width: 280 } });
-    this.stampKanji = this.add.text(GW / 2, 150, DISTRICT_CARD.kanji, { fontFamily: 'sans-serif', fontSize: '72px', color: '#d8343a', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
-    this.stampName = this.add.text(GW / 2, 208, `${DISTRICT_CARD.name}\n${DISTRICT_CARD.tagline}`, { ...FONT, fontSize: '14px', align: 'center' }).setOrigin(0.5, 0);
+    this.stampKanji = this.add.text(GW / 2, 150, '', { fontFamily: 'sans-serif', fontSize: '72px', color: '#d8343a', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
+    this.stampName = this.add.text(GW / 2, 208, '', { ...FONT, fontSize: '14px', align: 'center' }).setOrigin(0.5, 0);
     this.cardTitle = this.add.text(GW / 2, GH / 2 - 24, '', { fontFamily: 'monospace', fontSize: '34px', color: '#e8b923', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
     this.cardSub = this.add.text(GW / 2, GH / 2 + 20, '', { ...FONT, fontSize: '14px' }).setOrigin(0.5);
     this.dlgBox = this.add.graphics();
@@ -158,7 +157,7 @@ export class HudScene extends Phaser.Scene {
     // debug overlay (F3)
     this.debug.setVisible(w.debugOn);
     if (w.debugOn) {
-      const vehicles = w.cars.length, hostile = w.police.aliveCount + w.cars.reduce((n, c) => n + (c.driver === 'cop' ? 1 : 0), 0);
+      const vehicles = w.cars.length, hostile = w.police.aliveCount + w.gang.count + w.cars.reduce((n, c) => n + (c.driver === 'cop' ? 1 : 0), 0);
       this.debug.setText([
         `FPS ${Math.round(this.game.loop.actualFps)} (target ${BUDGET.targetFps})`,
         `Pedestrians ${w.peds.aliveCount} / ${BUDGET.pedestrians}`,
@@ -189,21 +188,30 @@ export class HudScene extends Phaser.Scene {
     }
 
     // district stamp, 2-3 s at the start
-    const st = s.stamp > 0 && !s.cut;
+    const st = s.stamp > 0 && !s.cut && !!DISTRICTS[w.districtId];
+    if (st) { const d = DISTRICTS[w.districtId]; this.stampKanji.setText(d.kanji); this.stampName.setText(`${d.name}\n${d.tagline}`); }
     this.stampKanji.setVisible(st).setAlpha(Math.min(1, s.stamp)); this.stampName.setVisible(st).setAlpha(Math.min(1, s.stamp));
 
     // soup spill meter (mission 2)
-    this.spillLabel.setVisible(s.showSpill);
     if (s.showSpill) {
       g.fillStyle(0x000000, 0.6).fillRect(GW - 114, GH - 48, 104, 8);
       g.fillStyle(s.spill < 0.1 ? 0x7fe08a : s.spill <= 0.5 ? 0xf2c230 : 0xe04a3a, 1).fillRect(GW - 112, GH - 46, 100 * Math.min(1, s.spill), 4);
+    }
+
+    // mission countdown or meter (camera timer, detection eye, shops left...)
+    this.spillLabel.setVisible(s.showSpill || !!s.timer);
+    this.spillLabel.setText(s.timer ? (s.timer.kind === 'time' ? `${s.timer.label} ${Math.max(0, Math.ceil(s.timer.value))}s` : s.timer.label) : 'SOUP SPILLED');
+    if (s.timer && s.timer.kind === 'bar') {
+      const k = Math.max(0, Math.min(1, s.timer.value / s.timer.max));
+      g.fillStyle(0x000000, 0.6).fillRect(GW - 114, GH - 48, 104, 8);
+      g.fillStyle(k < 0.5 ? 0x7fe08a : k < 0.8 ? 0xf2c230 : 0xe04a3a, 1).fillRect(GW - 112, GH - 46, 100 * k, 4);
     }
 
     // radio ticker scrolling along the bottom
     this.radio.setVisible(!!s.radio && !s.cut);
     if (s.radio) {
       g.fillStyle(0x000000, 0.55).fillRect(130, GH - 26, GW - 260, 20);
-      this.radio.setText('♪ KOGANE FM · ' + s.radio.text).setX(GW - 130 - s.radio.x);
+      this.radio.setText(`♪ ${s.radio.station} · ${s.radio.text}`).setX(GW - 130 - s.radio.x);
       this.radio.setCrop(Math.max(0, 130 - this.radio.x), 0, Math.max(0, GW - 130 - Math.max(130, this.radio.x)), 20);
     }
 
@@ -258,18 +266,14 @@ export class HudScene extends Phaser.Scene {
       const x1 = Math.min(MM.x + R, MM.x + (x + rw - p.x) * S), y1 = Math.min(MM.y + R, MM.y + (y + rh - p.y) * S);
       if (x1 > x0 && y1 > y0) m.fillStyle(color, 1).fillRect(x0, y0, x1 - x0, y1 - y0);
     };
-    const lo = MAP.roadBands[0] * TILE_SIZE, hi = (MAP.roadBands[2] + MAP.roadWidth) * TILE_SIZE;
-    for (const b of MAP.roadBands) {
-      const c = (b + MAP.roadWidth / 2) * TILE_SIZE;
-      rect(c - 30, lo, 60, hi - lo, 0x6f7386);
-      rect(lo, c - 30, hi - lo, 60, 0x6f7386);
-    }
+    for (const r of w.map.water) rect(r.x, r.y, r.w, r.h, 0x2a5a78);
+    for (const r of w.map.roads) { const thin = r.w < r.h; rect(r.x + (thin ? 34 : 0), r.y + (thin ? 0 : 34), r.w - (thin ? 68 : 0), r.h - (thin ? 0 : 68), 0x6f7386); }
     const dot = (x: number, y: number, color: number, size: number) => {
       const dx = (x - p.x) * S, dy = (y - p.y) * S;
       if (dx * dx + dy * dy < (R - 4) * (R - 4)) m.fillStyle(color, 1).fillRect(MM.x + dx - size / 2, MM.y + dy - size / 2, size, size);
     };
-    dot(MAP.policeBox.spawn[0] * TILE_SIZE, MAP.policeBox.spawn[1] * TILE_SIZE, 0x2f5fa8, 6);
-    dot(MAP.hospital.spawn[0] * TILE_SIZE, MAP.hospital.spawn[1] * TILE_SIZE, 0xb04a4a, 6);
+    dot(w.map.places.policeBox.x, w.map.places.policeBox.y, 0x2f5fa8, 6);
+    dot(w.map.places.hospital.x, w.map.places.hospital.y, 0xb04a4a, 6);
     const heat = w.heat;
     if (heat.level > 0 && heat.searching) {
       // the search circle, drawn as short strokes so it stays inside the round map

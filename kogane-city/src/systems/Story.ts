@@ -1,7 +1,9 @@
 import { MISSIONS, Mission, Step, Line, AMBIENCE } from '../data/missions';
 import { MAP } from '../data/map';
 import { TILE_SIZE } from '../data/config';
+import { MISSION_BARKS } from '../data/missions';
 import { HOOKS, CHECKS } from './missionHooks';
+import type { Place } from './CityMap';
 import type { Actor } from '../entities/Actor';
 import type { Car } from '../entities/Car';
 import type { WorldScene } from '../scenes/WorldScene';
@@ -24,7 +26,7 @@ export class Story {
   cut: { lines: Line[]; i: number; chars: number } | null = null;
   card: { title: string; sub: string; t: number } | null = null;
   phone: { from: string; text: string; t: number }[] = [];
-  radio: { text: string; x: number } | null = null;
+  radio: { station: string; text: string; x: number } | null = null;
   /** District title stamp timer. */
   stamp = 0;
   flags: Record<string, boolean> = {};
@@ -34,6 +36,8 @@ export class Story {
   cars: Car[] = [];
   spill = 0;
   showSpill = false;
+  /** A countdown or meter shown on the HUD by some missions. */
+  timer: { label: string; value: number; max: number; kind: 'time' | 'bar' } | null = null;
   /** If set, Jun says this the next time he takes a car (then it clears). */
   junCarLine: string | null = null;
   private failT = 0;
@@ -44,9 +48,8 @@ export class Story {
 
   get mission(): Mission | null { return MISSIONS[this.index] ?? null; }
 
-  place(id: string): { x: number; y: number } {
-    const d = MAP.places[id].door;
-    return { x: d[0] * TILE_SIZE, y: d[1] * TILE_SIZE };
+  place(id: string): Place {
+    return this.world.map.places[id];
   }
 
   private save(): void {
@@ -55,17 +58,16 @@ export class Story {
 
   /** Called once when the world is ready. */
   begin(): void {
-    this.stamp = 3;
     const m = this.mission;
     if (m && m.giver === null) this.startMission();
     else { this.freeRoam(); const home = this.place(this.index > 0 ? 'ramen' : 'prison'); this.world.player.actor.body.reset(home.x, home.y + 20); }
   }
 
   private freeRoam(): void {
-    this.active = false; this.objective = ''; this.hint = ''; this.showSpill = false;
+    this.active = false; this.objective = ''; this.hint = ''; this.showSpill = false; this.timer = null; this.flags.incognito = false;
     this.world.setAmbience(AMBIENCE.night);
     const m = this.mission;
-    this.marker = m && m.giver ? { ...this.place(m.giver), r: 30 } : null;
+    this.marker = m && m.giver ? { x: this.place(m.giver).x, y: this.place(m.giver).y, r: 34 } : null;
     this.armed = false;
   }
 
@@ -73,7 +75,7 @@ export class Story {
     const m = this.mission, w = this.world;
     if (!m) return;
     this.cleanup();
-    this.active = true; this.step = 0; this.flags = {}; this.vars = {}; this.spill = 0; this.showSpill = false; this.failT = 0; this.junCarLine = null;
+    this.active = true; this.step = 0; this.flags = {}; this.vars = {}; this.timer = null; this.spill = 0; this.showSpill = false; this.failT = 0; this.junCarLine = null;
     const s = this.place(m.start);
     if (w.player.car) w.player.exitCar();
     w.player.actor.body.reset(s.x, s.y + (m.giver ? 22 : 0));
@@ -107,19 +109,20 @@ export class Story {
       }
       if (st.t === 'obj') {
         this.objective = st.text; this.hint = st.hint ?? '';
-        this.marker = st.marker ? { ...this.place(st.marker), r: st.radius ?? 40, need: st.need } : null;
+        this.marker = st.marker ? { x: this.place(st.marker).x, y: this.place(st.marker).y, r: st.radius ?? 40, need: st.need } : null;
         if (st.enter) HOOKS[st.enter]?.(w, this);
         return;
       }
       if (st.t === 'card') { this.card = { title: st.title, sub: st.sub, t: 3.2 }; this.objective = ''; this.hint = ''; this.marker = null; return; }
       if (st.t === 'text') this.phone.push({ from: st.from, text: st.text, t: 6 });
       else if (st.t === 'call') for (const l of st.lines) this.phone.push({ from: l.who, text: l.text, t: 3.2 });
-      else if (st.t === 'radio') this.radio = { text: st.text, x: 0 };
+      else if (st.t === 'radio') this.radio = { station: st.station ?? 'KOGANE FM', text: st.text, x: 0 };
       else if (st.t === 'run') HOOKS[st.hook]?.(w, this);
       this.step++;
     }
     // mission complete
     for (const a of this.actors) a.destroy();
+    for (const c of this.cars) c.story = false; // mission cars become ordinary cars
     this.actors = []; this.cars = [];
     w.gang.clear();
     this.index++;
@@ -147,7 +150,7 @@ export class Story {
     if (this.failT > 0) return;
     if (line) this.phone.push({ from: line.who, text: line.text, t: 4 });
     this.failT = 3.5;
-    this.objective = 'MISSION FAILED'; this.hint = ''; this.marker = null;
+    this.objective = 'MISSION FAILED'; this.hint = (this.vars.failHint as string) ?? ''; this.marker = null; this.timer = null;
   }
 
   /** Debug: jump to a mission (F4 = next, F6 = start over). */
@@ -168,12 +171,19 @@ export class Story {
     if (this.cut) { this.cut.chars += 55 * dt; return; }
     if (w.mode !== 'play') return;
 
+    // The ankle tag: until mission 8 is done, crossing the river means instant 3 lanterns (bible)
+    if (this.index < 8 && !this.flags.tagDead && p.pos.x < MAP.riverWidth * TILE_SIZE) {
+      if (!this.flags.overRiver) { this.flags.overRiver = true; this.phone.push({ from: 'SAWADA', text: MISSION_BARKS.riverCall, t: 4 }); }
+      w.heat.crime('river');
+      w.heat.timer = 0; w.heat.lastKnown.x = p.pos.x; w.heat.lastKnown.y = p.pos.y;
+    } else if (p.pos.x > (MAP.riverWidth + 4) * TILE_SIZE) this.flags.overRiver = false;
+
     if (!this.active) {
       // walk into the marker to start the next mission
       const m = this.marker;
       const dm = m ? Math.hypot(p.pos.x - m.x, p.pos.y - m.y) : 0;
       if (m && dm > m.r + 40) this.armed = true;
-      if (m && this.armed && !p.car && dm < m.r && w.heat.level === 0) { this.startMission(); return; }
+      if (m && this.armed && dm < m.r && w.heat.level === 0 && (!p.car || p.car.speed < 120)) { this.startMission(); return; }
       // Goro's spray booth stays open after mission 3: a respray clears Heat (bible)
       if (this.index >= 3 && p.car && w.heat.level > 0 && !w.heat.seen) {
         const s = this.place('spray');

@@ -1,8 +1,8 @@
 import * as Phaser from 'phaser';
 import { TILE_SIZE as TS, MAP_TILES_W as W, MAP_TILES_H as H } from '../data/config';
-import { MAP } from '../data/map';
+import { MAP, DISTRICTS, DistrictStyle } from '../data/map';
 
-export const Tile = { Lot: 0, Road: 1, Walk: 2, Building: 3, Crossing: 4 } as const;
+export const Tile = { Lot: 0, Road: 1, Walk: 2, Building: 3, Crossing: 4, Water: 5 } as const;
 
 /** One stretch of lane that AI traffic follows, from A to B. */
 export interface LaneSeg {
@@ -12,144 +12,272 @@ export interface LaneSeg {
   fromJ: number; toJ: number;
   next: LaneSeg[];
 }
-
 export interface Rect { x: number; y: number; w: number; h: number }
+export interface Plot extends Rect { district: string; block: string }
+export interface Place { x: number; y: number; sx: number; sy: number; label: string; rect: Rect | null }
+export interface Light { x: number; y: number; color: number; scale: number; alpha: number }
+export interface Junction { id: number; x: number; y: number; lit: boolean; offset: number }
 
-/** The junction in the middle of the map: the one with the traffic light. */
-export const CENTER_JUNCTION = 4;
+/** Small repeatable random number generator, so the city is the same every time. */
+function seeded(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const css = (n: number) => '#' + n.toString(16).padStart(6, '0');
+const DIST_IDS = Object.keys(DISTRICTS);
+
+// Where each kind of ground tile sits in the generated tile sheet.
+const T = { wall: 0, road: 1, roadDash: 4, kroad: 8, kDash: 9, crossV: 13, crossH: 14, lot: 15, bay: 16, alley: 17, water: 18, planks: 20, bridge: 21, walk: 32, awning: 80, vending: 96, lamp: 108 };
+const SHEET_COLS = 16, SHEET_ROWS = 7;
 
 /**
- * The test city: which tiles are road / sidewalk / building, the lanes traffic follows,
- * and helper questions like "is this spot a wall?" and "can A see B?".
+ * The city: which tiles are road / sidewalk / building / water, the lanes traffic follows,
+ * the story's named places, and helper questions like "is this a wall?" and "can A see B?".
  */
 export class CityMap {
   readonly tiles = new Uint8Array(W * H);
-  readonly buildings: Rect[] = []; // in pixels
-  readonly lots: Rect[] = []; // in pixels
+  readonly buildings: Plot[] = []; // in pixels
+  readonly lots: Plot[] = [];
+  readonly water: Rect[] = [];
+  readonly roads: Rect[] = []; // for the minimap
   readonly lanes: LaneSeg[] = [];
+  readonly junctions: Junction[] = [];
+  readonly lights: Light[] = [];
+  readonly places: Record<string, Place> = {};
   readonly widthPx = W * TS;
   readonly heightPx = H * TS;
   private carPass = new Uint8Array(W * H);
   private queue = new Int32Array(W * H);
+  private decals = new Int16Array(W * H).fill(-1);
 
   constructor() {
     this.build();
     this.buildLanes();
+    this.resolvePlaces();
+    this.decorate();
   }
 
   private fill(x: number, y: number, w: number, h: number, t: number): void {
-    for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) this.tiles[j * W + i] = t;
+    for (let j = Math.max(0, y); j < Math.min(H, y + h); j++) for (let i = Math.max(0, x); i < Math.min(W, x + w); i++) this.tiles[j * W + i] = t;
+  }
+  private at(x: number, y: number): number {
+    return x < 0 || y < 0 || x >= W || y >= H ? Tile.Building : this.tiles[y * W + x];
   }
 
   private build(): void {
+    const V = MAP.vRoads, Hh = MAP.hRoads, rw = MAP.roadWidth, v0 = V[0], vN = V[V.length - 1], h0 = Hh[0], hN = Hh[Hh.length - 1];
     this.tiles.fill(Tile.Building); // outer wall
     this.fill(2, 2, W - 4, H - 4, Tile.Walk);
-    for (const b of MAP.roadBands) {
-      this.fill(3, b, W - 6, MAP.roadWidth, Tile.Road);
-      this.fill(b, 3, MAP.roadWidth, H - 6, Tile.Road);
+    this.fill(2, 2, MAP.riverWidth - 2, H - 4, Tile.Water);
+    this.water.push({ x: 0, y: 0, w: MAP.riverWidth * TS, h: H * TS });
+    for (const v of V) { this.fill(v, h0, rw, hN + rw - h0, Tile.Road); this.roads.push({ x: v * TS, y: h0 * TS, w: rw * TS, h: (hN + rw - h0) * TS }); }
+    for (const h of Hh) { this.fill(v0, h, vN + rw - v0, rw, Tile.Road); this.roads.push({ x: v0 * TS, y: h * TS, w: (vN + rw - v0) * TS, h: rw * TS }); }
+    for (const h of MAP.bridges) { this.fill(2, h, v0 - 2, rw, Tile.Road); this.roads.push({ x: 0, y: h * TS, w: v0 * TS, h: rw * TS }); }
+
+    // junctions; the inner ones get traffic lights and zebra crossings
+    V.forEach((v, i) => Hh.forEach((h, j) => {
+      const lit = i > 0 && j > 0 && i < V.length - 1 && j < Hh.length - 1;
+      this.junctions.push({ id: i + j * V.length, x: (v + rw / 2) * TS, y: (h + rw / 2) * TS, lit, offset: ((i * 5 + j * 3) % 7) * 2.3 });
+      if (!lit) return;
+      this.fill(v, h - 1, rw, 1, Tile.Crossing); this.fill(v, h + rw, rw, 1, Tile.Crossing);
+      this.fill(v - 1, h, 1, rw, Tile.Crossing); this.fill(v + rw, h, 1, rw, Tile.Crossing);
+    }));
+
+    // city blocks between the roads
+    const rnd = seeded(1207);
+    for (let cj = 0; cj < Hh.length - 1; cj++) for (let ci = 0; ci < V.length - 1; ci++) {
+      const x0 = V[ci] + rw + 1, x1 = V[ci + 1] - 1, y0 = Hh[cj] + rw + 1, y1 = Hh[cj + 1] - 1; // x1,y1 exclusive
+      const parts: { id: string; r: Rect }[] = [];
+      const c = MAP.canal;
+      if (ci === 3 && (MAP.canal.rows as readonly number[]).includes(cj)) {
+        this.fill(c.x, y0, c.w, y1 - y0, Tile.Water);
+        this.water.push({ x: c.x * TS, y: y0 * TS, w: c.w * TS, h: (y1 - y0) * TS });
+        parts.push({ id: `${ci}-${cj}a`, r: { x: x0, y: y0, w: c.x - 1 - x0, h: y1 - y0 } });
+        parts.push({ id: `${ci}-${cj}b`, r: { x: c.x + c.w + 1, y: y0, w: x1 - (c.x + c.w + 1), h: y1 - y0 } });
+      } else parts.push({ id: `${ci}-${cj}`, r: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } });
+      for (const p of parts) this.buildBlock(p.id, p.r, rnd);
     }
-    // zebra crossings around the centre junction
-    const c = MAP.roadBands[1];
-    this.fill(c, c - 1, 4, 1, Tile.Crossing);
-    this.fill(c, c + 4, 4, 1, Tile.Crossing);
-    this.fill(c - 1, c, 1, 4, Tile.Crossing);
-    this.fill(c + 4, c, 1, 4, Tile.Crossing);
 
-    const S = MAP.blockSize;
-    MAP.blockOrigins.forEach((oy, by) => {
-      MAP.blockOrigins.forEach((ox, bx) => {
-        this.fill(ox, oy, S, S, Tile.Lot);
-        const place = (r: readonly number[]): Rect => {
-          const x = bx ? S - r[0] - r[2] : r[0];
-          const y = by ? S - r[1] - r[3] : r[1];
-          return { x: ox + x, y: oy + y, w: r[2], h: r[3] };
-        };
-        for (const r of MAP.blockBuildings) {
-          const p = place(r);
-          this.fill(p.x, p.y, p.w, p.h, Tile.Building);
-          this.buildings.push({ x: p.x * TS, y: p.y * TS, w: p.w * TS, h: p.h * TS });
-        }
-        const l = place(MAP.blockLot);
-        this.lots.push({ x: l.x * TS, y: l.y * TS, w: l.w * TS, h: l.h * TS });
-      });
-    });
-
-    // Tiles a police car is allowed to plan a route through: not a building, not hugging one.
-    for (let y = 1; y < H - 1; y++) {
-      for (let x = 1; x < W - 1; x++) {
-        let ok = 1;
-        for (let j = -1; j <= 1 && ok; j++)
-          for (let i = -1; i <= 1; i++) if (this.tiles[(y + j) * W + x + i] === Tile.Building) { ok = 0; break; }
-        this.carPass[y * W + x] = ok;
-      }
+    // tiles a car is allowed to plan a route through: not solid, and not hugging a building
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      let ok = this.tiles[y * W + x] !== Tile.Water ? 1 : 0;
+      for (let j = -1; j <= 1 && ok; j++) for (let i = -1; i <= 1; i++) if (this.tiles[(y + j) * W + x + i] === Tile.Building) { ok = 0; break; }
+      this.carPass[y * W + x] = ok;
     }
   }
 
-  /** Builds the left-hand-traffic lane network from the road bands. */
+  /** Cuts one city block into buildings, alleys and car parks, in the district's style. */
+  private buildBlock(id: string, r: Rect, rnd: () => number): void {
+    const district = MAP.districtAt(r.x + r.w / 2, r.y + r.h / 2), st = DISTRICTS[district];
+    this.fill(r.x, r.y, r.w, r.h, Tile.Lot);
+    const leaves: Rect[] = [];
+    const split = (q: Rect) => {
+      const canW = q.w >= 2 * st.minSize + 2, canH = q.h >= 2 * st.minSize + 2;
+      if ((q.w <= st.maxSize && q.h <= st.maxSize) || (!canW && !canH)) { leaves.push(q); return; }
+      if (canW && (!canH || q.w >= q.h)) {
+        const cut = st.minSize + Math.floor(rnd() * (q.w - 2 * st.minSize - 1));
+        split({ x: q.x, y: q.y, w: cut, h: q.h }); split({ x: q.x + cut + 2, y: q.y, w: q.w - cut - 2, h: q.h });
+      } else {
+        const cut = st.minSize + Math.floor(rnd() * (q.h - 2 * st.minSize - 1));
+        split({ x: q.x, y: q.y, w: q.w, h: cut }); split({ x: q.x, y: q.y + cut + 2, w: q.w, h: q.h - cut - 2 });
+      }
+    };
+    split(r);
+    const isLot = leaves.map(() => rnd() < st.lotChance);
+    if (!isLot.some(Boolean)) { // every block gets at least one car park: the leaf nearest the middle
+      let best = 0, bd = 1e9;
+      leaves.forEach((l, i) => { const d = Math.abs(l.x + l.w / 2 - r.x - r.w / 2) + Math.abs(l.y + l.h / 2 - r.y - r.h / 2); if (d < bd) { bd = d; best = i; } });
+      isLot[best] = true;
+    }
+    leaves.forEach((l, i) => {
+      const px = { x: l.x * TS, y: l.y * TS, w: l.w * TS, h: l.h * TS, district, block: id };
+      if (isLot[i]) this.lots.push(px);
+      else { this.fill(l.x, l.y, l.w, l.h, Tile.Building); this.buildings.push(px); }
+    });
+  }
+
+  /** Builds the left-hand-traffic lane network from the road grid. */
   private buildLanes(): void {
-    const b = MAP.roadBands.map((t) => t * TS);
-    const rw = MAP.roadWidth * TS;
+    const V = MAP.vRoads.map((t) => t * TS), Hh = MAP.hRoads.map((t) => t * TS), rw = MAP.roadWidth * TS, nv = V.length;
     const add = (ax: number, ay: number, bx: number, by: number, fromJ: number, toJ: number) => {
       const len = Math.hypot(bx - ax, by - ay);
-      this.lanes.push({
-        ax, ay, bx, by, dx: (bx - ax) / len, dy: (by - ay) / len, len,
-        axis: ax === bx ? 'v' : 'h', fromJ, toJ, next: [],
-      });
+      this.lanes.push({ ax, ay, bx, by, dx: (bx - ax) / len, dy: (by - ay) / len, len, axis: ax === bx ? 'v' : 'h', fromJ, toJ, next: [] });
     };
-    const J = (i: number, j: number) => i + j * 3;
-    for (let i = 0; i < 3; i++) {
-      for (let j = 0; j < 2; j++) {
-        // vertical road i, between horizontal roads j and j+1
-        add(b[i] + 32, b[j + 1], b[i] + 32, b[j] + rw, J(i, j + 1), J(i, j)); // northbound, west side
-        add(b[i] + 96, b[j] + rw, b[i] + 96, b[j + 1], J(i, j), J(i, j + 1)); // southbound, east side
-        // horizontal road i, between vertical roads j and j+1
-        add(b[j] + rw, b[i] + 32, b[j + 1], b[i] + 32, J(j, i), J(j + 1, i)); // eastbound, north side
-        add(b[j + 1], b[i] + 96, b[j] + rw, b[i] + 96, J(j + 1, i), J(j, i)); // westbound, south side
-      }
+    const J = (i: number, j: number) => i + j * nv;
+    for (let i = 0; i < V.length; i++) for (let j = 0; j < Hh.length - 1; j++) {
+      add(V[i] + 32, Hh[j + 1], V[i] + 32, Hh[j] + rw, J(i, j + 1), J(i, j)); // northbound, west side
+      add(V[i] + 96, Hh[j] + rw, V[i] + 96, Hh[j + 1], J(i, j), J(i, j + 1)); // southbound, east side
+    }
+    for (let j = 0; j < Hh.length; j++) for (let i = 0; i < V.length - 1; i++) {
+      add(V[i] + rw, Hh[j] + 32, V[i + 1], Hh[j] + 32, J(i, j), J(i + 1, j)); // eastbound, north side
+      add(V[i + 1], Hh[j] + 96, V[i] + rw, Hh[j] + 96, J(i + 1, j), J(i, j)); // westbound, south side
     }
     for (const s of this.lanes) s.next = this.lanes.filter((n) => n.fromJ === s.toJ && n.toJ !== s.fromJ);
   }
+
+  /** Shortest chain of lanes from one lane to a point (used by story cars that must drive somewhere). */
+  route(from: LaneSeg, tx: number, ty: number): LaneSeg[] {
+    const goal = this.lanes.reduce((b, l) => (Math.hypot(l.bx - tx, l.by - ty) < Math.hypot(b.bx - tx, b.by - ty) ? l : b));
+    const prev = new Map<LaneSeg, LaneSeg | null>([[from, null]]);
+    const q = [from];
+    while (q.length) {
+      const c = q.shift()!;
+      if (c === goal) break;
+      for (const n of c.next) if (!prev.has(n)) { prev.set(n, c); q.push(n); }
+    }
+    const out: LaneSeg[] = [];
+    for (let c: LaneSeg | null | undefined = goal; c; c = prev.get(c)) out.unshift(c);
+    return out[0] === from ? out : [from];
+  }
+
+  nearestLane(x: number, y: number): LaneSeg {
+    let best = this.lanes[0], bd = 1e9;
+    for (const l of this.lanes) {
+      const k = Phaser.Math.Clamp(((x - l.ax) * l.dx + (y - l.ay) * l.dy) / l.len, 0, 1);
+      const d = Math.hypot(l.ax + l.dx * l.len * k - x, l.ay + l.dy * l.len * k - y);
+      if (d < bd) { bd = d; best = l; }
+    }
+    return best;
+  }
+
+  /** Pins the story's named places to actual buildings and car parks. */
+  private resolvePlaces(): void {
+    for (const [id, spec] of Object.entries(MAP.places)) {
+      if (spec.tile) { this.places[id] = { x: spec.tile[0] * TS, y: spec.tile[1] * TS, sx: 0, sy: 0, label: '', rect: null }; continue; }
+      const pool = (spec.kind === 'lot' ? this.lots : this.buildings).filter((p) => p.block === spec.block).sort((a, b) => b.w * b.h - a.w * a.h);
+      const r = pool[Math.min(spec.pick ?? 0, pool.length - 1)];
+      if (!r) throw new Error('No plot for place ' + id);
+      const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+      let x = cx, y = cy;
+      if (spec.kind === 'building') {
+        // the door: the middle of whichever wall faces open ground (a car park or alley if possible)
+        const sides = [[cx, r.y - 20], [cx, r.y + r.h + 20], [r.x - 20, cy], [r.x + r.w + 20, cy]];
+        const score = (p: number[]) => { const t = this.tileAt(p[0], p[1]); return t === Tile.Lot ? 3 : t === Tile.Walk ? 2 : t === Tile.Building || t === Tile.Water ? -1 : 0; };
+        const best = sides.sort((a, b) => score(b) - score(a))[0];
+        x = best[0]; y = best[1];
+      }
+      this.places[id] = { x, y, sx: cx, sy: cy, label: spec.label ?? '', rect: r };
+    }
+  }
+
+  /** Street lamps, shop awnings, vending machines: picks where they go. */
+  private decorate(): void {
+    const rnd = seeded(77), V = MAP.vRoads, Hh = MAP.hRoads, rw = MAP.roadWidth;
+    const lampAt = (x: number, y: number) => {
+      if (this.at(x, y) !== Tile.Walk) return;
+      this.decals[y * W + x] = T.lamp;
+      this.lights.push({ x: (x + 0.5) * TS, y: (y + 0.5) * TS, color: DISTRICTS[MAP.districtAt(x, y)].lamp, scale: 1.7, alpha: 0.55 });
+    };
+    for (const v of V) for (let y = Hh[0] + rw + 3; y < Hh[Hh.length - 1]; y += MAP.lampSpacing) { lampAt(v - 1, y); lampAt(v + rw, y + 3); }
+    for (const h of Hh) for (let x = V[0] + rw + 3; x < V[V.length - 1]; x += MAP.lampSpacing) { lampAt(x, h - 1); lampAt(x + 3, h + rw); }
+    // awnings / vending machines on sidewalk tiles that touch a building
+    const side = [[0, -1], [0, 1], [-1, 0], [1, 0]]; // building is above, below, left, right of the tile
+    for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+      if (this.at(x, y) !== Tile.Walk || this.decals[y * W + x] >= 0) continue;
+      const s = side.findIndex(([dx, dy]) => this.at(x + dx, y + dy) === Tile.Building);
+      if (s < 0 || x < V[0] || x > V[V.length - 1] + rw) continue;
+      const st = DISTRICTS[MAP.districtAt(x, y)], roll = rnd();
+      // colour changes every few tiles so it reads as a row of different shops
+      const shop = Math.floor((s < 2 ? x : y) / 3) + s * 7;
+      if (roll < st.awningChance) this.decals[y * W + x] = T.awning + s * 4 + (shop % st.awnings.length);
+      else if (roll < st.awningChance + 0.05) {
+        const c = Math.floor(rnd() * 3);
+        this.decals[y * W + x] = T.vending + s * 3 + c;
+        this.lights.push({ x: (x + 0.5 + side[s][0] * 0.3) * TS, y: (y + 0.5 + side[s][1] * 0.3) * TS, color: [0xe04a4a, 0x4a9ae0, 0xf2f2f2][c], scale: 0.6, alpha: 0.7 });
+      }
+    }
+  }
+
+  // ---------- questions the game asks ----------
 
   tileAt(px: number, py: number): number {
     const x = (px / TS) | 0, y = (py / TS) | 0;
     if (px < 0 || py < 0 || x >= W || y >= H) return Tile.Building;
     return this.tiles[y * W + x];
   }
+  /** Blocks movement: buildings and water. */
+  isSolid(px: number, py: number): boolean { const t = this.tileAt(px, py); return t === Tile.Building || t === Tile.Water; }
+  /** Blocks bullets and sight: buildings only. */
+  isWall(px: number, py: number): boolean { return this.tileAt(px, py) === Tile.Building; }
+  districtAt(px: number, py: number): DistrictStyle { return DISTRICTS[MAP.districtAt(px / TS, py / TS)]; }
 
-  isSolid(px: number, py: number): boolean {
-    return this.tileAt(px, py) === Tile.Building;
-  }
-
-  /** True if nothing solid is between the two points. */
+  /** True if no building is between the two points. */
   los(x0: number, y0: number, x1: number, y1: number): boolean {
-    const d = Math.hypot(x1 - x0, y1 - y0);
-    const n = Math.ceil(d / 12);
-    for (let i = 1; i < n; i++) {
-      const k = i / n;
-      if (this.isSolid(x0 + (x1 - x0) * k, y0 + (y1 - y0) * k)) return false;
-    }
+    const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 12);
+    for (let i = 1; i < n; i++) { const k = i / n; if (this.isWall(x0 + (x1 - x0) * k, y0 + (y1 - y0) * k)) return false; }
     return true;
   }
 
-  /** Random spot a person can stand on. Prefers sidewalks. */
-  randomWalkPoint(preferWalk = true): { x: number; y: number } {
-    for (let n = 0; n < 200; n++) {
-      const x = 2 + Math.floor(Math.random() * (W - 4));
-      const y = 2 + Math.floor(Math.random() * (H - 4));
-      const t = this.tiles[y * W + x];
-      if (t === Tile.Walk || (!preferWalk && t === Tile.Lot) || (n > 150 && t !== Tile.Building))
-        return { x: (x + 0.5) * TS, y: (y + 0.5) * TS };
+  /** Is this point inside a junction with traffic lights? Returns the junction or null. */
+  litJunctionAt(px: number, py: number): Junction | null {
+    const half = (MAP.roadWidth * TS) / 2;
+    for (const j of this.junctions) if (j.lit && Math.abs(px - j.x) < half && Math.abs(py - j.y) < half) return j;
+    return null;
+  }
+
+  /** Random sidewalk spot between `min` and `max` px from a point (for spawning people nearby). */
+  randomWalkNear(x: number, y: number, min: number, max: number): { x: number; y: number } | null {
+    for (let n = 0; n < 30; n++) {
+      const a = Math.random() * Math.PI * 2, d = min + Math.random() * (max - min);
+      const px = x + Math.cos(a) * d, py = y + Math.sin(a) * d;
+      if (this.tileAt(px, py) === Tile.Walk) return { x: (((px / TS) | 0) + 0.5) * TS, y: (((py / TS) | 0) + 0.5) * TS };
     }
-    return { x: MAP.playerStart[0] * TS, y: MAP.playerStart[1] * TS };
+    return null;
   }
 
   /**
    * "Flow field": for every tile, how many steps it is from the target.
-   * Police follow the numbers downhill to find their way around buildings.
+   * Police and gangs follow the numbers downhill to find their way around buildings.
    */
   flow(tx: number, ty: number, forCars: boolean, out: Int16Array): void {
     out.fill(-1);
-    const pass = (i: number) => (forCars ? this.carPass[i] === 1 : this.tiles[i] !== Tile.Building);
+    const tiles = this.tiles, cp = this.carPass;
+    const pass = (i: number) => (forCars ? cp[i] === 1 : tiles[i] !== Tile.Building && tiles[i] !== Tile.Water);
     let sx = Phaser.Math.Clamp((tx / TS) | 0, 1, W - 2), sy = Phaser.Math.Clamp((ty / TS) | 0, 1, H - 2);
     if (!pass(sy * W + sx)) {
       let best = -1, bd = 1e9;
@@ -167,8 +295,8 @@ export class CityMap {
     q[tail++] = sy * W + sx;
     out[sy * W + sx] = 0;
     while (head < tail) {
-      const c = q[head++];
-      const d = out[c] + 1;
+      const c = q[head++], d = out[c] + 1;
+      if (d > 90) continue; // nobody needs directions from further away than this
       const cx = c % W;
       if (cx > 0 && out[c - 1] < 0 && pass(c - 1)) { out[c - 1] = d; q[tail++] = c - 1; }
       if (cx < W - 1 && out[c + 1] < 0 && pass(c + 1)) { out[c + 1] = d; q[tail++] = c + 1; }
@@ -180,17 +308,15 @@ export class CityMap {
   /** From a position, the centre of the neighbouring tile that is closer to the flow target. */
   flowStep(field: Int16Array, px: number, py: number, steps = 1): { x: number; y: number } | null {
     let x = (px / TS) | 0, y = (py / TS) | 0;
-    if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) return null;
+    if (x < 2 || y < 2 || x >= W - 2 || y >= H - 2) return null;
     let cur = field[y * W + x];
     if (cur < 0) {
-      // standing on a tile the field does not cover (e.g. car on a sidewalk): find a covered neighbour
       let best = 1e9, bx = -1, by = -1;
       for (let j = -2; j <= 2; j++) for (let i = -2; i <= 2; i++) {
         const v = field[(y + j) * W + x + i];
-        if (v >= 0 && v < best && x + i > 0 && x + i < W && y + j > 0 && y + j < H) { best = v; bx = x + i; by = y + j; }
+        if (v >= 0 && v < best) { best = v; bx = x + i; by = y + j; }
       }
-      if (bx < 0) return null;
-      return { x: (bx + 0.5) * TS, y: (by + 0.5) * TS };
+      return bx < 0 ? null : { x: (bx + 0.5) * TS, y: (by + 0.5) * TS };
     }
     for (let s = 0; s < steps && cur > 0; s++) {
       let best = cur, nx = x, ny = y;
@@ -207,165 +333,171 @@ export class CityMap {
     return { x: (x + 0.5) * TS, y: (y + 0.5) * TS };
   }
 
-  /** Street lamps and glowing vending machines, filled in by bake(). */
-  readonly lamps: { x: number; y: number }[] = [];
-  readonly vending: { x: number; y: number; color: number }[] = [];
+  // ---------- drawing ----------
 
-  /** Paints the ground of the whole city once into a single picture, so it costs one draw per frame. */
-  bake(scene: Phaser.Scene, key: string): void {
-    const tex = scene.textures.createCanvas(key, this.widthPx, this.heightPx)!;
-    const g = tex.getContext();
-    const C = MAP.colors;
-    const rnd = seeded(7);
-    const at = (x: number, y: number) => (x < 0 || y < 0 || x >= W || y >= H ? Tile.Building : this.tiles[y * W + x]);
-    const isRoad = (t: number) => t === Tile.Road || t === Tile.Crossing;
-    for (let y = 0; y < H; y++) {
-      for (let x = 0; x < W; x++) {
-        const t = at(x, y), px = x * TS, py = y * TS;
-        g.fillStyle = isRoad(t) ? C.road : t === Tile.Walk ? C.walk : t === Tile.Lot ? C.lot : C.wall;
-        g.fillRect(px, py, TS, TS);
-        if (isRoad(t) || t === Tile.Lot) { // asphalt speckle and the odd patch
-          for (let k = 0; k < 5; k++) { g.fillStyle = rnd() < 0.5 ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.10)'; g.fillRect(px + rnd() * 30, py + rnd() * 30, 2, 2); }
-          if (rnd() < 0.04) { g.fillStyle = 'rgba(0,0,0,0.10)'; g.fillRect(px + 4, py + 6, 20, 14); }
-        }
-        if (t === Tile.Walk) { // paving slabs, and a pale kerb where it meets the road
-          g.fillStyle = C.walkLine;
-          g.fillRect(px, py, TS, 1); g.fillRect(px, py + 16, TS, 1); g.fillRect(px + ((y & 1) ? 8 : 0), py, 1, 16); g.fillRect(px + ((y & 1) ? 24 : 16), py + 16, 1, 16);
-          g.fillStyle = C.kerb;
-          if (isRoad(at(x - 1, y))) g.fillRect(px, py, 3, TS);
-          if (isRoad(at(x + 1, y))) g.fillRect(px + TS - 3, py, 3, TS);
-          if (isRoad(at(x, y - 1))) g.fillRect(px, py, TS, 3);
-          if (isRoad(at(x, y + 1))) g.fillRect(px, py + TS - 3, TS, 3);
-        }
-        if (t === Tile.Crossing) {
-          g.fillStyle = C.crossing;
-          const vertical = at(x - 1, y) !== Tile.Crossing && at(x + 1, y) !== Tile.Crossing;
-          for (let k = 2; k < TS; k += 8) vertical ? g.fillRect(px + 4, py + k, TS - 8, 4) : g.fillRect(px + k, py + 4, 4, TS - 8);
-        }
-      }
-    }
-    // dashed centre lines between the junctions
-    const b = MAP.roadBands.map((t) => t * TS), rw = MAP.roadWidth * TS;
-    g.fillStyle = C.laneLine;
-    for (const band of b) for (let j = 0; j < 2; j++)
-      for (let p = b[j] + rw + 40; p < b[j + 1] - 48; p += 32) {
-        g.fillRect(band + rw / 2 - 1, p, 2, 16);
-        g.fillRect(p, band + rw / 2 - 1, 16, 2);
-      }
-    // parking bays
-    g.fillStyle = 'rgba(255,255,255,0.22)';
-    for (const l of this.lots) for (let x = l.x + 32; x < l.x + l.w; x += 48) g.fillRect(x, l.y + 24, 2, l.h - 48);
-
-    // street lamps along the kerbs
-    const sp = MAP.lampSpacing * TS;
-    for (const band of b) for (let j = 0; j < 2; j++)
-      for (let p = b[j] + rw + sp / 2; p < b[j + 1] - 16; p += sp)
-        for (const side of [-12, rw + 12]) { this.lamps.push({ x: band + side, y: p }); this.lamps.push({ x: p, y: band + side }); }
-    for (const l of this.lamps) { g.fillStyle = '#1c1a18'; g.beginPath(); g.arc(l.x, l.y, 3.5, 0, 7); g.fill(); g.fillStyle = '#ffd9a0'; g.beginPath(); g.arc(l.x, l.y, 1.5, 0, 7); g.fill(); }
-
-    // building shadows on the ground, then the wall footprints
-    g.fillStyle = 'rgba(0,0,0,0.30)';
-    for (const r of this.buildings) g.fillRect(r.x + 10, r.y + 12, r.w, r.h);
-    for (const r of this.buildings) {
-      g.fillStyle = C.wall; g.fillRect(r.x, r.y, r.w, r.h);
-      g.fillStyle = 'rgba(255,220,170,0.10)'; g.fillRect(r.x, r.y, r.w, 3); g.fillRect(r.x, r.y, 3, r.h);
-    }
-    // shop awnings and vending machines where a building faces a sidewalk
-    for (const r of this.buildings) {
-      const tx0 = r.x / TS, ty0 = r.y / TS, tw = r.w / TS, th = r.h / TS;
-      const sides: [number, number, number, number, boolean][] = [];
-      for (let i = 0; i < tw; i++) { sides.push([tx0 + i, ty0 - 1, 0, 1, true]); sides.push([tx0 + i, ty0 + th, 0, -1, true]); }
-      for (let i = 0; i < th; i++) { sides.push([tx0 - 1, ty0 + i, 1, 0, false]); sides.push([tx0 + tw, ty0 + i, -1, 0, false]); }
-      let run = 0, color: string = C.awnings[0];
-      for (const [x, y, dx, dy, horiz] of sides) {
-        if (at(x, y) !== Tile.Walk) { run = 0; continue; }
-        if (run <= 0) { run = 2 + Math.floor(rnd() * 3); color = rnd() < 0.3 ? '' : C.awnings[Math.floor(rnd() * C.awnings.length)]; }
-        run--;
-        const px = x * TS, py = y * TS;
-        if (color) {
-          const ax = dx > 0 ? px + TS - 7 : px, ay = dy > 0 ? py + TS - 7 : py;
-          g.fillStyle = color; horiz ? g.fillRect(px + 1, ay, TS - 2, 7) : g.fillRect(ax, py + 1, 7, TS - 2);
-          g.fillStyle = 'rgba(255,255,255,0.22)';
-          for (let k = 3; k < TS - 3; k += 6) horiz ? g.fillRect(px + k, ay, 2, 7) : g.fillRect(ax, py + k, 7, 2);
-        } else if (rnd() < 0.45) {
-          const vc = [0xe04a4a, 0x4a9ae0, 0xf2f2f2][Math.floor(rnd() * 3)];
-          const vx = dx > 0 ? px + TS - 10 : dx < 0 ? px + 1 : px + 10, vy = dy > 0 ? py + TS - 10 : dy < 0 ? py + 1 : py + 10;
-          g.fillStyle = '#' + vc.toString(16).padStart(6, '0'); g.fillRect(vx, vy, horiz ? 12 : 9, horiz ? 9 : 12);
-          g.fillStyle = 'rgba(255,255,255,0.8)'; g.fillRect(vx + 2, vy + 2, horiz ? 8 : 5, horiz ? 5 : 8);
-          this.vending.push({ x: vx + 5, y: vy + 5, color: vc });
-        }
-      }
-    }
-    // Hozuki-mon temple gate pillars on the sidewalks (the beam and lantern float above, see makeRoofs)
-    const gate = MAP.places.asagiri.door;
-    g.fillStyle = C.lanternRed;
-    for (const tx of [MAP.roadBands[1] - 1, MAP.roadBands[1] + MAP.roadWidth]) g.fillRect(tx * TS + 8, (gate[1] - 6) * TS, 16, 16);
+  /** Paints the sheet of ground tiles (placeholder art, drawn in code). */
+  private paintSheet(scene: Phaser.Scene): void {
+    const C = MAP.colors, P = TS + 2;
+    const tex = scene.textures.createCanvas('tiles', SHEET_COLS * P, SHEET_ROWS * P)!;
+    const sheet = tex.getContext();
+    const tmp = document.createElement('canvas'); tmp.width = tmp.height = TS;
+    const g = tmp.getContext('2d')!;
+    const rnd = seeded(5);
+    const put = (index: number, draw: () => void) => {
+      g.clearRect(0, 0, TS, TS); draw();
+      const x = (index % SHEET_COLS) * P + 1, y = Math.floor(index / SHEET_COLS) * P + 1;
+      // copy with a 1 px border of repeated edge pixels, so tiles don't show seams when zoomed
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [0, 0]]) sheet.drawImage(tmp, x + dx, y + dy);
+    };
+    const asphalt = (base: string) => {
+      g.fillStyle = base; g.fillRect(0, 0, TS, TS);
+      for (let k = 0; k < 7; k++) { g.fillStyle = rnd() < 0.5 ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.11)'; g.fillRect(rnd() * 30, rnd() * 30, 2, 2); }
+    };
+    const dash = (i: number, color: string) => { g.fillStyle = color; if (i === 0) g.fillRect(31, 8, 1, 16); if (i === 1) g.fillRect(0, 8, 1, 16); if (i === 2) g.fillRect(8, 31, 16, 1); if (i === 3) g.fillRect(8, 0, 16, 1); };
+    put(T.wall, () => { g.fillStyle = C.wall; g.fillRect(0, 0, TS, TS); });
+    for (let i = 0; i < 3; i++) put(T.road + i, () => { asphalt(C.road); if (i === 2) { g.fillStyle = 'rgba(0,0,0,0.10)'; g.fillRect(5, 7, 20, 14); } });
+    for (let i = 0; i < 4; i++) put(T.roadDash + i, () => { asphalt(C.road); dash(i, C.laneLine); });
+    put(T.kroad, () => asphalt(C.kroad));
+    for (let i = 0; i < 4; i++) put(T.kDash + i, () => { asphalt(C.kroad); dash(i, C.kLine); });
+    put(T.crossV, () => { asphalt(C.road); g.fillStyle = C.crossing; for (let k = 2; k < TS; k += 8) g.fillRect(k, 4, 4, TS - 8); });
+    put(T.crossH, () => { asphalt(C.road); g.fillStyle = C.crossing; for (let k = 2; k < TS; k += 8) g.fillRect(4, k, TS - 8, 4); });
+    put(T.lot, () => asphalt(C.lot));
+    put(T.bay, () => { asphalt(C.lot); g.fillStyle = 'rgba(255,255,255,0.22)'; g.fillRect(0, 0, 2, TS); });
+    put(T.alley, () => { asphalt(C.alley); if (rnd() < 2) { g.fillStyle = 'rgba(0,0,0,0.15)'; g.fillRect(0, 14, TS, 2); } });
+    for (let i = 0; i < 2; i++) put(T.water + i, () => { g.fillStyle = C.water; g.fillRect(0, 0, TS, TS); g.fillStyle = C.waterLight; for (let k = 0; k < 3; k++) g.fillRect((k * 11 + i * 7) % 26, 5 + k * 10 + i * 3, 7, 1); });
+    put(T.planks, () => { g.fillStyle = C.planks; g.fillRect(0, 0, TS, TS); g.fillStyle = 'rgba(0,0,0,0.22)'; for (let k = 0; k < TS; k += 8) g.fillRect(0, k, TS, 1); });
+    put(T.bridge, () => { asphalt(C.bridge); g.fillStyle = 'rgba(255,255,255,0.10)'; g.fillRect(0, 0, TS, 1); });
+    DIST_IDS.forEach((id, d) => {
+      const st = DISTRICTS[id];
+      for (let m = 0; m < 16; m++) put(T.walk + d * 16 + m, () => {
+        g.fillStyle = st.walk; g.fillRect(0, 0, TS, TS);
+        g.fillStyle = st.walkLine; g.fillRect(0, 0, TS, 1); g.fillRect(0, 16, TS, 1); g.fillRect(8, 0, 1, 16); g.fillRect(24, 16, 1, 16);
+        g.fillStyle = st.kerb; // a pale kerb on the sides that meet the road: bits = left, right, up, down
+        if (m & 1) g.fillRect(0, 0, 3, TS); if (m & 2) g.fillRect(TS - 3, 0, 3, TS); if (m & 4) g.fillRect(0, 0, TS, 3); if (m & 8) g.fillRect(0, TS - 3, TS, 3);
+      });
+    });
+    // things drawn on top of the ground: awnings (4 sides x 4 colours), vending machines, lamp posts
+    const all = [...new Set(DIST_IDS.flatMap((id) => DISTRICTS[id].awnings))];
+    for (let s = 0; s < 4; s++) for (let c = 0; c < 4; c++) put(T.awning + s * 4 + c, () => {
+      g.fillStyle = all[(c + s) % all.length];
+      const horiz = s < 2, o = s === 0 || s === 2 ? 0 : TS - 8;
+      horiz ? g.fillRect(1, o, TS - 2, 8) : g.fillRect(o, 1, 8, TS - 2);
+      g.fillStyle = 'rgba(255,255,255,0.25)';
+      for (let k = 3; k < TS - 3; k += 6) horiz ? g.fillRect(k, o, 2, 8) : g.fillRect(o, k, 8, 2);
+      g.fillStyle = 'rgba(0,0,0,0.25)'; horiz ? g.fillRect(1, s === 0 ? 8 : TS - 10, TS - 2, 2) : g.fillRect(s === 2 ? 8 : TS - 10, 1, 2, TS - 2);
+    });
+    for (let s = 0; s < 4; s++) for (let c = 0; c < 3; c++) put(T.vending + s * 3 + c, () => {
+      const horiz = s < 2, w = horiz ? 13 : 9, h = horiz ? 9 : 13;
+      const x = s === 2 ? 1 : s === 3 ? TS - w - 1 : 10, y = s === 0 ? 1 : s === 1 ? TS - h - 1 : 10;
+      g.fillStyle = ['#e04a4a', '#4a9ae0', '#f2f2f2'][c]; g.fillRect(x, y, w, h);
+      g.fillStyle = 'rgba(255,255,255,0.85)'; g.fillRect(x + 2, y + 2, w - 4, h - 4);
+    });
+    put(T.lamp, () => { g.fillStyle = '#1c1a18'; g.beginPath(); g.arc(16, 16, 3.5, 0, 7); g.fill(); g.fillStyle = '#ffe2b0'; g.beginPath(); g.arc(16, 16, 1.6, 0, 7); g.fill(); });
     tex.refresh();
+    tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
+
+  /** Builds the ground as a tile layer (only the tiles on screen are drawn), plus a layer of decals. */
+  makeGround(scene: Phaser.Scene): void {
+    this.paintSheet(scene);
+    const V = MAP.vRoads, Hh = MAP.hRoads, rw = MAP.roadWidth, vN = V[V.length - 1], hN = Hh[Hh.length - 1];
+    const inV = (x: number) => V.find((v) => x >= v && x < v + rw), inH = (y: number) => Hh.find((h) => y >= h && y < h + rw);
+    const isRoad = (t: number) => t === Tile.Road || t === Tile.Crossing;
+    const lotAt = new Uint8Array(W * H);
+    for (const l of this.lots) for (let y = l.y / TS; y < (l.y + l.h) / TS; y++) for (let x = l.x / TS; x < (l.x + l.w) / TS; x++) lotAt[y * W + x] = 1;
+    const ground: number[][] = [];
+    for (let y = 0; y < H; y++) {
+      const row: number[] = [];
+      for (let x = 0; x < W; x++) {
+        const t = this.at(x, y);
+        let i = T.wall;
+        if (t === Tile.Water) i = T.water + ((x * 7 + y * 3) % 2);
+        else if (t === Tile.Lot) i = lotAt[y * W + x] ? (x % 3 === 1 && y % 6 > 0 && y % 6 < 5 ? T.bay : T.lot) : T.alley;
+        else if (t === Tile.Crossing) i = this.at(x - 1, y) === Tile.Crossing || this.at(x + 1, y) === Tile.Crossing ? T.crossV : T.crossH;
+        else if (t === Tile.Walk) {
+          if (x < V[0]) i = T.planks; // the riverside walkway
+          else i = T.walk + DIST_IDS.indexOf(MAP.districtAt(x, y)) * 16 + (isRoad(this.at(x - 1, y)) ? 1 : 0) + (isRoad(this.at(x + 1, y)) ? 2 : 0) + (isRoad(this.at(x, y - 1)) ? 4 : 0) + (isRoad(this.at(x, y + 1)) ? 8 : 0);
+        } else if (t === Tile.Road) {
+          const v = inV(x), h = inH(y);
+          const ring = v === V[0] || v === vN || h === Hh[0] || h === hN; // the K-Route
+          if (x < V[0]) i = T.bridge;
+          else {
+            let d = -1; // which edge the centre-line dash sits on
+            if (v !== undefined && h === undefined && this.at(x, y - 1) !== Tile.Crossing && this.at(x, y + 1) !== Tile.Crossing) d = x === v + 1 ? 0 : x === v + 2 ? 1 : -1;
+            if (h !== undefined && v === undefined && this.at(x - 1, y) !== Tile.Crossing && this.at(x + 1, y) !== Tile.Crossing) d = y === h + 1 ? 2 : y === h + 2 ? 3 : -1;
+            i = ring ? (d >= 0 ? T.kDash + d : T.kroad) : d >= 0 ? T.roadDash + d : T.road + ((x * 13 + y * 7) % 3);
+          }
+        }
+        row.push(i);
+      }
+      ground.push(row);
+    }
+    const map = scene.make.tilemap({ data: ground, tileWidth: TS, tileHeight: TS });
+    const set = map.addTilesetImage('tiles', 'tiles', TS, TS, 1, 2)!;
+    map.createLayer(0, set, 0, 0)!.setDepth(0);
+    const dec = map.createBlankLayer('decals', set, 0, 0)!.setDepth(1);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (this.decals[y * W + x] >= 0) dec.putTileAt(this.decals[y * W + x], x, y);
   }
 
   /**
-   * One rooftop picture per building. The world slides them slightly away from the
-   * middle of the screen, which makes flat buildings look tall (the GTA 2 trick).
+   * One rooftop picture per building (drawn at half size to save memory). The world slides
+   * them slightly away from the middle of the screen, which makes flat buildings look tall.
    */
   makeRoofs(scene: Phaser.Scene): { img: Phaser.GameObjects.Image; x: number; y: number; h: number }[] {
-    const C = MAP.colors, out: { img: Phaser.GameObjects.Image; x: number; y: number; h: number }[] = [];
+    const out: { img: Phaser.GameObjects.Image; x: number; y: number; h: number }[] = [];
     const rnd = seeded(21);
+    const special = new Map<Rect, string>();
+    for (const [id, spec] of Object.entries(MAP.places)) if (spec.color && this.places[id].rect) special.set(this.places[id].rect!, spec.color);
     this.buildings.forEach((r, i) => {
-      const key = 'roof' + i;
-      const tex = scene.textures.createCanvas(key, r.w, r.h)!;
+      const key = 'roof' + i, w = r.w / 2, h = r.h / 2;
+      const tex = scene.textures.createCanvas(key, w, h)!;
       const g = tex.getContext();
-      const st = C.roofs[Math.floor(rnd() * C.roofs.length)], kind = C.roofs.indexOf(st);
-      g.fillStyle = st.base; g.fillRect(0, 0, r.w, r.h);
+      const D = DISTRICTS[r.district];
+      const st = D.roofs[Math.floor(rnd() * D.roofs.length)];
+      g.fillStyle = special.get(r) ?? st.base; g.fillRect(0, 0, w, h);
       g.fillStyle = st.line;
-      if (kind === 0 || kind === 3) { // tiled roof: rows of tiles and a ridge beam
-        for (let y = 4; y < r.h; y += 5) g.fillRect(0, y, r.w, 1);
-        for (let x = 6; x < r.w; x += 12) g.fillRect(x, 0, 1, r.h);
-        g.fillStyle = st.trim; r.w > r.h ? g.fillRect(6, r.h / 2 - 3, r.w - 12, 6) : g.fillRect(r.w / 2 - 3, 6, 6, r.h - 12);
-      } else if (kind === 2) { // wooden planks
-        for (let x = 0; x < r.w; x += 7) g.fillRect(x, 0, 1, r.h);
+      if (special.has(r)) { /* plain coloured roof for the police box and hospital */ }
+      else if (st.kind === 'tile') { // rows of roof tiles and a ridge beam
+        for (let y = 2; y < h; y += 3) g.fillRect(0, y, w, 1);
+        g.fillStyle = st.trim; w > h ? g.fillRect(3, h / 2 - 2, w - 6, 3) : g.fillRect(w / 2 - 2, 3, 3, h - 6);
+      } else if (st.kind === 'plank') { for (let x = 0; x < w; x += 4) g.fillRect(x, 0, 1, h); }
+      else if (st.kind === 'metal') { // corrugated sheet with skylights
+        for (let x = 0; x < w; x += 3) g.fillRect(x, 0, 1, h);
+        g.fillStyle = 'rgba(190,220,235,0.35)'; for (let y = 8; y < h - 10; y += 18) g.fillRect(6, y, w - 12, 4);
       }
-      if (kind === 1 || kind === 2) { // flat roofs get clutter: AC units, a water tank
-        for (let n = 0; n < Math.round((r.w * r.h) / 14000); n++) {
-          const x = 14 + rnd() * (r.w - 50), y = 14 + rnd() * (r.h - 50);
-          if (rnd() < 0.3) { g.fillStyle = '#6f7f8a'; g.beginPath(); g.arc(x + 12, y + 12, 12, 0, 7); g.fill(); g.fillStyle = '#8fa0aa'; g.beginPath(); g.arc(x + 11, y + 11, 8, 0, 7); g.fill(); }
-          else { g.fillStyle = '#8f9498'; g.fillRect(x, y, 22, 16); g.fillStyle = '#5a5f63'; g.beginPath(); g.arc(x + 11, y + 8, 5, 0, 7); g.fill(); g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(x + 2, y + 16, 22, 3); }
+      if (!special.has(r) && (st.kind === 'flat' || st.kind === 'plank')) { // clutter: AC units, a water tank
+        for (let n = 0; n < Math.round((w * h) / 3500); n++) {
+          const x = 7 + rnd() * (w - 25), y = 7 + rnd() * (h - 25);
+          if (rnd() < 0.3) { g.fillStyle = '#6f7f8a'; g.beginPath(); g.arc(x + 6, y + 6, 6, 0, 7); g.fill(); g.fillStyle = '#8fa0aa'; g.beginPath(); g.arc(x + 5, y + 5, 4, 0, 7); g.fill(); }
+          else { g.fillStyle = '#8f9498'; g.fillRect(x, y, 11, 8); g.fillStyle = '#5a5f63'; g.beginPath(); g.arc(x + 5.5, y + 4, 2.5, 0, 7); g.fill(); }
         }
       }
-      // parapet: light on the top/left edges, dark on the bottom/right
-      g.fillStyle = st.trim; g.fillRect(0, 0, r.w, 4); g.fillRect(0, 0, 4, r.h);
-      g.fillStyle = 'rgba(0,0,0,0.38)'; g.fillRect(0, r.h - 4, r.w, 4); g.fillRect(r.w - 4, 0, 4, r.h);
-      for (const [spot, color] of [[MAP.policeBox, C.policeBox], [MAP.hospital, C.hospital]] as const) {
-        const [tx, ty, tw, th] = spot.tile;
-        const x = tx * TS - r.x, y = ty * TS - r.y;
-        if (x >= 0 && y >= 0 && x < r.w && y < r.h) { g.fillStyle = color; g.fillRect(x + 4, y + 4, tw * TS - 8, th * TS - 8); }
+      if (D.neon.length && rnd() < 0.6 && w > 30 && h > 30) { // a glowing billboard on the roof
+        const c = D.neon[Math.floor(rnd() * D.neon.length)], bx = 6 + rnd() * (w - 30), by = 6 + rnd() * (h - 22);
+        g.fillStyle = '#111'; g.fillRect(bx - 1, by - 1, 20, 10); g.fillStyle = css(c); g.fillRect(bx, by, 18, 8);
+        g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillRect(bx + 2, by + 2, 9, 1); g.fillRect(bx + 2, by + 5, 13, 1);
+        this.lights.push({ x: r.x + (bx + 9) * 2, y: r.y + (by + 4) * 2, color: c, scale: 1.1, alpha: 0.6 });
       }
+      g.fillStyle = st.trim; g.fillRect(0, 0, w, 2); g.fillRect(0, 0, 2, h); // parapet: light top/left, dark bottom/right
+      g.fillStyle = 'rgba(0,0,0,0.38)'; g.fillRect(0, h - 2, w, 2); g.fillRect(w - 2, 0, 2, h);
       tex.refresh();
-      out.push({ img: scene.add.image(r.x + r.w / 2, r.y + r.h / 2, key).setDepth(20), x: r.x + r.w / 2, y: r.y + r.h / 2, h: MAP.roofHeight });
+      tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+      out.push({ img: scene.add.image(r.x + r.w / 2, r.y + r.h / 2, key).setScale(2).setDepth(20), x: r.x + r.w / 2, y: r.y + r.h / 2, h: MAP.roofHeight });
     });
-    // the temple gate: a red beam across the road with one giant lantern
-    const gate = MAP.places.asagiri.door, gw = (MAP.roadWidth + 2) * TS;
+    // the Hozuki-mon temple gate: a red beam across the road with one giant lantern
+    const gate = this.places.asagiri, gw = (MAP.roadWidth + 2) * TS;
     const tex = scene.textures.createCanvas('gate', gw, 40)!;
-    const g = tex.getContext();
+    const g = tex.getContext(), red = MAP.colors.lanternRed;
     g.fillStyle = '#3a2a22'; g.fillRect(0, 8, gw, 8);
-    g.fillStyle = C.lanternRed; g.fillRect(0, 12, gw, 12); g.fillStyle = '#8a1f22'; g.fillRect(0, 22, gw, 3);
-    g.fillStyle = '#1c1a18'; g.fillRect(4, 6, 20, 24); g.fillRect(gw - 24, 6, 20, 24);
-    g.fillStyle = C.lanternRed; g.beginPath(); g.ellipse(gw / 2, 20, 22, 19, 0, 0, 7); g.fill();
+    g.fillStyle = red; g.fillRect(0, 12, gw, 12); g.fillStyle = '#8a1f22'; g.fillRect(0, 22, gw, 3);
+    g.fillStyle = red; g.fillRect(2, 2, 24, 34); g.fillRect(gw - 26, 2, 24, 34);
+    g.fillStyle = '#1c1a18'; g.fillRect(2, 2, 24, 4); g.fillRect(gw - 26, 2, 24, 4);
+    g.fillStyle = red; g.beginPath(); g.ellipse(gw / 2, 20, 22, 19, 0, 0, 7); g.fill();
     g.fillStyle = '#1c1a18'; g.fillRect(gw / 2 - 12, 0, 24, 4); g.fillRect(gw / 2 - 12, 36, 24, 4);
     g.fillStyle = 'rgba(0,0,0,0.25)'; for (let y = 8; y < 34; y += 6) g.fillRect(gw / 2 - 20, y, 40, 1);
     tex.refresh();
-    const gx = (MAP.roadBands[1] + MAP.roadWidth / 2) * TS, gy = (gate[1] - 5.75) * TS;
-    out.push({ img: scene.add.image(gx, gy, 'gate').setDepth(20), x: gx, y: gy, h: MAP.roofHeight * 0.6 });
+    out.push({ img: scene.add.image(gate.x, gate.y, 'gate').setDepth(20), x: gate.x, y: gate.y, h: MAP.roofHeight * 0.6 });
+    this.lights.push({ x: gate.x, y: gate.y, color: 0xff5040, scale: 1.4, alpha: 0.8 });
     return out;
   }
-}
-
-/** Small repeatable random number generator, so the city looks the same every time. */
-function seeded(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }

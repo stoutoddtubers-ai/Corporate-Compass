@@ -1,7 +1,10 @@
 // Pedestrian and traffic numbers. All PLACEHOLDER tuning unless noted.
 // Bark lines are copied from the Script and Writing doc ("World text" tab).
 export const PEDS = {
-  count: 14,
+  count: 20,
+  /** People only exist near the player: appear between these distances (px), vanish beyond `bubbleRemove`. */
+  bubbleSpawn: [430, 900],
+  bubbleRemove: 1300,
   hp: 60,
   walkSpeed: 45,
   fleeSpeed: 135,
@@ -20,7 +23,10 @@ export const PEDS = {
 } as const;
 
 export const TRAFFIC = {
-  count: 8,
+  count: 12,
+  bubbleSpawn: [560, 1250],
+  bubbleRemove: 1700,
+  vehicleCap: 28, // stay under the bible's 30-vehicle budget
   cruiseSpeed: 150,
   junctionSpeed: 95,
   panicMult: 1.7, // "panics at gunfire" (bible)
@@ -33,7 +39,7 @@ export const TRAFFIC = {
   sportsChance: 0.2,
 } as const;
 
-export const PARKED = { perLot: 2 } as const;
+export const PARKED = { perLot: 2, spawnDist: 1000, removeDist: 1500 } as const;
 
 export const PICKUPS = {
   weaponRespawn: 20,

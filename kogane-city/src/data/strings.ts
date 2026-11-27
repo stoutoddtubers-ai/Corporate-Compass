@@ -34,9 +34,6 @@ export const BARKS = {
   junHeatLost: ['Clean.'],
 } as const;
 
-/** The only district in Milestone 1 (used to fill {district} in barks). */
-export const DISTRICT = { kanji: '朝霧', name: 'ASAGIRI' } as const;
-
 export function pick<T>(list: readonly T[]): T {
   return list[Math.floor(Math.random() * list.length)];
 }
