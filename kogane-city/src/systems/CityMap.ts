@@ -27,7 +27,7 @@ export interface Furniture { x: number; y: number; key: string; h: number; solid
 export interface Roof { img: Phaser.GameObjects.Image | Phaser.GameObjects.Text; x: number; y: number; h: number; rect?: Rect; wall?: number; sway?: boolean; smoke?: boolean; beacon?: boolean; awn?: number[]; dead?: boolean;
   /** Rooftops only: the picture's name, how to paint it, and whether it is painted right now. */
   /** no windows on its walls (fences, containers, interior walls) */ noWin?: boolean;
-  key?: string; paint?: () => void; made?: boolean; /** near the screen this frame */ seen?: boolean }
+  key?: string; paint?: () => void; made?: boolean; /** near the screen this frame */ seen?: boolean; /** on the drawing list */ listed?: boolean }
 export interface Junction { id: number; x: number; y: number; lit: boolean; offset: number; /** half its width and height, px */ hw: number; hh: number }
 /** A room you can walk into: where it is kept (px), and its named spots. */
 export interface Interior { id: string; def: InteriorDef; x: number; y: number; w: number; h: number; spots: Record<string, { x: number; y: number }> }
@@ -87,7 +87,12 @@ export class CityMap {
   private groundLayer: Phaser.Tilemaps.TilemapLayer | null = null;
 
   /** Swaps the two water pictures, so the river and canal shimmer. */
-  shimmer(): void { this.groundLayer?.swapByIndex(T.water, T.water + 1); }
+  shimmer(view?: Phaser.Geom.Rectangle): void {
+    if (!view) { this.groundLayer?.swapByIndex(T.water, T.water + 1); return; }
+    // only the water near the screen (the whole map is a lot of tiles to look through)
+    const x = Math.max(0, Math.floor(view.x / TS) - 8), y = Math.max(0, Math.floor(view.y / TS) - 8);
+    this.groundLayer?.swapByIndex(T.water, T.water + 1, x, y, Math.min(W - x, Math.ceil(view.width / TS) + 16), Math.min(H - y, Math.ceil(view.height / TS) + 16));
+  }
   /** Street furniture drawn as sprites: trees, benches, bins, crates, cones. `h` > 0 makes it stand up (2.5D). */
   readonly furniture: Furniture[] = [];
 

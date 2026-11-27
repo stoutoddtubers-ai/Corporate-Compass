@@ -676,7 +676,7 @@ export class WorldScene extends Phaser.Scene {
     // only the rooftops and street furniture near the screen are looked at: the city is cut into squares
     if (!this.roofGrid) {
       this.roofGrid = new Map();
-      for (const r of this.roofs) { r.img.setVisible(false); const k = Math.floor(r.x / 512) + Math.floor(r.y / 512) * 1000; let l = this.roofGrid.get(k); if (!l) this.roofGrid.set(k, (l = [])); l.push(r); }
+      for (const r of this.roofs) { r.img.setVisible(false); r.img.removeFromDisplayList(); const k = Math.floor(r.x / 512) + Math.floor(r.y / 512) * 1000; let l = this.roofGrid.get(k); if (!l) this.roofGrid.set(k, (l = [])); l.push(r); }
     }
     const near = this.roofNear, was = this.roofWas;
     was.length = 0; for (const r of near) was.push(r);
@@ -685,7 +685,9 @@ export class WorldScene extends Phaser.Scene {
     for (let gy = gy0; gy <= gy1; gy++) for (let gx = gx0; gx <= gx1; gx++) { const l = this.roofGrid.get(gx + gy * 1000); if (l) for (const r of l) near.push(r); }
     for (const r of was) r.seen = false;
     for (const r of near) r.seen = true;
-    for (const r of was) if (!r.seen) r.img.setVisible(false); // left the neighbourhood
+    // things far from the screen are taken off the drawing list altogether (the game sorts that list every frame)
+    for (const r of was) if (!r.seen) { r.img.setVisible(false); r.img.removeFromDisplayList(); r.listed = false; }
+    for (const r of near) if (!r.listed) { r.img.addToDisplayList(); r.listed = true; }
     for (const r of near) {
       if (r.dead) { r.img.setVisible(false); continue; }
       const on = Math.abs(r.x - mid.x) < vw.width / 2 + 360 && Math.abs(r.y - mid.y) < vw.height / 2 + 360;
@@ -777,7 +779,7 @@ export class WorldScene extends Phaser.Scene {
 
   /** A few times a second: move the light pool to the lamps on screen, and fill / empty nearby car parks. */
   private slowUpdate(): void {
-    this.map.shimmer(); // water ripples
+    this.map.shimmer(this.cameras.main.worldView); // water ripples
     // forget rooftop pictures that are far behind us
     const here = this.cameras.main.midPoint;
     for (const r of this.roofMade) if (r.made && (Math.abs(r.x - here.x) > 2600 || Math.abs(r.y - here.y) > 2000)) { (r.img as Phaser.GameObjects.Image).setTexture('dot'); this.textures.remove(r.key!); r.made = false; this.roofMade.delete(r); }
