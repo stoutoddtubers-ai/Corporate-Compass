@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 /**
- * Loads a model made by tools/blender/models3d.py (public/models/<name>.glb) and turns it into
+ * Loads a model made by tools/blender/models3d.py (public/models/<name>.gltf.json, or a .glb) and turns it into
  * plain shapes the 3D view can draw many copies of at once:
  *  - body: everything solid, coloured per vertex from its material. The material called "paint"
  *    is white, so the game's per-car colour shows through it;
@@ -19,7 +19,8 @@ const cache = new Map<string, Promise<Model | null>>();
 export function loadModel(name: string): Promise<Model | null> {
   let p = cache.get(name);
   if (!p) {
-    p = loader.loadAsync(`models/${name}.glb`).then((gltf) => {
+    // the script writes .gltf.json; a .glb dropped in by hand is tried if that is missing
+    p = loader.loadAsync(`models/${name}.gltf.json`).catch(() => loader.loadAsync(`models/${name}.glb`)).then((gltf) => {
       const groups: Record<'body' | 'lights' | 'lightbar', THREE.BufferGeometry[]> = { body: [], lights: [], lightbar: [] };
       gltf.scene.updateMatrixWorld(true);
       gltf.scene.traverse((o) => {

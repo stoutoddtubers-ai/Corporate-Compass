@@ -1,5 +1,6 @@
 """
-Builds the 3D models for the third-person view and saves them as .glb files in public/models/.
+Builds the 3D models for the third-person view and saves them in public/models/ as glTF
+(.gltf.json: one JSON file with the model inside).
 
     python tools/blender/models3d.py            (needs `pip install bpy`)
     python tools/blender/models3d.py --only sedan,lamp
@@ -11,6 +12,8 @@ Rules (see the Specs sheet of the asset list):
 - a material called "lightbar" is the police light bar, which the game flashes red and blue.
 Colours are written as plain hex values, the way the rest of the game uses them.
 """
+import base64
+import json
 import math
 import os
 import sys
@@ -101,9 +104,28 @@ def reset():
 
 def save(name):
     os.makedirs(OUT, exist_ok=True)
-    path = os.path.join(OUT, name + '.glb')
-    bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', export_yup=True, export_apply=True,
+    # glTF as one JSON file with the model data inside it (.gltf.json): the web host that serves
+    # the shared test link takes .json files but not .glb ones. The game reads either.
+    tmp = os.path.join(OUT, name + '.gltf')
+    bpy.ops.export_scene.gltf(filepath=tmp, export_format='GLTF_SEPARATE', export_yup=True, export_apply=True,
                               export_materials='EXPORT', export_normals=True, export_texcoords=False)
+    # put the separate .bin data inside the JSON (Blender 4.2+ no longer writes embedded glTF itself)
+    with open(tmp) as f:
+        doc = json.load(f)
+    for buf in doc.get('buffers', []):
+        uri = buf.get('uri')
+        if uri and not uri.startswith('data:'):
+            binpath = os.path.join(OUT, uri)
+            with open(binpath, 'rb') as f:
+                buf['uri'] = 'data:application/octet-stream;base64,' + base64.b64encode(f.read()).decode()
+            os.remove(binpath)
+    path = os.path.join(OUT, name + '.gltf.json')
+    with open(path, 'w') as f:
+        json.dump(doc, f, separators=(',', ':'))
+    os.remove(tmp)
+    old = os.path.join(OUT, name + '.glb')
+    if os.path.exists(old):
+        os.remove(old)
     print('wrote', path, os.path.getsize(path), 'bytes')
 
 

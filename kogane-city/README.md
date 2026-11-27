@@ -114,7 +114,7 @@ Its numbers (camera distances, mouse speed, storey height, fog, colours) are in
 ### 3D models (`tools/blender/models3d.py`)
 
 Real models replace the block versions as they are made. The script builds them in Blender
-and saves .glb files in `public/models/`; the game loads each one when it starts and swaps
+and saves glTF files (`.gltf.json`) in `public/models/`; the game loads each one when it starts and swaps
 it in, keeping the block version if a file is missing. Made so far: the six vehicles, the
 loop-line train carriage, the street lamp, traffic signals (which follow the real light
 phases), utility poles with overhead wires, and the old town's tiled roofs. Rules for new
