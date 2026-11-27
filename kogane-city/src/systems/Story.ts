@@ -223,6 +223,17 @@ export class Story {
     this.objective = 'MISSION FAILED'; this.hint = (this.vars.failHint as string) ?? ''; this.marker = null; this.timer = null;
   }
 
+  /** Debug / tests: start a mission by its id, main ('M12') or side ('S-R1'). */
+  jumpToId(id: string): void {
+    const i = MISSIONS.findIndex((m) => m.id === id);
+    if (i >= 0) { this.jumpTo(i); return; }
+    const side = SIDE_MISSIONS.find((m) => m.id === id);
+    if (!side) return;
+    this.cut = null; this.card = null; this.choice = null; this.world.mode = 'play';
+    this.cleanup();
+    this.startMission(false, side);
+  }
+
   /** Debug: jump to a mission (F4 = next, F6 = start over). */
   jumpTo(i: number): void {
     this.cut = null; this.card = null; this.choice = null; this.side = null; this.world.mode = 'play';

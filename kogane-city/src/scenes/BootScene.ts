@@ -34,11 +34,11 @@ export class BootScene extends Phaser.Scene {
    * runs on the code-drawn placeholders.
    */
   private useAtlas(): void {
+    for (let i = 0; i < ATLAS.pages; i++) if (this.textures.exists('atlas' + i)) this.textures.get('atlas' + i).setFilter(Phaser.Textures.FilterMode.LINEAR); // rendered art is scaled down smoothly (set once per sheet: it is slow)
     for (const [key, f] of Object.entries(ATLAS.frames)) {
       const name = 'atlas' + f.page;
       if (!this.textures.exists(name)) continue;
       const sheet = this.textures.get(name);
-      sheet.setFilter(Phaser.Textures.FilterMode.LINEAR); // rendered art is scaled down smoothly
       const fr = sheet.add(key, 0, f.x, f.y, f.w, f.h);
       SHEET[key] = name;
       const oy = (f as { oy?: number }).oy;
