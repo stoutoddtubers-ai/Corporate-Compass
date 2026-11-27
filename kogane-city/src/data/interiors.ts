@@ -34,6 +34,8 @@ export interface InteriorDef {
   /** A room with a 'z' bed is a place to sleep: it heals and saves. What a night costs (Jun's own room is free), and the name in the "Saved at ..." message. */
   bedPrice?: number;
   saveName?: string;
+  /** How many customers are about when Jun walks in (not during missions). */
+  customers?: number;
   /** Who stands at 'n' (a look from data/characters.ts; default: a shopkeeper). */
   keeper?: string;
   /** Colour and strength of the room's light (default: warm white). */
@@ -43,7 +45,7 @@ export interface InteriorDef {
 export const INTERIORS: Record<string, InteriorDef> = {
   // Sakamaki Ramen: the counter, four tables, and the stairs up to Jun's room
   ramen: {
-    name: 'SAKAMAKI RAMEN', floor: 'wood', keeper: 'mika',
+    name: 'SAKAMAKI RAMEN', floor: 'wood', keeper: 'mika', customers: 2,
     map: [
       '################',
       '#CCCCCCCCC#...>#',
@@ -71,7 +73,7 @@ export const INTERIORS: Record<string, InteriorDef> = {
   },
   // every konbini in the city is the same konbini
   konbini: {
-    name: 'KONBINI', floor: 'lino', light: { color: 0xeaf4ff, alpha: 0.02 },
+    name: 'KONBINI', floor: 'lino', customers: 2, light: { color: 0xeaf4ff, alpha: 0.02 },
     map: [
       '##################',
       '#SSSSSS..SSSSSS.V#',
@@ -85,7 +87,7 @@ export const INTERIORS: Record<string, InteriorDef> = {
   },
   // Hachiman Hardware: tools in front, guns under the counter
   hardware: {
-    name: 'HACHIMAN HARDWARE', floor: 'concrete', till: 'hardware',
+    name: 'HACHIMAN HARDWARE', floor: 'concrete', till: 'hardware', customers: 1,
     map: [
       '##################',
       '#LLLLLLLLLLLLLLLL#',
@@ -102,7 +104,7 @@ export const INTERIORS: Record<string, InteriorDef> = {
   },
   // Golden Ball Pachinko: four double rows of machines and the cash office in the corner
   pachinko: {
-    name: 'GOLDEN BALL PACHINKO', floor: 'carpet', light: { color: 0xffd0e8, alpha: 0.05 },
+    name: 'GOLDEN BALL PACHINKO', floor: 'carpet', customers: 6, light: { color: 0xffd0e8, alpha: 0.05 },
     map: [
       '##############################',
       '#LL....................#CCCCC#',
@@ -121,7 +123,7 @@ export const INTERIORS: Record<string, InteriorDef> = {
   },
   // game arcades (Asagiri Arcade, the cat arcade, Lucky 7)
   arcade: {
-    name: 'ARCADE', floor: 'carpet', light: { color: 0xc8b0ff, alpha: 0.08 },
+    name: 'ARCADE', floor: 'carpet', customers: 4, light: { color: 0xc8b0ff, alpha: 0.08 },
     map: [
       '####################',
       '#PP.PP.PP.PP.PP.PPV#',
@@ -137,7 +139,7 @@ export const INTERIORS: Record<string, InteriorDef> = {
   },
   // a small bar: Mama Rei's
   bar: {
-    name: "MAMA REI'S", floor: 'wood', keeper: 'mama', light: { color: 0xffc090, alpha: 0.1 },
+    name: "MAMA REI'S", floor: 'wood', keeper: 'mama', customers: 2, light: { color: 0xffc090, alpha: 0.1 },
     map: [
       '############',
       '#LLLLLLLLLL#',

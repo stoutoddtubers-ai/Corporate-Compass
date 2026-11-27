@@ -637,6 +637,14 @@ export class WorldScene extends Phaser.Scene {
       if (inn) { cam.removeBounds(); this.story.stamp = 2.5; } else cam.setBounds(0, 0, this.map.widthPx, MAP.cityH * TILE_SIZE);
       this.cam.x = p.pos.x; this.cam.y = p.pos.y;
       this.roomMask.clear();
+      if (inn && !this.story.active) { // a few customers (ordinary pedestrians: they wander, and run from trouble)
+        for (let n = 0, tries = 0; n < (inn.def.customers ?? 0) && tries < 60; tries++) {
+          const x = inn.x + Math.random() * inn.w, y = inn.y + Math.random() * (inn.h - 96);
+          if (this.map.isSolid(x, y) || this.map.tileAt(x, y) !== 0 || Math.hypot(x - p.pos.x, y - p.pos.y) < 70) continue;
+          this.peds.spawn(false, { x: (Math.floor(x / TILE_SIZE) + 0.5) * TILE_SIZE, y: (Math.floor(y / TILE_SIZE) + 0.5) * TILE_SIZE });
+          n++;
+        }
+      }
       if (inn) { // black out everything round the room (other rooms are stored right beside it)
         const m = 4000, top = inn.y - 80;
         this.roomMask.fillStyle(0x08080c, 1).fillRect(inn.x - m, top - m, inn.w + 2 * m, m).fillRect(inn.x - m, inn.y + inn.h, inn.w + 2 * m, m)
