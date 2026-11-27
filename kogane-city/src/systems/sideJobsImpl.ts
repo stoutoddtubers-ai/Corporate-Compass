@@ -112,7 +112,7 @@ export class CityJobs extends SideJobs {
       const q = world.map.places[id];
       if (!q) continue;
       const l = world.map.nearestLane(q.x, q.y); // a rank is on the road nearest its landmark
-      const k = Phaser.Math.Clamp(((q.x - l.ax) * l.dx + (q.y - l.ay) * l.dy) / l.len, J.taxi.rankSpan[0], J.taxi.rankSpan[1]);
+      const k = Phaser.Math.Clamp(((q.x - l.ax) * l.dx + (q.y - l.ay) * l.dy + J.taxi.rankShift) / l.len, J.taxi.rankSpan[0], J.taxi.rankSpan[1]);
       this.ranks.push({ x: l.ax + l.dx * l.len * k, y: l.ay + l.dy * l.len * k });
     }
   }
@@ -389,7 +389,7 @@ export class CityJobs extends SideJobs {
   }
 
   private finishTaxi(won: boolean, why = ''): void {
-    const sum = this.faresDone ? say(X.taxi.result, { n: this.faresDone, amount: yen(this.earned) }) : '';
+    const sum = this.faresDone ? say(this.faresDone === 1 ? X.taxi.resultOne : X.taxi.result, { n: this.faresDone, amount: yen(this.earned) }) : '';
     this.finish(won, [why, sum].filter(Boolean).join(' '));
   }
 
@@ -454,6 +454,12 @@ export class CityJobs extends SideJobs {
       park[y * W + x] = 1;
       if (Math.abs((y + 0.5) * TS - (l.y + l.h / 2)) < 40) taken[y * W + x] = 1;
     }
+    // hand-laid floors outside the car parks (the covered shopping street) are open street, not a back alley
+    const street = new Uint8Array(W * H);
+    for (const b of map.blocks) for (const it of MAP.layouts[b.id] ?? []) {
+      if (it.kind !== 'f') continue;
+      for (let y = b.y / TS + it.r[1]; y < b.y / TS + it.r[1] + it.r[3]; y++) for (let x = b.x / TS + it.r[0]; x < b.x / TS + it.r[0] + it.r[2]; x++) street[y * W + x] = 1;
+    }
     const nearRoad = (x: number, y: number) => {
       for (let j = -K.roadClear; j <= K.roadClear; j++) for (let i = -K.roadClear; i <= K.roadClear; i++) { const t = at(x + i, y + j); if (t === Tile.Road || t === Tile.Crossing) return true; }
       return false;
@@ -465,7 +471,7 @@ export class CityJobs extends SideJobs {
       for (let y = b.y / TS - 1; y <= (b.y + b.h) / TS; y++) for (let x = b.x / TS - 1; x <= (b.x + b.w) / TS; x++) {
         const i = y * W + x, t = at(x, y);
         if (!reach[i] || taken[i]) continue;
-        if (t === Tile.Walk) pool.sidewalk.push(i);
+        if (t === Tile.Walk || (t === Tile.Lot && street[i] && !park[i])) pool.sidewalk.push(i);
         else if (t === Tile.Lot && !nearRoad(x, y)) (park[i] ? pool.carPark : pool.alley).push(i);
       }
       return pool;

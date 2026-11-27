@@ -44,6 +44,7 @@ export const SIDE_JOBS = {
     unlockAfter: 1, // PLACEHOLDER: missions finished (1 = as soon as the city opens up)
     /** Taxi ranks: each is put on the stretch of road nearest this place (ids from data/map.ts). PLACEHOLDER list. */
     ranks: ['asagiri', 'catArcade', 'garage', 'pachinko', 'scramble', 'centralStation', 'rokkakuTower'],
+    rankShift: 96, // PLACEHOLDER: a rank is this far along the road past its landmark (so it is not under the temple gate or on a doorstep)
     rankSpan: [0.25, 0.75], // PLACEHOLDER: a rank sits in this middle part of its road, clear of the junctions
     /** Which vehicles can be a taxi (the `shape` in data/vehicles.ts): anything with four wheels. PLACEHOLDER */
     vehicles: ['car', 'sports', 'police', 'truck'],
@@ -136,6 +137,7 @@ export const SIDE_TEXT = {
     dropOff: 'Drop off the fare.', // NEW
     count: 'Fare {n} of {max}', // NEW
     result: '{n} fares · ¥{amount}', // NEW
+    resultOne: '1 fare · ¥{amount}', // NEW
     // Passengers say the script's pedestrian lines (data/ai.ts): "calm" getting in, "panic" in a crash, "react" when time runs out.
   },
   race: {

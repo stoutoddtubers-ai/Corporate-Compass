@@ -92,7 +92,13 @@ const ok = (cond, what, detail) => {
   // ------------------------------------------------------------------ ramen delivery
   console.log('\nRAMEN DELIVERY');
   const shop = await start('ramen'), aside = { x: shop.x, y: shop.y + 120 };
-  await begin('ramen', aside);
+  await calm();
+  await tp(aside.x, aside.y);
+  await wait(300);
+  await page.keyboard.down('KeyW'); // really walk north into the ring
+  const walked = await until(() => window.__kc.side.job === 'ramen', 'walking into the ring starts the job');
+  await page.keyboard.up('KeyW');
+  ok(walked, 'walking into the ring (W key) starts the job, nothing else to press');
   let s = await state();
   ok(s.active && s.car === 'scooter' && s.scooters === 1, 'spawns the scooter with Jun on it', s);
   ok(/^Deliver to /.test(s.objective) && !!s.marker, 'gives a delivery with a marker', s.objective);
