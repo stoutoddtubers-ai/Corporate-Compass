@@ -10,6 +10,7 @@ export const STRINGS = {
   UI_HEAT_CLEAR: 'CLEAN',
   OBJ_LOSE_POLICE: 'Lose the police.',
   PROMPT_STEAL: 'E — Steal',
+  PROMPT_DRINK: 'E — Drink ¥{price}', // new wording, not yet in the script doc
 } as const;
 
 export type StringId = keyof typeof STRINGS;

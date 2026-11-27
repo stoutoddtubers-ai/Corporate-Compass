@@ -228,13 +228,23 @@ def person(lid, look, frame):
     s = reset(); MATS.clear()
     jacket, hair, accent, at = look
     j = mat('j', jacket, 0.75); skin = mat('skin', '#e0b08a', 0.6); h = mat('h', hair, 0.5); shoe = mat('shoe', 0x1a1612, 0.7)
-    step = {0: 0, 1: 1, 2: -1}[frame]
+    if frame == 4:  # knocked down: lying flat on the ground
+        ball((0, 0, 2.3), (6.5, 4.4, 2.3), j); ball((8.6, 0, 2.6), (2.9, 2.9, 2.6), skin); ball((8.0, 0, 3.0), (3.0, 3.1, 2.6), h)
+        for sy in (-1, 1):
+            ball((1.5, sy * 6.6, 1.5), (2, 3.6, 1.4), j); ball((2, sy * 10, 1.4), (1.3, 1.3, 1.2), skin)
+            ball((-8.5, sy * 2.2, 1.6), (4.6, 1.6, 1.5), mat('legs', 0x2a2a30, 0.8)); ball((-13, sy * 2.4, 1.6), (1.6, 1.5, 1.4), shoe)
+        if accent and at == 'back': box((0, 0, 4.4), (4, 5, 0.6), mat('a', accent, 0.5), 0.2)
+        render_dirs(s, f'p_{lid}_{frame}', 24, 14)
+        return
+    step = {0: 0, 1: 1, 2: -1, 3: 0}[frame]
     for sy in (-1, 1):                                    # feet: one forward, one back when walking
         ball((sy * step * 3.4, sy * 2.4, 1.4), (2.6, 1.5, 1.2), shoe)
     ball((-0.6, 0, 5.5), (3.8, 7.0, 3.2), j)              # shoulders
     ball((-0.9, 0, 5.0), (3.2, 4.6, 3.4), j)              # back
     for sy in (-1, 1):                                    # arms swing opposite to the feet
         ax = 3.0 - sy * step * 2.2
+        if frame == 3 and sy == 1:  # punching: this arm is thrown forward
+            ball((6.5, sy * 4.2, 5.8), (5.2, 1.8, 1.8), j); ball((11.6, sy * 3.8, 5.8), (1.9, 1.9, 1.7), skin); continue
         ball((ax, sy * 5.5, 5.4), (3.3, 1.7, 1.7), j); ball((ax + 3.4, sy * 4.8, 5.3), (1.4, 1.4, 1.3), skin)
     ball((1.3, 0, 9.3), (2.9, 2.9, 2.9), skin)            # face peeks out in front
     hat = HATS.get(lid)
@@ -375,6 +385,13 @@ def prop(name):
     elif name == 'lamp':
         cyl((-4, 0, 1), 2.6, 2, dark); cyl((-4, 0, 14), 1.3, 28, steel); box((1, 0, 28), (10, 1.6, 1.2), steel, 0.3)
         box((6, 0, 27.6), (5, 3.4, 1.6), dark, 0.5); ball((6, 0, 26.6), (2, 1.5, 0.8), mat('bulb', 0xffe2b0, 0.3, 0, 8)); size = 20
+    elif name == 'gate':  # the Hozuki-mon temple gate with its giant red lantern
+        red = mat('gred', 0xd8343a, 0.5); blackw = mat('gblk', 0x1c1a18, 0.6)
+        for x in (-86, 86): cyl((x, 0, 23), 7, 46, red, verts=24); cyl((x, 0, 2), 9, 4, blackw, verts=24)
+        box((0, 0, 42), (196, 8, 8), red, 1); box((0, 0, 51), (214, 12, 5), mat('gbeam', 0xb02a30, 0.5), 1.5); box((0, 0, 55), (206, 16, 3), mat('gtile', 0x8a2a2a, 0.55), 1)
+        ball((0, 0, 24), (17, 17, 15), mat('lant', 0xe03a3a, 0.5, 0, 0.6)); cyl((0, 0, 39), 9, 3, blackw); cyl((0, 0, 9), 9, 3, blackw)
+        for z in (16, 22, 28, 34): cyl((0, 0, z), 16.6 - abs(z - 24) * 0.45, 0.6, mat('rib', 0x9a2020, 0.6), verts=28)
+        size = 224
     elif name == 'bench':
         for y in (-3, 0, 3): box((0, y, 4), (18, 2.4, 0.8), mat('wood', 0x8a6a4a, 0.7), 0.2)
         for x in (-7, 7): box((x, 0, 2), (1.4, 8, 3.6), dark, 0.2)
@@ -396,7 +413,7 @@ def prop(name):
             ball((math.cos(a) * d, math.sin(a) * d, 13 + rs.uniform(0, 6)), (r, r, r * 0.8), mat('leaf%d' % (i % 3), leaf + (i % 3) * 0x060a04, 0.85))
         size = 44
     # things that stand on the street lean like everything else; rooftop props are painted flat onto roofs
-    tall = next((h for k, h in (('vending', 19), ('lamp', 30), ('tree', 24), ('bench', 5), ('bin', 9), ('cone', 9), ('crate', 11)) if name.startswith(k)), 0)
+    tall = next((h for k, h in (('vending', 19), ('lamp', 30), ('tree', 24), ('bench', 5), ('bin', 9), ('cone', 9), ('crate', 11), ('gate', 58)) if name.startswith(k)), 0)
     render_dirs(s, f'prop_{name}', size, tall, 1)
 
 # ---------------------------------------------------------------- run everything, then pack the sheet
@@ -405,10 +422,11 @@ for vid, v in VEHICLES.items():
     for ci in range(len(v['colors'])): jobs.append(('car', lambda vid=vid, v=v, ci=ci: vehicle(vid, v, ci)))
 for lid, look in LOOKS.items():
     for fr in (0, 1, 2): jobs.append(('person', lambda lid=lid, look=look, fr=fr: person(lid, look, fr)))
+    for fr in (3, 4): jobs.append(('pose', lambda lid=lid, look=look, fr=fr: person(lid, look, fr)))  # punch, knocked down
     jobs.append(('bust', lambda lid=lid, look=look: bust(lid, look)))
 for n in ('asphalt0', 'asphalt1', 'asphalt2', 'paver', 'kerb', 'water0', 'water1', 'planks', 'awning'): jobs.append(('ground', lambda n=n: ground(n)))
 for n in ('tile', 'metal', 'plank', 'flat'): jobs.append(('roof', lambda n=n: roof_tile(n)))
-for n in ('ac', 'tank', 'vent', 'skylight', 'dish', 'solar', 'vending0', 'vending1', 'vending2', 'lamp', 'tree0', 'tree1', 'tree2', 'bench', 'bin', 'cone', 'crate'): jobs.append(('prop', lambda n=n: prop(n)))
+for n in ('ac', 'tank', 'vent', 'skylight', 'dish', 'solar', 'vending0', 'vending1', 'vending2', 'lamp', 'tree0', 'tree1', 'tree2', 'bench', 'bin', 'cone', 'crate', 'gate'): jobs.append(('prop', lambda n=n: prop(n)))
 for kind, job in jobs:
     if ONLY != 'pack' and (not ONLY or ONLY == kind): job()  # '--only pack' just rebuilds the sheet
 
@@ -441,8 +459,11 @@ for name, im in imgs: sheet.paste(im, (frames[name]['x'], frames[name]['y']))
 os.makedirs(os.path.join(ROOT, 'public', 'assets'), exist_ok=True)
 sheet.save(os.path.join(ROOT, 'public', 'assets', 'atlas.png'), optimize=True)
 import glob
-if ORIGIN: json.dump(ORIGIN, open(os.path.join(OUT, 'origins.json'), 'w'))  # kept so '--only pack' still knows them
-ORIGIN = json.load(open(os.path.join(OUT, 'origins.json'))) if os.path.exists(os.path.join(OUT, 'origins.json')) else {}
+# origins are remembered between runs, so rendering only part of the set keeps the rest
+_op = os.path.join(OUT, 'origins.json')
+_all = json.load(open(_op)) if os.path.exists(_op) else {}
+_all.update(ORIGIN); ORIGIN = _all
+json.dump(ORIGIN, open(_op, 'w'))
 for n, oy in ORIGIN.items():
     if n in frames and abs(oy - 0.5) > 0.001: frames[n]['oy'] = round(oy, 4)
 json.dump(dict(scale=SCALE, tilt=TILT, frames=frames), open(os.path.join(ROOT, 'src', 'data', 'atlas.json'), 'w'), indent=1)

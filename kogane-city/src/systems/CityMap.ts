@@ -19,8 +19,10 @@ export interface Plot extends Rect { district: string; block: string; roof?: str
 export interface Block extends Rect { id: string; district: string }
 export interface Place { x: number; y: number; sx: number; sy: number; label: string; rect: Rect | null }
 export interface Light { x: number; y: number; color: number; scale: number; alpha: number }
+/** A piece of street furniture. Posts (trees, lamps, vending machines) stop cars; loose things get knocked flying. */
+export interface Furniture { x: number; y: number; key: string; h: number; solid?: 'post' | 'loose'; roof?: Roof; gone?: boolean }
 /** Something drawn above the street: a rooftop (with its building's footprint, for walls), a sign, the gate... */
-export interface Roof { img: Phaser.GameObjects.Image | Phaser.GameObjects.Text; x: number; y: number; h: number; rect?: Rect; wall?: number; sway?: boolean; smoke?: boolean; beacon?: boolean }
+export interface Roof { img: Phaser.GameObjects.Image | Phaser.GameObjects.Text; x: number; y: number; h: number; rect?: Rect; wall?: number; sway?: boolean; smoke?: boolean; beacon?: boolean; awn?: number[]; dead?: boolean }
 export interface Junction { id: number; x: number; y: number; lit: boolean; offset: number }
 
 /** Small repeatable random number generator, so the city is the same every time. */
@@ -68,7 +70,7 @@ export class CityMap {
   /** Swaps the two water pictures, so the river and canal shimmer. */
   shimmer(): void { this.groundLayer?.swapByIndex(T.water, T.water + 1); }
   /** Street furniture drawn as sprites: trees, benches, bins, crates, cones. `h` > 0 makes it stand up (2.5D). */
-  readonly furniture: { x: number; y: number; key: string; h: number }[] = [];
+  readonly furniture: Furniture[] = [];
 
   constructor() {
     this.build();
@@ -269,6 +271,7 @@ export class CityMap {
     for (const h of Hh.slice(1, -1)) for (let x = V[0] + rw + 6; x < V[V.length - 1]; x += MAP.lampSpacing) { treeAt(x + 1, h - 1); treeAt(x + 4, h + rw); }
     for (const v of V) for (let y = Hh[0] + rw + 3; y < Hh[Hh.length - 1]; y += MAP.lampSpacing) { lampAt(v - 1, y); lampAt(v + rw, y + 3); }
     for (const h of Hh) for (let x = V[0] + rw + 3; x < V[V.length - 1]; x += MAP.lampSpacing) { lampAt(x, h - 1); lampAt(x + 3, h + rw); }
+    this.furniture.push({ x: this.places.asagiri.x, y: this.places.asagiri.y, key: 'prop_gate', h: 0 }); // Hozuki-mon
     // crates and traffic cones scattered round the industrial yards
     for (const l of this.lots) {
       if (l.district !== 'tetsugawa') continue;
@@ -286,7 +289,7 @@ export class CityMap {
       const st = DISTRICTS[MAP.districtAt(x, y)], roll = rnd();
       // colour changes every few tiles so it reads as a row of different shops
       const shop = Math.floor((s < 2 ? x : y) / 3) + s * 7;
-      if (roll < st.awningChance) this.decals[y * W + x] = T.awning + s * 4 + (shop % st.awnings.length);
+      if (roll < st.awningChance) { void shop; /* awnings are now drawn on the building's wall, not on the pavement */ }
       else if (roll > 0.955) this.furniture.push({ x: (x + 0.5 - side[s][0] * 0.2) * TS, y: (y + 0.5 - side[s][1] * 0.2) * TS, key: roll > 0.98 && st !== DISTRICTS.tetsugawa ? 'prop_bench' : 'prop_bin', h: 0 });
       else if (roll < st.awningChance + 0.05) {
         const c = Math.floor(rnd() * 3);
@@ -590,28 +593,20 @@ export class CityMap {
       tex.refresh();
       const hgt = r.roof ? MAP.roofHeight * (r.height ?? 1) : D.height[0] + rnd() * (D.height[1] - D.height[0]);
       out.push({ img: scene.add.image(r.x + r.w / 2, r.y + r.h / 2, key).setDepth(20), x: r.x + r.w / 2, y: r.y + r.h / 2, h: hgt, rect: r, wall: D.walls[i % D.walls.length],
-        smoke: !r.roof && r.district === 'tetsugawa' && i % 3 === 0, beacon: !r.roof && hgt > 0.16 });
+        smoke: !r.roof && r.district === 'tetsugawa' && i % 3 === 0, beacon: !r.roof && hgt > 0.14,
+        awn: plain ? undefined : D.awnings.map((c) => parseInt(c.slice(1), 16)) });
     });
     // street furniture rendered in Blender; trees stand up a little, the rest sits on the ground
     const sheet = scene.textures.exists('atlas') ? scene.textures.get('atlas') : null;
     for (const f of this.furniture) {
       if (!sheet || !sheet.has(f.key)) continue;
       // standing things are drawn in the same depth order as people and cars: lower on screen = in front
-      out.push({ img: scene.add.image(f.x, f.y, 'atlas', f.key).setScale(0.5).setDepth(4 + f.y * 1e-5), x: f.x, y: f.y, h: 0, sway: f.key.startsWith('prop_tree') });
+      const roof: Roof = { img: scene.add.image(f.x, f.y, 'atlas', f.key).setScale(0.5).setDepth(4 + f.y * 1e-5), x: f.x, y: f.y, h: 0, sway: f.key.startsWith('prop_tree') };
+      out.push(roof);
+      f.roof = roof;
+      f.solid = /tree|lamp|vending/.test(f.key) ? 'post' : /bench|bin|cone|crate/.test(f.key) ? 'loose' : undefined;
     }
-    // the Hozuki-mon temple gate: a red beam across the road with one giant lantern
-    const gate = this.places.asagiri, gw = (MAP.roadWidth + 2) * TS;
-    const tex = scene.textures.createCanvas('gate', gw, 40)!;
-    const g = tex.getContext(), red = MAP.colors.lanternRed;
-    g.fillStyle = '#3a2a22'; g.fillRect(0, 8, gw, 8);
-    g.fillStyle = red; g.fillRect(0, 12, gw, 12); g.fillStyle = '#8a1f22'; g.fillRect(0, 22, gw, 3);
-    g.fillStyle = red; g.fillRect(2, 2, 24, 34); g.fillRect(gw - 26, 2, 24, 34);
-    g.fillStyle = '#1c1a18'; g.fillRect(2, 2, 24, 4); g.fillRect(gw - 26, 2, 24, 4);
-    g.fillStyle = red; g.beginPath(); g.ellipse(gw / 2, 20, 22, 19, 0, 0, 7); g.fill();
-    g.fillStyle = '#1c1a18'; g.fillRect(gw / 2 - 12, 0, 24, 4); g.fillRect(gw / 2 - 12, 36, 24, 4);
-    g.fillStyle = 'rgba(0,0,0,0.25)'; for (let y = 8; y < 34; y += 6) g.fillRect(gw / 2 - 20, y, 40, 1);
-    tex.refresh();
-    out.push({ img: scene.add.image(gate.x, gate.y, 'gate').setDepth(20), x: gate.x, y: gate.y, h: MAP.roofHeight * 0.6 });
+    const gate = this.places.asagiri; // the temple gate itself is a standing sprite (see decorate)
     this.lights.push({ x: gate.x, y: gate.y, color: 0xff5040, scale: 1.4, alpha: 0.8 });
     // the shōtengai's canopy: a see-through striped roof over the shopping street
     for (const b of this.blocks) for (const it of MAP.layouts[b.id] ?? []) {

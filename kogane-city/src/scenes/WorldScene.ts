@@ -7,7 +7,8 @@ import { PEDS, PARKED, PICKUPS, TRAFFIC } from '../data/ai';
 import { HEAT } from '../data/heat';
 import { WEAPONS } from '../data/weapons';
 import { BARKS, pick, t } from '../data/strings';
-import { CityMap, Roof } from '../systems/CityMap';
+import { CityMap, Roof, Furniture } from '../systems/CityMap';
+import { DAY } from '../data/missions';
 import { Fx } from '../systems/Fx';
 import { Projectiles } from '../systems/Projectiles';
 import { HeatSystem } from '../systems/HeatSystem';
@@ -45,6 +46,16 @@ export class WorldScene extends Phaser.Scene {
   private roofs: Roof[] = [];
   private wallG!: Phaser.GameObjects.Graphics;
   private halo!: Phaser.GameObjects.Image;
+  /** Free roam: the clock runs and the light changes. Missions switch this off. */
+  dayCycle = false;
+  /** Time of day, 0..1. */
+  clock: number = DAY.startAt;
+  private rainT: number = DAY.rainEvery;
+  private raining = 0;
+  /** Strips of ground hidden behind buildings this frame [x0, y0, x1, y1]. */
+  private occl: number[][] = [];
+  private posts = new Map<number, Furniture[]>();
+  private debris: { roof: Roof; vx: number; vy: number; spin: number; life: number }[] = [];
   private shade!: Phaser.GameObjects.Rectangle;
   private glows: Phaser.GameObjects.Image[] = [];
   private slowT = 0;
@@ -75,6 +86,13 @@ export class WorldScene extends Phaser.Scene {
     // rooftops (they slide with the camera to look tall), and the signs painted on them
     this.roofs = this.map.makeRoofs(this);
     this.wallG = this.add.graphics().setDepth(19);
+    // street furniture that can be hit, sorted into a grid so cars only check what is near them
+    for (const f of this.map.furniture) {
+      if (!f.solid) continue;
+      const key = (Math.floor(f.x / 128) << 10) | Math.floor(f.y / 128);
+      if (!this.posts.has(key)) this.posts.set(key, []);
+      this.posts.get(key)!.push(f);
+    }
     // a faint gold glow under Jun so he is easy to find, even at night or behind a building
     this.halo = this.add.image(0, 0, 'glow').setTint(0xe8b923).setScale(0.42).setAlpha(0.4).setDepth(31).setBlendMode(Phaser.BlendModes.ADD);
     for (const pl of Object.values(this.map.places)) {
@@ -299,6 +317,63 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  /** Cars hit street furniture: trees, lamps and vending machines stop them; bins, benches, cones and crates go flying. */
+  private collideFurniture(dt: number): void {
+    for (const c of this.cars) {
+      if (c.removed || c.speed < 25) continue;
+      const cx = Math.floor(c.x / 128), cy = Math.floor(c.y / 128);
+      for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+        const list = this.posts.get(((cx + i) << 10) | (cy + j));
+        if (!list) continue;
+        for (const f of list) {
+          if (f.gone) continue;
+          for (let m = 0; m < 2; m++) {
+            const k = c.circle(m as 0 | 1), dx = k.x - f.x, dy = k.y - f.y, d = Math.hypot(dx, dy) || 0.01, over = k.r + 5 - d;
+            if (over <= 0) continue;
+            if (f.solid === 'loose') {
+              f.gone = true;
+              if (f.roof) this.debris.push({ roof: f.roof, vx: c.vx * 0.9 + (Math.random() - 0.5) * 120, vy: c.vy * 0.9 + (Math.random() - 0.5) * 120, spin: (Math.random() - 0.5) * 14, life: 1.1 });
+              c.vx *= 0.95; c.vy *= 0.95;
+              break;
+            }
+            const nx = dx / d, ny = dy / d, vn = c.vx * nx + c.vy * ny;
+            c.x += nx * over; c.y += ny * over;
+            if (vn < 0) {
+              c.vx -= 1.3 * vn * nx; c.vy -= 1.3 * vn * ny;
+              if (-vn > CAR_DAMAGE.crashMinSpeed) c.damage((-vn - CAR_DAMAGE.crashMinSpeed) * CAR_DAMAGE.crashScale, false);
+              if (-vn > 60) this.fx.spark(f.x, f.y);
+            }
+          }
+        }
+      }
+    }
+    for (let i = this.debris.length - 1; i >= 0; i--) {
+      const d = this.debris[i];
+      d.life -= dt;
+      d.roof.x += d.vx * dt; d.roof.y += d.vy * dt; d.vx *= 1 - 2.5 * dt; d.vy *= 1 - 2.5 * dt;
+      d.roof.img.rotation += d.spin * dt;
+      d.roof.img.setAlpha(Math.max(0, Math.min(1, d.life * 2)));
+      if (d.life <= 0) { d.roof.dead = true; this.debris.splice(i, 1); }
+    }
+  }
+
+  /** The nearest vending machine within reach, if any. */
+  vendingNear(x: number, y: number): Furniture | null {
+    const cx = Math.floor(x / 128), cy = Math.floor(y / 128);
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++)
+      for (const f of this.posts.get(((cx + i) << 10) | (cy + j)) ?? []) if (f.key.startsWith('prop_vending') && Math.hypot(f.x - x, f.y - y) < 34) return f;
+    return null;
+  }
+
+  /** Vending-machine drink: +25 HP for ¥150 (bible). */
+  buyDrink(): void {
+    const p = this.player, v = this.vendingNear(p.actor.x, p.actor.y);
+    if (!v || p.hp >= PLAYER.maxHp || p.cash < PLAYER.drink.price) return;
+    p.cash -= PLAYER.drink.price;
+    p.hp = Math.min(PLAYER.maxHp, p.hp + PLAYER.drink.hp);
+    this.fx.bark(p.actor.sprite, `+${PLAYER.drink.hp} HP`, '#7fe08a');
+  }
+
   private collideCarPeople(): void {
     const everyone: Actor[] = this.npcs();
     if (!this.player.car) everyone.push(this.player.actor);
@@ -410,6 +485,7 @@ export class WorldScene extends Phaser.Scene {
       if (c.input.throttle > 0 && c.speed < 150 && Math.random() < 0.2 && this.onScreen(c.x, c.y, 40)) this.fx.puff(c.x - fx * c.def.length * 0.5, c.y - fy * c.def.length * 0.5, 0x9a9a9a, 5, 0.5, -fx * 30, -fy * 30, 1.6, 0.35);
     }
     this.collideCars();
+    this.collideFurniture(dt);
     this.collideCarPeople();
     for (const c of this.cars) c.sync();
     this.peds.update(dt);
@@ -447,7 +523,9 @@ export class WorldScene extends Phaser.Scene {
     const mid = cam.midPoint, vw = cam.worldView, g = this.wallG, pp = this.player.pos;
     const lit = this.ambience.lights > 0.4;
     g.clear();
+    this.occl.length = 0;
     for (const r of this.roofs) {
+      if (r.dead) { r.img.setVisible(false); continue; }
       const on = Math.abs(r.x - mid.x) < vw.width / 2 + 360 && Math.abs(r.y - mid.y) < vw.height / 2 + 360;
       r.img.setVisible(on);
       if (!on) continue;
@@ -462,12 +540,13 @@ export class WorldScene extends Phaser.Scene {
       const X0 = x0 + (x0 - mid.x) * ps, Y0 = y0 + (y0 - mid.y) * ps - lean, X1 = x1 + (x1 - mid.x) * ps, Y1 = y1 + (y1 - mid.y) * ps - lean; // roof corners
       if (r.smoke && Math.random() < 0.1) this.fx.puff(X0 + (X1 - X0) * 0.3, Y0 + (Y1 - Y0) * 0.3, 0x8a8a8a, 10, 2.2, -8 + Math.random() * 6, -26, 1.1, 0.45); // factory chimneys
       if (r.beacon && Math.floor(this.time.now / 700 + r.x) % 2) this.fx.puff(X1 - 8, Y0 + 8, 0xff3030, 5, 0.08, 0, 0, 0, 0.9); // blinking roof beacons
+      this.occl.push([Math.min(x0, X0), Y0, Math.max(x1, X1), y0]); // the ground this building hides
       // if the player is hidden behind this building, make it see-through
       const hidden = pp.x > X0 - 8 && pp.x < X1 + 8 && pp.y > Y0 - 8 && pp.y < Y1 + 8;
       const alpha = hidden ? 0.4 : 1;
       r.img.setAlpha(alpha);
       const col = r.wall ?? 0x666666, dark = Phaser.Display.Color.IntegerToColor(col).darken(28).color;
-      const tall = k >= 0.06, day = !lit, seed = (b.x * 7 + b.y * 13) | 0;
+      const tall = k >= 0.06, day = !lit, seed = (b.x * 7 + b.y * 13) | 0, awn = r.awn;
       const wall = (ax: number, ay: number, bx: number, by: number, AX: number, AY: number, BX: number, BY: number, c: number, side: number) => {
         g.fillStyle(c, alpha).fillTriangle(ax, ay, bx, by, BX, BY).fillTriangle(ax, ay, BX, BY, AX, AY);
         const rise = Math.hypot(AX - ax, AY - ay);
@@ -477,8 +556,17 @@ export class WorldScene extends Phaser.Scene {
         const py = (s: number, t: number) => ay + (by - ay) * s + (AY - ay + (BY - AY - by + ay) * s) * t;
         g.fillStyle(0x000000, 0.22 * alpha).fillTriangle(px(0, 0), py(0, 0), px(1, 0), py(1, 0), px(1, 0.14), py(1, 0.14)).fillTriangle(px(0, 0), py(0, 0), px(1, 0.14), py(1, 0.14), px(0, 0.14), py(0, 0.14)); // shop-front band
         const n = Math.max(1, Math.floor(Math.hypot(bx - ax, by - ay) / 22)), rows = k > 0.12 ? 3 : 2;
+        if (awn && side !== 2) { // shop awnings along the wall, a different colour for each shop
+          const shops = Math.max(1, Math.floor(n / 3));
+          for (let j = 0; j < shops; j++) {
+            if ((seed + j * 3 + side) % 4 === 0) continue; // some shops have none
+            const s0 = (j + 0.05) / shops, s1 = (j + 0.95) / shops;
+            g.fillStyle(awn[(seed + j) % awn.length], alpha);
+            g.fillTriangle(px(s0, 0.15), py(s0, 0.15), px(s1, 0.15), py(s1, 0.15), px(s1, 0.27), py(s1, 0.27)).fillTriangle(px(s0, 0.15), py(s0, 0.15), px(s1, 0.27), py(s1, 0.27), px(s0, 0.27), py(s0, 0.27));
+          }
+        }
         for (let row = 0; row < rows; row++) {
-          const t0 = 0.24 + (row * 0.7) / rows, t1 = t0 + 0.42 / rows;
+          const t0 = 0.32 + (row * 0.62) / rows, t1 = t0 + 0.42 / rows;
           for (let i = 0; i < n; i++) {
             const s0 = (i + 0.22) / n, s1 = (i + 0.78) / n;
             const on = !day && ((seed + i * 31 + row * 17 + side * 5) % 7) < 3; // some windows are lit at night
@@ -507,9 +595,27 @@ export class WorldScene extends Phaser.Scene {
     if (down(k.FOUR) && !c.up.armour && pay(GARAGE.armour.price)) { c.up.armour = 1; c.maxHp = c.def.hp * (1 + GARAGE.armour.hp); c.hp = c.maxHp; c.burning = false; }
   }
 
+  /** Free roam: move the clock on and blend the light between the times of day; now and then it rains. */
+  private tickDay(dt: number): void {
+    this.clock = (this.clock + dt / (DAY.minutes * 60)) % 1;
+    const K = DAY.keys;
+    let i = 0;
+    while (i < K.length - 2 && K[i + 1][0] <= this.clock) i++;
+    const [t0, a] = K[i], [t1, b] = K[i + 1], k = Phaser.Math.Clamp((this.clock - t0) / (t1 - t0 || 1), 0, 1);
+    const mix = (shift: number) => Math.round(Phaser.Math.Linear((a.color >> shift) & 255, (b.color >> shift) & 255, k)) << shift;
+    this.rainT -= dt;
+    if (this.raining > 0) this.raining -= dt;
+    else if (this.rainT <= 0) { this.rainT = DAY.rainEvery; if (Math.random() < DAY.rainChance) this.raining = DAY.rainFor; }
+    const wet = this.raining > 0;
+    this.ambience = { color: mix(16) | mix(8) | mix(0), alpha: Phaser.Math.Linear(a.alpha, b.alpha, k) + (wet ? 0.08 : 0), lights: Math.max(Phaser.Math.Linear(a.lights, b.lights, k), wet ? 0.4 : 0), rain: wet };
+    this.shade.setFillStyle(this.ambience.color, this.ambience.alpha);
+    Car.lights = this.ambience.lights;
+  }
+
   /** A few times a second: move the light pool to the lamps on screen, and fill / empty nearby car parks. */
   private slowUpdate(): void {
     this.map.shimmer(); // water ripples
+    if (this.dayCycle) this.tickDay(0.3);
     const v = this.cameras.main.worldView, p = this.player.pos, a = this.ambience;
     let n = 0;
     if (a.lights > 0.05) for (const l of this.map.lights) {
@@ -556,8 +662,17 @@ export class WorldScene extends Phaser.Scene {
     }
     let near: Car | null = null;
     if (!p.car && this.mode === 'play' && !p.entering) near = this.nearestCar(p.actor.x, p.actor.y, PLAYER.enterRange);
-    this.prompt.setVisible(!!near);
-    if (near) this.prompt.setPosition(near.x, near.y - 20);
+    // vending machines sell drinks when you are hurt and no car is in reach
+    const vend = !near && !p.car && this.mode === 'play' && !p.entering && p.hp < PLAYER.maxHp ? this.vendingNear(p.actor.x, p.actor.y) : null;
+    this.prompt.setVisible(!!near || !!vend);
+    if (near) this.prompt.setText(t('PROMPT_STEAL')).setPosition(near.x, near.y - 30);
+    else if (vend) this.prompt.setText(t('PROMPT_DRINK', { price: PLAYER.drink.price })).setPosition(vend.x, vend.y - 34);
+    // enemies and pickups hidden behind a building show through as rings
+    const hidden = (x: number, y: number) => this.occl.some((o) => x > o[0] && x < o[2] && y > o[1] && y < o[3]);
+    for (const a of this.police.cops) if (a.alive && hidden(a.x, a.y)) g.lineStyle(2, 0x4a8cff, 0.9).strokeCircle(a.x, a.y - 8, 8);
+    for (const a of this.gang.thugs) if (a.alive && hidden(a.x, a.y)) g.lineStyle(2, 0xc060ff, 0.9).strokeCircle(a.x, a.y - 8, 8);
+    for (const k of this.pickups) if (k.hidden <= 0 && hidden(k.x, k.y)) g.lineStyle(2, 0xe8b923, 0.9).strokeRect(k.x - 6, k.y - 6, 12, 12);
+    for (const c of this.cars) if ((c.driver === 'cop' || c.driver === 'gang') && hidden(c.x, c.y)) g.lineStyle(2, c.driver === 'cop' ? 0x4a8cff : 0xc060ff, 0.9).strokeCircle(c.x, c.y - 8, 16);
     if (p.entering && p.entering.need > 0) {
       const c = p.entering.car;
       g.fillStyle(0x000000, 0.7).fillRect(c.x - 21, c.y - 27, 42, 6);

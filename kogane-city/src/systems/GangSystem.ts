@@ -101,6 +101,7 @@ export class GangSystem {
       a.timer -= dt;
       if (d < 26 && a.timer <= 0 && !w.player.car) {
         a.timer = MISSION_TUNING.thugAttackGap;
+        a.punch();
         w.player.takeDamage(MISSION_TUNING.thugDamage, false);
         w.fx.spark(p.x, p.y, 0xffffff);
       }

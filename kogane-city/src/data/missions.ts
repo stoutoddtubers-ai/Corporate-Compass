@@ -413,3 +413,22 @@ export const AMBIENCE = {
   afternoon: { color: 0x5a2a10, alpha: 0.16, lights: 0.25, rain: false },
   night: { color: 0x0a0f2a, alpha: 0.46, lights: 1, rain: false },
 } as const;
+
+/**
+ * The day in free roam. One in-game day is 24 real minutes (bible). Each entry is
+ * [time of day 0..1, light]; the game blends between them. PLACEHOLDER times and colours.
+ */
+export const DAY = {
+  minutes: 24,
+  startAt: 0.7, // late afternoon, heading into the neon hours
+  keys: [
+    [0.0, AMBIENCE.night], [0.2, AMBIENCE.night],
+    [0.28, { color: 0x1a2440, alpha: 0.3, lights: 0.7, rain: false }], // dawn
+    [0.36, AMBIENCE.day], [0.62, AMBIENCE.day],
+    [0.72, AMBIENCE.afternoon],
+    [0.8, AMBIENCE.night], [1.0, AMBIENCE.night],
+  ] as [number, { color: number; alpha: number; lights: number; rain: boolean }][],
+  rainEvery: 240, // seconds between weather rolls
+  rainChance: 0.3,
+  rainFor: 90,
+};

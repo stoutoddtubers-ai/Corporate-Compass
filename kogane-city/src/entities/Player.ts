@@ -157,6 +157,7 @@ export class Player {
       else if (e.t >= e.need) { this.entering = null; this.enterCar(e.car); }
     } else if (eDown) {
       const c = w.nearestCar(a.x, a.y, PLAYER.enterRange);
+      if (!c) w.buyDrink(); // no car in reach: maybe a vending machine is
       if (c) {
         const occupied = c.driver !== 'none';
         this.entering = { car: c, t: 0, need: occupied ? PLAYER.dragOutTime : c.unlocked ? 0 : PLAYER.breakInTime };
@@ -184,6 +185,7 @@ export class Player {
     const w = this.world, d = WEAPONS.fists, a = this.actor;
     {
       this.fireT = 1 / d.rate;
+      a.punch();
       w.fx.puff(a.x + Math.cos(this.aim) * 16, a.y + Math.sin(this.aim) * 16, 0xffffff, 8, 0.12, 0, 0, 2, 0.6);
       let best: Actor | null = null, bd = d.range + PLAYER.radius;
       for (const t of w.npcs()) {

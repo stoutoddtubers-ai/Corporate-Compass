@@ -32,6 +32,10 @@ export class Actor {
   private dir = 0;
   /** Which way the person faces, in radians. */
   facing = 0;
+  private punchT = 0;
+
+  /** Show the punching pose for a moment. */
+  punch(): void { this.punchT = 0.2; }
 
   constructor(scene: WorldScene, readonly kind: ActorKind, x: number, y: number, look: string, hp: number) {
     this.base = 'p_' + look;
@@ -77,6 +81,8 @@ export class Actor {
     const sp = this.body.enable ? this.body.speed : 0;
     let f = 0;
     if (sp > 15) { this.walk += sp * dt * 0.075; f = [1, 0, 2, 0][Math.floor(this.walk) % 4]; }
+    this.punchT -= dt;
+    if (this.punchT > 0) f = 3;
     const d = this.dirs ? (((Math.round(this.facing / (Math.PI / 8)) % 16) + 16) % 16) : 0;
     if (f === this.frame && d === this.dir) return;
     this.frame = f; this.dir = d;
@@ -88,7 +94,8 @@ export class Actor {
     this.alive = false;
     this.body.setVelocity(0, 0);
     this.body.enable = false;
-    this.sprite.setTint(0x551a1a).setAlpha(0.7).setDepth(2);
+    if (this.dirs && this.sprite.texture.has(`${this.base}_4_d${this.dir}`)) this.sprite.setFrame(`${this.base}_4_d${this.dir}`).setTint(0xb0a0a0).setDepth(2); // lying on the ground
+    else this.sprite.setTint(0x551a1a).setAlpha(0.7).setDepth(2);
   }
 
   destroy(): void {

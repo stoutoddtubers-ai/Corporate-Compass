@@ -65,7 +65,7 @@ export class Story {
 
   private freeRoam(): void {
     this.active = false; this.objective = ''; this.hint = ''; this.showSpill = false; this.timer = null; this.flags.incognito = false;
-    this.world.setAmbience(AMBIENCE.night);
+    this.world.dayCycle = true; // free roam: the time of day moves on
     this.world.traffic.blockRing = false;
     const m = this.mission;
     this.marker = m && m.giver ? { x: this.place(m.giver).x, y: this.place(m.giver).y, r: 34 } : null;
@@ -84,6 +84,7 @@ export class Story {
     if (w.player.car) w.player.exitCar();
     w.player.actor.body.reset(s.x, s.y + (m.giver ? 22 : 0));
     w.player.heal();
+    w.dayCycle = false; // missions happen at their scripted time of day
     w.setAmbience(AMBIENCE[m.ambience]);
     HOOKS[m.setup]?.(w, this);
     if (retry) {
