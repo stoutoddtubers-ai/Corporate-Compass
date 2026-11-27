@@ -226,6 +226,26 @@ export const MAP = {
     tomonTunnel: { tile: [110, 20] }, // on the road through Marukane
     centralStation: { block: 'w3-0', kind: 'building', pick: 0, label: 'KOGANE\nCENTRAL' },
     marukaneLot: { block: 'w2-1', kind: 'lot', pick: 0 },
+    hanabiGate: { tile: [136.5, 93.4] }, // M09: Hanabi-chō's neon gate, where the bridge road comes in
+    mamaRei: { block: 'w3-2', kind: 'building', pick: 6, label: "MAMA REI'S\nBAR" }, // a tiny bar in the alley
+    lucky7: { block: 'w2-2', kind: 'building', pick: 1, label: 'LUCKY 7\nARCADE' },
+    florist: { block: 'w2-3', kind: 'building', pick: 1, label: 'HANABI\nFLORIST' },
+    clubMirage: { block: 'w3-3', kind: 'building', pick: 1, label: 'CLUB\nMIRAGE' },
+    pachinkoFloor: { block: 'w2-2', kind: 'lot', pick: 0 }, // M10: the car park at Golden Ball's door stands in for the hall floor
+    scrambleCorner: { tile: [48.5, 93.5] }, // M11: the corner Jun waits on
+    scrambleYard: { block: 'w1-3', kind: 'lot', pick: 0 }, // M11: the thief's first dash
+    miraiStation: { block: 'w1-2', kind: 'building', pick: 0, label: 'STATION' }, // M11: "the station roof"
+    screen1: { block: 'w1-2', kind: 'building', pick: 3 }, // M13: the five screen control boxes (at these buildings' doors)
+    screen2: { block: 'w1-2', kind: 'building', pick: 2 },
+    screen3: { block: 'w1-3', kind: 'building', pick: 0 },
+    screen4: { block: 'w0-3', kind: 'building', pick: 0 },
+    screen5: { block: 'w0-2', kind: 'building', pick: 0 },
+    room6: { block: 'w3-3', kind: 'lot', pick: 0 }, // M14: Voice Cave's room 6 (the yard along the alley)
+    voiceCaveStreet: { tile: [123, 119.5] }, // M14: the street outside Voice Cave
+    towerService: { tile: [105, 21] }, // M15: the tower's service door (alley off the east street)
+    towerArchive: { block: 'w2-0', kind: 'building', pick: 4 }, // M15: "floor 9" is the walk round this building
+    mansionGate: { tile: [78, 112] }, // M16: the street at the mansion's alley
+    mibuRoadblock: { tile: [78, 116.5] }, // M16
     // ---- ACT 3 PLACES (the bay, Rokkaku Hills) ----
     rokkakuTower: { block: 'w0-0', kind: 'building', pick: 0, label: 'ROKKAKU\nTOWER' },
     rokkakuValet: { block: 'w0-0', kind: 'lot', pick: 0 },
@@ -236,6 +256,11 @@ export const MAP = {
     fishMarketYard: { block: 'p1', kind: 'lot', pick: 0 },
     pier9: { block: 'p2', kind: 'lot', pick: 0, label: 'PIER 9' },
     bayBridge: { tile: [226, 136] },
+    portGate: { tile: [229.5, 146.6] }, // the port end of the Bay Bridge (mission 17 starts and ends here)
+    harbourOffice: { block: 'p0', kind: 'building', pick: 0, label: 'HARBOUR\nOFFICE' },
+    rokkakuRoof: { block: 'w0-0', kind: 'lot', pick: 1 }, // stands in for the rooftop party (mission 20)
+    mibuStaging: { block: 'w1-0', kind: 'lot', pick: 1 }, // where the ally's people gather before mission 22
+    amaterasuQuay: { tile: [232, 147] }, // north quay, where Jun boards the ship (mission 24)
     // ---- SIDE STORY PLACES ----
     raijinClubhouse: { block: '3-0', kind: 'building', pick: 0, label: 'RAIJIN\nCLUBHOUSE' },
     // Daigo's Road (S-R): Bones Tamura's three chop shops in Tetsugawa

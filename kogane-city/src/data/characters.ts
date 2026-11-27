@@ -64,4 +64,25 @@ export const SPEAKERS: Record<string, { name: string; color: string; look: strin
   COURIER: { name: 'COURIER', color: '#c0a080', look: 'courier' },
   'DJ ŌKAMI': { name: 'DJ ŌKAMI', color: '#7fe0ff', look: 'customer' },
   'UNKNOWN NUMBER': { name: 'UNKNOWN NUMBER', color: '#c9a0ff', look: 'raijin' },
+  KIRISHIMA: { name: 'KIRISHIMA', color: '#9aa0aa', look: 'tetsu' }, // heard through the bug in mission 20 (face unseen)
+  // Act 2
+  SOLDIER: { name: 'SOLDIER', color: '#c06060', look: 'thug' },
+  'MAMA REI': { name: 'MAMA REI', color: '#f0a0c0', look: 'mama' },
+  'LUCKY 7 MANAGER': { name: 'LUCKY 7 MANAGER', color: '#a0c8d8', look: 'shopkeeper' },
+  'MRS. HANA': { name: 'MRS. HANA', color: '#d8a8c0', look: 'grandmother' },
+  KAZ: { name: 'KAZ', color: '#a8b4e0', look: 'salaryman' },
+  'RAID LEADER': { name: 'RAID LEADER', color: '#c06060', look: 'thug' },
 };
+
+// Speakers for the side stories (script "Side stories" tab). Added this way so a name another
+// part of the story also adds cannot clash.
+Object.assign(SPEAKERS, {
+  'RAIJIN BIKER': { name: 'RAIJIN BIKER', color: '#d9a0ff', look: 'raijin' },
+  'ENDŌ': { name: 'ENDŌ', color: '#d8c8a8', look: 'elder' },
+  'GRANDMA NISHINO': { name: 'GRANDMA NISHINO', color: '#e0a8c8', look: 'grandmother' },
+  KURODA: { name: 'KURODA', color: '#e8b060', look: 'builder' },
+  'MAMA REI': { name: 'MAMA REI', color: '#f070a8', look: 'mama' },
+  'MRS. TSUDA': { name: 'MRS. TSUDA', color: '#d8b8c8', look: 'grandmother' },
+  'HEAD PRIEST': { name: 'HEAD PRIEST', color: '#e8c860', look: 'priest' },
+  AUCTIONEER: { name: 'AUCTIONEER', color: '#8fc0c9', look: 'shopkeeper' },
+} as typeof SPEAKERS);
