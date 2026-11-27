@@ -485,6 +485,18 @@ export class CityMap {
       konbini.push(id);
     }
 
+    // a capsule inn in each district: in the district's last big block, a building with a street door
+    const inns: string[] = [];
+    for (const d of DIST_IDS) {
+      if (INTERIOR.innSkip.includes(d)) continue;
+      const zone = [...this.blocks].reverse().find((b) => b.district === d);
+      const pick = zone && this.buildings.find((r) => r.block === zone.id && !r.roof && !used.has(r) && !konbini.some((k) => this.places[k].rect === r) && r.w >= 4 * TS && r.h >= 4 * TS && r.w <= 12 * TS && r.h <= 12 * TS
+        && this.tileAt(r.x + r.w / 2, r.y + r.h + 20) === Tile.Walk);
+      if (!pick) continue;
+      this.places['inn:' + d] = { x: pick.x + pick.w / 2, y: pick.y + pick.h + 20, sx: pick.x + pick.w / 2, sy: pick.y + pick.h / 2, label: INTERIOR.innLabel, rect: pick };
+      inns.push('inn:' + d);
+    }
+
     const B = MAP.interiorBand;
     let cx = 6, cy = B.y, rowH = 0;
     for (const [id, def] of Object.entries(INTERIORS)) {
@@ -538,6 +550,7 @@ export class CityMap {
     };
     for (const d of DOORS) street(d.place, d.to);
     for (const k of konbini) street(k, 'konbini');
+    for (const k of inns) street(k, 'inn');
     for (const inn of this.interiors) {
       if (inn.spots.D) this.doors.push({ x: inn.spots.D.x, y: inn.spots.D.y, to: null, kind: 'out', interior: inn.id, label: '' });
       for (const [ch, target] of Object.entries(inn.def.stairs ?? {})) {

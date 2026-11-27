@@ -11,6 +11,7 @@ export const STRINGS = {
   UI_CONTINUE: 'Continue', // UI_TITLE_MENU in the script doc: Continue · New game · Settings
   UI_NEW_GAME: 'New game',
   UI_SAVED: 'Saved at {safehouse}.',
+  UI_BED_NO_CASH: 'A night here is ¥{price}. Not tonight.', // NEW: at a capsule inn without the money
   OBJ_LOSE_POLICE: 'Lose the police.',
   PROMPT_STEAL: 'E — Steal',
   PROMPT_DRINK: 'E — Drink ¥{price}', // new wording, not yet in the script doc

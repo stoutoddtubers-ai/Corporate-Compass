@@ -150,7 +150,7 @@ export class HudScene extends Phaser.Scene {
     this.help.setVisible(!story.radio && !story.cut);
     this.help.setText(car
       ? 'W/S drive · A/D steer · Space handbrake (drift fills nitro) · Shift nitro · E get out'
-      : 'WASD move · mouse aim · click fire · right-click focus · V melee · Space roll · 1-5 / wheel weapon · R reload · E car / drink');
+      : 'WASD move · mouse aim · click fire · right-click focus · V melee · Space roll · 1-5 / wheel weapon · R reload · E car / door / drink');
 
     this.drawMinimap();
 
@@ -344,6 +344,7 @@ export class HudScene extends Phaser.Scene {
     for (const a of w.gang.thugs) if (a.alive) dot(a.x, a.y, 0xc060ff, 3);
     for (const c of w.gang.activeChasers) dot(c.x, c.y, 0xc060ff, 5);
     for (const sh of w.shop.places) dot(sh.x, sh.y, 0xf0a030, 4);
+    for (const d of w.map.doors) if (d.kind === 'in' && (d.interior === 'inn' || d.interior === 'konbini')) dot(d.x, d.y, d.interior === 'inn' ? 0xffffff : 0x7fe0a0, d.interior === 'inn' ? 4 : 2); // beds (white) and konbini (green)
     for (const sm of w.story.sideMarkers) dot(sm.x, sm.y, 0xc060ff, 5);
     if (!w.story.active && !w.side.active) for (const st of w.side.starts) dot(st.x, st.y, 0x40d0c0, 4);
     const mk = w.shownMarker();

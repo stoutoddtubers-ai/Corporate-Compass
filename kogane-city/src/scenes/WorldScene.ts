@@ -584,9 +584,14 @@ export class WorldScene extends Phaser.Scene {
     this.updateGarage();
     this.shop.update();
     // the safehouse (the room above Sakamaki Ramen, once mission 1 is done): heals you and saves the game
-    const home = this.map.places['junRoom:z'], hp = this.player;
-    const inside = this.story.index >= 1 && !this.story.active && this.mode === 'play' && Math.hypot(hp.actor.x - home.x, hp.actor.y - home.y) < 30;
-    if (inside && !this.atHome) { hp.heal(); this.saveGame?.(); this.story.phone.push({ from: 'MIKA', text: t('UI_SAVED', { safehouse: 'Sakamaki Ramen' }), t: 3 }); }
+    // beds: Jun's room above the shop (free, once mission 1 is done) and the capsule inns. Sleeping heals and saves.
+    const bed = this.indoors?.spots.z, hp = this.player;
+    const inside = !!bed && this.story.index >= 1 && !this.story.active && this.mode === 'play' && Math.hypot(hp.actor.x - bed.x, hp.actor.y - bed.y) < 30;
+    if (inside && !this.atHome) {
+      const def = this.indoors!.def, price = def.bedPrice ?? 0;
+      if (hp.cash < price) this.story.phone.push({ from: 'JUN', text: t('UI_BED_NO_CASH', { price: price.toLocaleString('en-US') }), t: 3 });
+      else { hp.cash -= price; hp.heal(); this.saveGame?.(); this.story.phone.push({ from: 'MIKA', text: t('UI_SAVED', { safehouse: def.saveName ?? def.name }), t: 3 }); }
+    }
     this.atHome = inside;
     for (let i = this.cars.length - 1; i >= 0; i--) {
       const c = this.cars[i];

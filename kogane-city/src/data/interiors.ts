@@ -31,6 +31,9 @@ export interface InteriorDef {
   stairs?: Record<string, string>;
   /** What the till sells: 'hardware' = the Hachiman Hardware menu. */
   till?: 'hardware';
+  /** A room with a 'z' bed is a place to sleep: it heals and saves. What a night costs (Jun's own room is free), and the name in the "Saved at ..." message. */
+  bedPrice?: number;
+  saveName?: string;
   /** Who stands at 'n' (a look from data/characters.ts; default: a shopkeeper). */
   keeper?: string;
   /** Colour and strength of the room's light (default: warm white). */
@@ -55,7 +58,7 @@ export const INTERIORS: Record<string, InteriorDef> = {
   },
   // the room above the shop: the safehouse
   junRoom: {
-    name: "JUN'S ROOM", floor: 'tatami',
+    name: "JUN'S ROOM", floor: 'tatami', saveName: 'Sakamaki Ramen',
     map: [
       '###########',
       '#BB....LL<#',
@@ -145,6 +148,20 @@ export const INTERIORS: Record<string, InteriorDef> = {
       '####DD######',
     ],
   },
+  // capsule inns: a bed for the night in every district, so there is somewhere to save far from home
+  inn: {
+    name: 'CAPSULE INN', floor: 'lino', bedPrice: 2000, saveName: 'the capsule inn', light: { color: 0xfff0c8, alpha: 0.06 },
+    map: [
+      '##############',
+      '#BB.BB.BB.BB.#',
+      '#............#',
+      '#BB.BB.BB..z.#',
+      '#............#',
+      '#CCCC......1.#',
+      '#n..C........#',
+      '#####DD#######',
+    ],
+  },
   // the capsule hotel the Glitch hide in: capsules down both sides, their desks at the back
   capsule: {
     name: 'CAPSULE HOTEL', floor: 'lino', light: { color: 0xb0f0ff, alpha: 0.08 },
@@ -184,6 +201,9 @@ export const DOORS: { place: string; to: string }[] = [
 export const INTERIOR = {
   /** A konbini in every big block of the city (bible: "konbini on every corner"). */
   konbiniLabel: '24H\nKONBINI',
+  /** One capsule inn in each district except Asagiri (home). */
+  innLabel: 'CAPSULE\nINN',
+  innSkip: ['asagiri'] as readonly string[],
   doorReach: 30, // px: how close to a door to use it
   /** Doors stay shut while the police are looking for you. */
   lockedAtHeat: 1,
