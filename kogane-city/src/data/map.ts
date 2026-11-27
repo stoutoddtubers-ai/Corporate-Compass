@@ -198,6 +198,19 @@ export const MAP = {
     pier: { tile: [155, 108.5] },
     warehouseGate: { tile: [243, 31.6] }, // just outside the evidence compound's gate
     temple: { block: '1-2', kind: 'lot', pick: 0, label: 'OLD TEMPLE' },
+    // ---- more hospitals and police boxes, so you wake up near where you fell ----
+    hospitalWest: { block: 'w1-2', kind: 'building', pick: 2, label: '病院\nHOSPITAL', color: '#b04a4a' },
+    policeBoxWest: { block: 'w2-1', kind: 'building', pick: 3, label: '交番\nKŌBAN', color: '#2f5fa8' },
+    hospitalPort: { block: 'p1', kind: 'building', pick: 1, label: '病院\nHOSPITAL', color: '#b04a4a' },
+    // ---- Hachiman Hardware, one per district ----
+    hardwareAsagiri: { block: '1-3', kind: 'building', pick: 2, label: 'HACHIMAN\nHARDWARE' },
+    hardwareDenpa: { block: '0-1', kind: 'building', pick: 1, label: 'HACHIMAN\nHARDWARE' },
+    hardwareTetsugawa: { block: '2-1', kind: 'building', pick: 1, label: 'HACHIMAN\nHARDWARE' },
+    hardwareHanabi: { block: 'w2-2', kind: 'building', pick: 2, label: 'HACHIMAN\nHARDWARE' },
+    hardwareMirai: { block: 'w1-3', kind: 'building', pick: 1, label: 'HACHIMAN\nHARDWARE' },
+    hardwareMarukane: { block: 'w3-1', kind: 'building', pick: 1, label: 'HACHIMAN\nHARDWARE' },
+    hardwareRokkaku: { block: 'w1-1', kind: 'building', pick: 1, label: 'HACHIMAN\nHARDWARE' },
+    hardwareShiokaze: { block: 'p2', kind: 'building', pick: 1, label: 'HACHIMAN\nHARDWARE' },
     // ---- ACT 2 PLACES (west side) ----
     saekoOffice: { block: 'w3-2', kind: 'building', pick: 0, label: 'KUROGANE\nOFFICE' },
     hanabiLot: { block: 'w3-2', kind: 'lot', pick: 0 },

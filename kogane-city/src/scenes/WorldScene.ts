@@ -200,6 +200,11 @@ export class WorldScene extends Phaser.Scene {
     return c;
   }
 
+  /** The closest of some named places. */
+  nearestPlace(ids: string[], x: number, y: number): { x: number; y: number } {
+    return ids.map((id) => this.map.places[id]).filter(Boolean).reduce((b, q) => (Math.hypot(q.x - x, q.y - y) < Math.hypot(b.x - x, b.y - y) ? q : b));
+  }
+
   nearestCar(x: number, y: number, range: number): Car | null {
     let best: Car | null = null, bd = range;
     for (const c of this.cars) {
@@ -441,7 +446,8 @@ export class WorldScene extends Phaser.Scene {
     const p = this.player, dead = this.mode === 'dead';
     p.cash -= this.bill;
     if (p.car) p.exitCar();
-    const spot = dead ? this.map.places.hospital : this.map.places.policeBox;
+    // wake up at the nearest hospital, or the nearest police box after an arrest (bible)
+    const here = p.pos, spot = this.nearestPlace(dead ? ['hospital', 'hospitalWest', 'hospitalPort'] : ['policeBox', 'policeBoxWest'], here.x, here.y);
     p.actor.body.reset(spot.x, spot.y);
     p.heal();
     this.mode = 'play';

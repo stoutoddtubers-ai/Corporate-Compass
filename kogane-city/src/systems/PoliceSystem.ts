@@ -55,7 +55,7 @@ export class PoliceSystem {
   }
 
   private spawnFoot(): void {
-    const w = this.world, p = w.player.pos, box = w.map.places.policeBox;
+    const w = this.world, p = w.player.pos, box = w.nearestPlace(['policeBox', 'policeBoxWest'], w.player.pos.x, w.player.pos.y);
     // officers walk out of the police box if it is close; otherwise they arrive from round a corner
     if (Math.hypot(box.x - p.x, box.y - p.y) < 1100 && !w.onScreen(box.x, box.y, 40)) { this.spawnCopAt(box, true); return; }
     for (let n = 0; n < 8; n++) {

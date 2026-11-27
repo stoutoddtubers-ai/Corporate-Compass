@@ -321,8 +321,8 @@ export class HudScene extends Phaser.Scene {
       const dx = (x - p.x) * S, dy = (y - p.y) * S;
       if (dx * dx + dy * dy < (R - 4) * (R - 4)) m.fillStyle(color, 1).fillRect(MM.x + dx - size / 2, MM.y + dy - size / 2, size, size);
     };
-    dot(w.map.places.policeBox.x, w.map.places.policeBox.y, 0x2f5fa8, 6);
-    dot(w.map.places.hospital.x, w.map.places.hospital.y, 0xb04a4a, 6);
+    for (const id of ['policeBox', 'policeBoxWest']) dot(w.map.places[id].x, w.map.places[id].y, 0x2f5fa8, 6);
+    for (const id of ['hospital', 'hospitalWest', 'hospitalPort']) dot(w.map.places[id].x, w.map.places[id].y, 0xb04a4a, 6);
     const heat = w.heat;
     if (heat.level > 0 && heat.searching) {
       // the search circle, drawn as short strokes so it stays inside the round map

@@ -490,10 +490,11 @@ for page, group in enumerate(pages):
         frames[name] = dict(page=page, x=x, y=y, w=im.width, h=im.height); x += im.width + PAD; row = max(row, im.height)
     sheet = Image.new('RGBA', (SHEET_W, y + row + PAD), (0, 0, 0, 0))
     for name, im in group: sheet.paste(im, (frames[name]['x'], frames[name]['y']))
-    sheet.save(os.path.join(ROOT, 'public', 'assets', f'atlas{page}.png'), optimize=True)
+    # WebP keeps the download small (about a quarter of the PNG size) with no visible loss
+    sheet.save(os.path.join(ROOT, 'public', 'assets', f'atlas{page}.webp'), 'WEBP', quality=90, method=4, alpha_quality=90)
     print('ATLAS', page, sheet.size, len(group), 'sprites')
-old = os.path.join(ROOT, 'public', 'assets', 'atlas.png')
-if os.path.exists(old): os.remove(old)
+for old in ('atlas.png', 'atlas0.png', 'atlas1.png'):  # earlier formats
+    if os.path.exists(os.path.join(ROOT, 'public', 'assets', old)): os.remove(os.path.join(ROOT, 'public', 'assets', old))
 # origins are remembered between runs, so rendering only part of the set keeps the rest
 _op = os.path.join(OUT, 'origins.json')
 _all = json.load(open(_op)) if os.path.exists(_op) else {}

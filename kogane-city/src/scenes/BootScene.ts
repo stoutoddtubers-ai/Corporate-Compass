@@ -24,7 +24,7 @@ export class BootScene extends Phaser.Scene {
 
   preload(): void {
     // the sprite sheets rendered in Blender (tools/blender/render_assets.py)
-    for (let i = 0; i < ATLAS.pages; i++) this.load.image('atlas' + i, `assets/atlas${i}.png`);
+    for (let i = 0; i < ATLAS.pages; i++) this.load.image('atlas' + i, `assets/atlas${i}.webp`);
   }
 
   /**
