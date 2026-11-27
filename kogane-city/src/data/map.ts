@@ -201,7 +201,7 @@ export const MAP = {
     // ---- more hospitals and police boxes, so you wake up near where you fell ----
     hospitalWest: { block: 'w1-2', kind: 'building', pick: 2, label: '病院\nHOSPITAL', color: '#b04a4a' },
     policeBoxWest: { block: 'w2-1', kind: 'building', pick: 3, label: '交番\nKŌBAN', color: '#2f5fa8' },
-    hospitalPort: { block: 'p1', kind: 'building', pick: 1, label: '病院\nHOSPITAL', color: '#b04a4a' },
+    hospitalPort: { block: 'p0', kind: 'building', pick: 1, label: '病院\nHOSPITAL', color: '#b04a4a' },
     // ---- Hachiman Hardware, one per district ----
     hardwareAsagiri: { block: '1-3', kind: 'building', pick: 2, label: 'HACHIMAN\nHARDWARE' },
     hardwareDenpa: { block: '0-1', kind: 'building', pick: 1, label: 'HACHIMAN\nHARDWARE' },

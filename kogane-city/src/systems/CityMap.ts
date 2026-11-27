@@ -282,6 +282,7 @@ export class CityMap {
       const pool = (spec.kind === 'lot' ? this.lots : this.buildings).filter((p) => p.block === spec.block).sort((a, b) => b.w * b.h - a.w * a.h);
       const r = pool[Math.min(spec.pick ?? 0, pool.length - 1)];
       if (!r) throw new Error('No plot for place ' + id);
+      if ((spec.pick ?? 0) >= pool.length) console.warn(`Place ${id}: block ${spec.block} has only ${pool.length} ${spec.kind}s, so it shares one with another place.`);
       const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
       let x = cx, y = cy;
       if (spec.kind === 'building') {

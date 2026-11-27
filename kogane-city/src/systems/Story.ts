@@ -48,7 +48,7 @@ export class Story {
   side: Mission | null = null;
   sideDone: string[] = [];
   /** Side stories that can be started right now, with where to go. */
-  sideMarkers: { x: number; y: number; r: number; m: Mission }[] = [];
+  sideMarkers: { x: number; y: number; r: number; m: Mission; armed?: boolean }[] = [];
   /** Step index of the last checkpoint passed in this mission (0 = none). */
   private cp = 0;
   private failT = 0;
@@ -62,6 +62,9 @@ export class Story {
   }
 
   get mission(): Mission | null { return this.side ?? MISSIONS[this.index] ?? null; }
+  /** Every mission, for the test scripts and the playtime estimate. */
+  get allMissions(): readonly Mission[] { return MISSIONS; }
+  get allSide(): readonly Mission[] { return SIDE_MISSIONS; }
 
   /** Is a condition true? See the note on `Line` in data/missions.ts. */
   cond(c?: string): boolean {
@@ -211,6 +214,9 @@ export class Story {
 
   /** After the death / arrest screen: missions restart from their beginning. Returns true if it handled the respawn. */
   onRespawn(): boolean {
+    // waking up at a hospital or police box that stands on a mission's ring must not start that mission
+    this.armed = false;
+    for (const sm of this.sideMarkers) sm.armed = false;
     if (!this.active) return false;
     this.startMission(true);
     return true;
@@ -267,7 +273,13 @@ export class Story {
       const dm = m ? Math.hypot(p.pos.x - m.x, p.pos.y - m.y) : 0;
       if (m && dm > m.r + 40) this.armed = true;
       if (m && this.armed && dm < m.r && w.heat.level === 0 && (!p.car || p.car.speed < 120)) { this.startMission(false, null); return; }
-      for (const sm of this.sideMarkers) if (!p.car && w.heat.level === 0 && Math.hypot(p.pos.x - sm.x, p.pos.y - sm.y) < sm.r) { this.startMission(false, sm.m); return; }
+      // side stories start the same way; like the main marker, a ring only works once you have been outside it,
+      // so a mission that ends on top of the next one's ring does not start it by itself
+      for (const sm of this.sideMarkers) {
+        const d = Math.hypot(p.pos.x - sm.x, p.pos.y - sm.y);
+        if (d > sm.r + 40) sm.armed = true;
+        if (sm.armed && !p.car && w.heat.level === 0 && d < sm.r) { this.startMission(false, sm.m); return; }
+      }
       return;
     }
     if (this.failT > 0) { this.failT -= dt; if (this.failT <= 0) this.startMission(true); return; }

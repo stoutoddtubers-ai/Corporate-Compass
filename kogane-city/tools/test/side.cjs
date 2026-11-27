@@ -25,19 +25,23 @@ const only = process.argv.slice(2);
     const w = window.__kc, s = w.story, P = w.player;
     P.takeDamage = () => {}; // Jun cannot be hurt
     window.__log = { steps: [], fails: 0 };
-    const enter = s.enterStep.bind(s), fail = s.fail.bind(s);
+    const enter = s.enterStep.bind(s), fail = s.fail.bind(s), begin = s.startMission.bind(s);
     s.enterStep = () => { enter(); if (s.active) window.__log.steps.push(s.step); };
     s.fail = (l) => { window.__log.fails++; fail(l); };
-    window.__start = (id, path) => {
-      s.keep.path = path; s.sideDone = []; w.heat.clear(false);
-      window.__log = { steps: [], fails: 0, cash: P.cash, t0: performance.now() };
+    s.startMission = (retry, side) => { window.__log.starts++; if (side === undefined) begin(retry); else begin(retry, side); };
+    window.__start = (id, path, after) => {
+      window.__id = id;
+      s.keep.path = path; w.heat.clear(false);
+      s.sideDone = [1, 2, 3].filter((n) => n < +id[3]).map((n) => id.slice(0, 3) + n); // the earlier parts of this chain are done
+      s.index = parseInt(after.slice(1), 10); // the main story is as far along as when this side story opens (so, for one, the ankle tag is off once it should be)
+      window.__log = { steps: [], fails: 0, starts: 0, cash: P.cash, t0: performance.now() };
       s.jumpToId(id);
       return s.mission && s.mission.id;
     };
     /** One cheat for whatever the current objective is. */
     window.__drive = () => {
       const m = s.mission;
-      if (!s.active || !m) return { over: true };
+      if (!s.active || !m || s.sideDone.includes(window.__id)) return { over: true };
       if (s.cut) return { cut: true };
       const st = m.steps[s.step];
       if (!st) return {};
@@ -120,7 +124,7 @@ const only = process.argv.slice(2);
     const tag = m.id + (m.id.startsWith('S-K') ? ` [${path}]` : '');
     if (m.missing) { console.log(`${tag} FAIL: not in the game`); bad++; continue; }
     const errs0 = errs.length;
-    await ev(([id, path]) => window.__start(id, path), [m.id, path]);
+    await ev(([id, path, after]) => window.__start(id, path, after), [m.id, path, m.after]);
     let card = '', sub = '', why = '', unknown = '';
     const t0 = Date.now();
     for (;;) {
@@ -132,7 +136,7 @@ const only = process.argv.slice(2);
       if (r.unknown) { unknown = r.unknown; break; }
       await p.waitForTimeout(110);
     }
-    const end = await ev((id) => { const w = window.__kc, s = w.story, L = window.__log; return { done: s.sideDone.includes(id), steps: L.steps, fails: L.fails, cash: w.player.cash - L.cash, secs: (performance.now() - L.t0) / 1000, daigo: w.cars.some((c) => !c.removed && c.def.name === "Daigo's Zokusha" && c.driver === 'none' && c.unlocked), cars: w.cars.length }; }, m.id);
+    const end = await ev((id) => { const w = window.__kc, s = w.story, L = window.__log; return { done: s.sideDone.includes(id), steps: L.steps, fails: L.fails, starts: L.starts, cash: w.player.cash - L.cash, secs: (performance.now() - L.t0) / 1000, daigo: w.cars.some((c) => !c.removed && c.def.name === "Daigo's Zokusha" && c.driver === 'none' && c.unlocked), cars: w.cars.length }; }, m.id);
     const missed = m.objs.filter((i) => !end.steps.includes(i));
     const pay = PAY[m.id] || 0, paid = end.cash >= pay && end.cash <= pay + 30000; // a little slack: dropped cash Jun happens to walk over
     const problems = [];
@@ -143,6 +147,7 @@ const only = process.argv.slice(2);
     if (m.last !== 'card') problems.push('last step is not a card');
     if (missed.length) problems.push('objectives never reached: steps ' + missed.join(','));
     if (end.fails) problems.push(`MISSION FAILED shown ${end.fails}x`);
+    if (end.starts !== 1) problems.push(`mission was started ${end.starts}x (Jun died or was arrested?)`);
     if (!paid) problems.push(`cash changed by ${end.cash}, expected ${pay}`);
     if (m.id === 'S-R3' && !end.daigo) problems.push("Daigo's Zokusha was not left for Jun");
     if (errs.length > errs0) problems.push('page errors');
@@ -156,13 +161,18 @@ const only = process.argv.slice(2);
   if (!only.length) {
     const offer = await ev(async () => {
       const w = window.__kc, s = w.story, wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      window.__log = { steps: [], fails: 0, starts: 0, cash: 0, t0: 0 };
       s.cut = null; s.card = null; w.mode = 'play'; s.cleanup(); s.side = null; s.active = false;
       s.index = 5; s.sideDone = ['S-R1']; s.freeRoam(); // main story up to M05 done; S-R1 done
       const on = s.sideMarkers.map((x) => x.m.id).sort().join(',');
       const g = s.sideMarkers.find((x) => x.m.id === 'S-G1');
       if (w.player.car) w.player.exitCar();
       w.heat.clear(false);
-      if (g) w.player.actor.body.reset(g.x, g.y);
+      // a ring only works once Jun has been outside it: stand well away for a moment, then walk in
+      if (g) w.player.actor.body.reset(g.x + 200, g.y + 22);
+      await wait(300);
+      const early = s.active;
+      if (g && !early) w.player.actor.body.reset(g.x, g.y);
       await wait(600);
       return { on, started: s.active && s.side ? s.side.id : '' };
     });

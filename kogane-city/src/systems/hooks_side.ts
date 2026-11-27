@@ -142,7 +142,7 @@ Object.assign(HOOKS, {
 // =====================================================================================
 
 interface Rider { car: Car; back: number }
-interface Hunter { car: Car; live: boolean; took: number; cool: number; aim: number; said: boolean; age: number }
+interface Hunter { car: Car; live: boolean; took: number; cool: number; aim: number; said: boolean; age: number; cp: number }
 
 /** One clockwise lap of the whole K-Route (both banks, over the two river bridges), as checkpoints. */
 function ringLap(startX: number): P[] {
@@ -178,7 +178,7 @@ function dropRider(w: WorldScene, s: Story, i: number, hit: boolean): void {
 }
 /** Police cars that drive at the pack from the next checkpoint. */
 function sendPolice(w: WorldScene, s: Story, n: number): void {
-  const cps = V<P[]>(s, 'cps'), at = cps[Math.min(V<number>(s, 'pi'), cps.length - 1)], lead = w.player.pos;
+  const cps = V<P[]>(s, 'cps'), pi = Math.min(V<number>(s, 'pi'), cps.length - 1), at = cps[pi], lead = w.player.pos;
   const d = dist(at, lead) || 1, dx = (at.x - lead.x) / d, dy = (at.y - lead.y) / d;
   for (let j = 0; j < n; j++) {
     const x = at.x + dx * 70 * j - dy * T.sr2.flank, y = at.y + dy * 70 * j + dx * T.sr2.flank; // in the oncoming lane (the inside of the ring)
@@ -186,7 +186,7 @@ function sendPolice(w: WorldScene, s: Story, n: number): void {
     const c = w.addCar(VEHICLES.police, x, y, Math.atan2(-dy, -dx), true);
     c.story = true; c.driver = 'gang'; c.roadblock = true; // 'gang': ramming it is no crime, and the Heat system leaves it alone; `roadblock` keeps its lights flashing
     s.cars.push(c);
-    V<Hunter[]>(s, 'cops').push({ car: c, live: true, took: 0, cool: 0, aim: 2 + Math.floor(Math.random() * 10), said: j > 0, age: 0 });
+    V<Hunter[]>(s, 'cops').push({ car: c, live: true, took: 0, cool: 0, aim: 2 + Math.floor(Math.random() * 10), said: j > 0, age: 0, cp: pi - 1 });
   }
 }
 /** One frame of the memorial ride. Returns how many checkpoints Jun has passed. */
@@ -228,7 +228,12 @@ function packTick(w: WorldScene, s: Story, dt: number): number {
     if (!target) continue;
     // it comes up the oncoming lane beside the column, then cuts in at the rider it has picked
     const th = target.car.heading, off = dist(c, target.car) > t.cutIn ? t.flank : 0;
-    aiDrive(c, target.car.x - Math.sin(th) * off, target.car.y + Math.cos(th) * off, t.copSpeed, dt);
+    if (w.map.los(c.x, c.y, target.car.x, target.car.y)) aiDrive(c, target.car.x - Math.sin(th) * off, target.car.y + Math.cos(th) * off, t.copSpeed, dt);
+    else { // the pack is still round the corner: follow the ring back toward it
+      const via = cps[Math.max(0, k.cp)];
+      aiDrive(c, via.x, via.y, t.copSpeed, dt);
+      if (k.cp > 0 && dist(c, via) < 140) k.cp--;
+    }
     if (!k.said && dist(c, lead) < 460) { k.said = true; say(w, s, c, B.sr2Police, BLUE); }
     k.cool -= dt;
     if (k.cool > 0) continue;
@@ -658,13 +663,13 @@ Object.assign(CHECKS, {
 // =====================================================================================
 
 /** Carrying the ice machine: no dodge roll, a slow walk, and no getting into cars. */
-function carry(w: WorldScene, s: Story): void {
-  const p = w.player, a = p.actor, lx = V<number>(s, 'lx'), ly = V<number>(s, 'ly');
+function carry(w: WorldScene): void {
+  const p = w.player, body = p.actor.body, lose = 1 - T.sk1.carrySpeed;
   p.rollCooldown = 1;
   if (p.car) p.exitCar();
-  // each frame, give back part of the step just taken (a bigger jump than a step is a respawn)
-  if (Math.hypot(a.x - lx, a.y - ly) < 40) a.body.reset(lx + (a.x - lx) * T.sk1.carrySpeed, ly + (a.y - ly) * T.sk1.carrySpeed);
-  s.vars.lx = a.x; s.vars.ly = a.y;
+  // give back part of the step the physics just took (it reaches the picture on screen after this)
+  body.position.x -= (body.position.x - body.prevFrame.x) * lose;
+  body.position.y -= (body.position.y - body.prevFrame.y) * lose;
 }
 
 Object.assign(HOOKS, {
@@ -678,8 +683,8 @@ Object.assign(HOOKS, {
   },
   sk1MachineSpot(_w, s) { const p = V<P>(s, 'machine'); s.marker = { x: p.x, y: p.y, r: 22 }; },
   sk1Steal(w, s) {
-    const cook = V<Actor>(s, 'cook'), a = w.player.actor;
-    s.flags.carrying = true; s.vars.lx = a.x; s.vars.ly = a.y;
+    const cook = V<Actor>(s, 'cook');
+    s.flags.carrying = true;
     say(w, s, cook.sprite, B.sk1Cook, WARM);
     later(w, s, 1900, () => say(w, s, w.player.pos, B.sk1Jun, GOLD));
     later(w, s, 3800, () => {
@@ -699,7 +704,7 @@ Object.assign(HOOKS, {
 Object.assign(CHECKS, {
   sk1Load: (w, s) => {
     const truck = V<Car>(s, 'truck');
-    carry(w, s);
+    carry(w);
     s.marker = { x: truck.x, y: truck.y, r: 30 };
     return !w.player.car && dist(w.player.pos, truck) < T.loadDist;
   },

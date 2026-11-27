@@ -139,6 +139,7 @@ export class CityJobs extends SideJobs {
   /** A story mission started, or the player died or was arrested: drop the job, pay nothing. */
   abort(): void {
     this.endJob();
+    this.away = false; // a mission that ends on top of a job's ring must not start the job: drive off and come back
     for (const e of this.extras) e.a.destroy();
     this.extras = [];
     this.catG.clear(); this.glintG.clear(); // cats are only out in free roam
