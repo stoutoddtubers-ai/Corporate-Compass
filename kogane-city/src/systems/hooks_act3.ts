@@ -59,6 +59,7 @@ function tile(w: WorldScene, room: string, tx: number, ty: number): Pt {
  * `street` (the building's ground-floor room; the room itself unless given).
  */
 function goIn(w: WorldScene, room: string, ch: string, street = room): void {
+  if (w.player.car) w.player.exitCar();
   w.enterRoom(room, ch);
   const d = w.map.doors.find((o) => o.kind === 'in' && o.interior === street);
   w.lastDoor = d ? { x: d.x, y: d.y } : null;

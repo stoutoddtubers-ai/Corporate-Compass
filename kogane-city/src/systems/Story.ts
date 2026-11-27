@@ -261,7 +261,9 @@ export class Story {
     if (w.mode !== 'play') return;
 
     // The ankle tag: until mission 8 is done, crossing the river means instant 3 lanterns (bible)
-    if (this.index < 8 && !this.flags.tagDead && !w.indoors && p.pos.x < (MAP.river.x + MAP.river.w) * TILE_SIZE) {
+    // (rooms are stored out of sight, some of them west of the river: being in a room is never "across the river".
+    // The room is looked up here, not read from w.indoors, because that only catches up at the end of the frame Jun walks through a door.)
+    if (this.index < 8 && !this.flags.tagDead && !w.indoors && !w.map.interiorAt(p.pos.x, p.pos.y) && p.pos.x < (MAP.river.x + MAP.river.w) * TILE_SIZE) {
       if (!this.flags.overRiver) { this.flags.overRiver = true; this.phone.push({ from: 'SAWADA', text: MISSION_BARKS.riverCall, t: 4 }); }
       w.heat.crime('river');
       w.heat.timer = 0; w.heat.lastKnown.x = p.pos.x; w.heat.lastKnown.y = p.pos.y;

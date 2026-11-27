@@ -705,10 +705,10 @@ function carry(w: WorldScene): void {
 Object.assign(HOOKS, {
   sk1Setup(w, s) {
     const door = s.place('clubMirage'), t = T.sk1;
-    s.vars.machine = s.place('mirageKitchen:2'); // the ice machine, in the kitchen
-    const c = s.place('mirageKitchen:3');
-    s.vars.cook = npc(w, s, 'shopkeeper', c.x, c.y);
-    for (let i = 0; i < t.hosts; i++) { const q = s.place('mirageKitchen:' + (4 + (i % 3))), f = free(w, q.x, q.y + 28 * Math.floor(i / 3)); w.gang.spawnThug(f.x, f.y, 'thug', 'guard'); } // Mirage hosts, out on the club floor
+    const k = s.place('clubMirage:3'); // the club's kitchen
+    s.vars.machine = free(w, k.x + t.machine[0] * TS, k.y + t.machine[1] * TS); // the ice machine
+    s.vars.cook = npc(w, s, 'shopkeeper', k.x + t.cook[0] * TS, k.y + t.cook[1] * TS);
+    for (let i = 0; i < t.hosts; i++) { const q = s.place('clubMirage:' + t.hostSpots[i % t.hostSpots.length]), f = free(w, q.x, q.y + 28 * Math.floor(i / t.hostSpots.length)); w.gang.spawnThug(f.x, f.y, 'thug', 'guard'); } // Mirage hosts, out on the club floor
     const kerb = free(w, door.x - 116, door.y); // a truck left on the pavement at the mouth of the kitchen alley
     s.vars.truck = ownCar(w, s, VEHICLES.truck, kerb, 1, Math.PI / 2);
     goInside(w, s, 'bar', '1', 'mamaRei'); // the opening scene is inside Mama Rei's

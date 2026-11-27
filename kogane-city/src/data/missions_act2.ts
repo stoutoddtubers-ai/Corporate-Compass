@@ -3,6 +3,7 @@ import { MAP } from './map';
 
 // Missions 9-16, copied line for line from the Script and Writing doc ("Act 2 script" tab).
 // Text lives here; the game logic each mission needs is in src/systems/hooks_act2.ts.
+// Markers written "room:spot" (e.g. 'tsuku9:9') are spots inside rooms: see src/data/interiors_act2.ts.
 // Lines marked _A in the script are `if: 'yakuza'`, lines marked _B are `if: 'police'`.
 
 const D = (text: string): Line => ({ who: '', text }); // stage direction
@@ -14,7 +15,8 @@ export const ACT2_TUNING = {
 
   // M09 Welcome to Hanabi-chō
   m09Take: 8000, // yen Jun keeps per business when he takes it all; "Take half" pays half
-  m09Boys: 2, // Kaz's "boys" in the Club Mirage brawl (plus Kaz)
+  m09Boys: 4, // Kaz's "boys" in the Club Mirage brawl (plus Kaz): two at the booths, one in the kitchen, one in the office
+  m09Counter: 80, // how close to a shop's owner (across the counter) Jun has to come
 
   // M10 Pachinko Panic
   m10Waves: [4, 5, 6, 7], // raiders per wave (script: 4 waves)
@@ -22,12 +24,13 @@ export const ACT2_TUNING = {
   m10MachineHits: 3, // seconds a raider needs to smash one machine
   m10OfficeHits: 6, // seconds a raider needs at the cash-office door
   m10SpillTime: 8, // seconds spilled steel balls stay slippery
-  m10SpillRadius: 30,
+  m10SpillRadius: 62, // from the middle of a machine: covers the aisles on both sides of it
   m10SlipStun: 1.2, // seconds an enemy is down after slipping
   m10SlideTime: 0.45, m10SlideSpeed: 240, // Jun's own slide
   m10SaekoReach: 46, m10SaekoDamage: 45, m10SaekoGap: 0.8, // Saeko's katana (bible: katana 45 damage)
   m10VanCruise: 70, // the van's speed before its driver panics (x1.7)
   m10VanStopHp: 0.55, // the van gives up below this share of its health
+  m10VanNear: 380, m10VanWait: 14, // the van pulls out when Jun, outside, is this close to the back of the hall, or after this many seconds outside
   m10LeaderSpeed: 128, // the raid leader on foot (Jun runs at 150)
 
   // M11 Scramble
@@ -55,14 +58,15 @@ export const ACT2_TUNING = {
   // M14 The Wakagashira
   m14MibuHp: 200,
   m14FujitaHp: 30,
-  m14Guards: 2, // extra bodyguards who join the two from the VIP room if Fujita is spared
+  m14Guards: 2, // extra bodyguards (in the lobby) who join the two from the VIP room if Fujita is spared
+  m14FujitaSpeed: 170, m14FujitaTime: 7, // Fujita running for the stairs; the bodyguards come once he is gone, or after this many seconds
 
   // M15 Fork in the Road
   m15RunJump: 0.4, // suspicion added by a dodge roll ("running") in front of a guard
   m15OgataDist: 60, m15OgataTime: 1.2, m15OgataJump: 0.4, // lingering near Ogata
   m15SeeDist: 150, // floor 9: the guard notices Jun inside this distance (with a clear line of sight)
   m15FillNear: 1.4, m15FillFar: 0.55, m15Drain: 0.12, // suspicion per second
-  m15PatrolSpeed: 70, m15PatrolRush: 140, // the floor 9 guard; he hurries once the safe is open
+  m15PatrolSpeed: 70, m15PatrolRush: 140, // the two floor 9 guards; they hurry once the safe is open
   m15SafeTime: 1.5, m15PhotoTime: 4.5, // seconds
 
   // M16 Typhoon
@@ -76,8 +80,11 @@ export const ACT2_TUNING = {
   m16BlockDist: 520, // Mibu's roadblock opens fire inside this distance
   m16Blockers: 4,
   m16Waves: [5, 6, 7], // Mibu's soldiers per wave (script: 3 waves)
-  m16RoomHits: 6, // seconds a soldier needs at Genzō's door before "The house fell."
-  m16Squad: 3, // allies beside Saeko / Sawada
+  m16Inside: [0, 3, 5], // how many of each wave get into the house (over the east wall, and through the hall) instead of coming at the gate
+  m16RoomHits: 6, // seconds a soldier needs at the mansion's front door before "The house fell."
+  m16RoomHitsInside: 14, // the same for one who is inside, at the door of Genzō's room
+  m16HouseGuards: 2, // allies inside the house, outside Genzō's door (as well as the squad at the gate)
+  m16Squad: 3, // allies beside Saeko / Sawada at the gate
   m16AllyReach: 120, m16AllyDamage: 6, m16AllyGap: 1, // the squad holds the street side; Genzō's door is just out of their reach
 };
 const T = ACT2_TUNING;
@@ -86,7 +93,7 @@ const T = ACT2_TUNING;
 function collect(text: string, place: string, who: string, line: string, set: string, mercy: string, menace: string): Step[] {
   const key = set.slice(3); // 'm09rei' -> 'rei'
   return [
-    { t: 'obj', text, marker: place, radius: 34, done: 'atMarker' },
+    { t: 'obj', text, marker: place, radius: T.m09Counter, done: 'atMarker' },
     { t: 'cut', lines: [{ who, text: line }] },
     { t: 'choice', prompt: 'Take it all (menace: full cash) or Take half (mercy: locals like you more).', set, options: [{ label: 'Take it all', value: key + 'Menace' }, { label: 'Take half', value: key + 'Mercy' }] },
     { t: 'cut', lines: [{ who, text: mercy, if: key + 'Mercy' }, { who, text: menace, if: key + 'Menace' }] },
@@ -112,20 +119,20 @@ export const MISSIONS_ACT2: Mission[] = [
         { who: 'JUN', text: 'Why me?' },
         { who: 'SAEKO', text: "Mibu-san collects from these streets too. Let's see who they fear more." },
       ] },
-      ...collect("Collect from Mama Rei's bar.", 'mamaRei', 'MAMA REI', "Genzō's girl sends a parolee now? Fine. Tell her the ice machine's broken too.", 'm09rei',
+      ...collect("Collect from Mama Rei's bar.", 'bar:n', 'MAMA REI', "Genzō's girl sends a parolee now? Fine. Tell her the ice machine's broken too.", 'm09rei',
         "Half? You're either kind or stupid. Come back for a drink sometime.", "Take it. Tell Saeko I'll remember."),
-      ...collect('Collect from the Lucky 7 arcade.', 'lucky7', 'LUCKY 7 MANAGER', "Mibu's men came Monday! I can't pay twice!", 'm09lucky',
+      ...collect('Collect from the Lucky 7 arcade.', 'arcade:n', 'LUCKY 7 MANAGER', "Mibu's men came Monday! I can't pay twice!", 'm09lucky',
         "Thank you. Thank you. Don't tell Mibu.", 'Fine! Rob me! Everybody else does!'),
-      ...collect('Collect from Hanabi Florist.', 'florist', 'MRS. HANA', 'I sell flowers to every club on this street. Funerals too. Lately, mostly funerals.', 'm09hana',
+      ...collect('Collect from Hanabi Florist.', 'florist:n', 'MRS. HANA', 'I sell flowers to every club on this street. Funerals too. Lately, mostly funerals.', 'm09hana',
         "Kind. Kindness doesn't last long in Hanabi-chō.", "I'll save you a wreath."),
-      { t: 'obj', text: 'Collect from Club Mirage.', marker: 'clubMirage', radius: 34, done: 'atMarker' },
+      { t: 'obj', text: 'Collect from Club Mirage.', marker: 'clubMirage:1', radius: 60, done: 'atMarker' }, // just inside the door
       { t: 'cut', lines: [{ who: 'KAZ', text: 'We pay Mibu-san. Only Mibu-san. Boys!' }] },
       { t: 'obj', text: 'Collect from Club Mirage.', enter: 'm09Brawl', done: 'm09BrawlDone' }, // (brawl)
       { t: 'cut', lines: [
         { who: 'KAZ', text: '(on the floor) Mibu-san is going to hear about this.' },
         { who: 'JUN', text: 'Good.' },
       ] },
-      { t: 'obj', text: 'Report to Saeko.', marker: 'saekoOffice', radius: 34, done: 'atMarker' },
+      { t: 'obj', text: 'Report to Saeko.', marker: 'kuroganeRoof:1', radius: 34, done: 'atMarker' }, // up the stairs in her office
       { t: 'run', hook: 'm09Tally' },
       { t: 'cut', lines: [
         D('A rooftop above Hanabi-chō. SAEKO weighs the envelope without opening it.'),
@@ -163,6 +170,7 @@ export const MISSIONS_ACT2: Mission[] = [
         { who: 'RAID LEADER', text: 'Okay! Okay! Mibu-san pays double what the old man pays! Everybody knows!' },
         { who: 'SAEKO', text: 'Everybody except my father.' },
       ] },
+      { t: 'run', hook: 'm10Mansion' }, // the scene moves into Genzō's room
       { t: 'cut', lines: [
         D('The Kurogane mansion. A quiet tatami room. GENZŌ, thin and pale, sits by a garden window. SAEKO kneels. JUN stands.'),
         { who: 'GENZŌ', text: 'So. The driver. (long pause) You did six years without a word.' },
@@ -196,7 +204,7 @@ export const MISSIONS_ACT2: Mission[] = [
       { t: 'obj', text: "Don't lose him in the crowd.", done: 'm11Crowd', after: 'm11Toss' },
       { t: 'call', lines: [{ who: 'HIKARI', text: 'Scooter, heading for the park. Borrow something with wheels.' }] },
       { t: 'obj', text: 'Stop the scooter.', done: 'm11Stopped' },
-      { t: 'obj', text: 'Get the drive to Hikari.', marker: 'hideout', radius: 60, done: 'atMarker' },
+      { t: 'obj', text: 'Get the drive to Hikari.', marker: 'capsule:1', radius: 60, done: 'atMarker' }, // inside the hideout
       { t: 'cut', lines: [
         D('The Glitch hideout. HIKARI plugs in the drive. PIP sits nearby with an ice pack on her elbow.'),
         { who: 'HIKARI', text: 'The ¥200 million went through four shell companies, two banks and one very sad cat-café chain.' },
@@ -303,7 +311,7 @@ export const MISSIONS_ACT2: Mission[] = [
         D('JUN says nothing.'),
         { who: 'MIBU', text: '(smiles) Silence. Genzō loves that about you. I find it rude.' },
       ] },
-      { t: 'obj', text: 'Go to room 6.', hint: 'No weapons inside.', marker: 'room6', radius: 40, done: 'm14Corridor' },
+      { t: 'obj', text: 'Go to room 6.', hint: 'No weapons inside.', marker: 'voiceCave2:6', radius: 40, done: 'm14Corridor' }, // just inside room 6's door
       { t: 'cut', lines: [
         D('Room 6. FUJITA, a nervous man in glasses, holds a microphone. He drops it when JUN walks in.'),
         { who: 'FUJITA', text: 'Oh no. Oh no, no. Mibu sent you.' },
@@ -319,7 +327,7 @@ export const MISSIONS_ACT2: Mission[] = [
         { who: 'FUJITA', text: "Amane keeps everyone's sins on paper. Mibu thinks I don't know. I always know.", if: 'fujitaSpared' },
         { ...D('His phone holds an unsent text to Saeko: "The ledger is on Tsukuyomi Tower 9F. Keep me alive and I\'ll tell you where."'), if: 'fujitaDead' },
       ] },
-      { t: 'obj', text: 'Get out of Voice Cave.', marker: 'voiceCaveStreet', radius: 40, enter: 'm14Guards', done: 'atMarker', after: 'm14Out' },
+      { t: 'obj', text: 'Get out of Voice Cave.', marker: 'karaoke', radius: 40, enter: 'm14Guards', done: 'atMarker', after: 'm14Out' },
       { t: 'cut', lines: [
         D("The street outside Voice Cave, in the rain. SAEKO's white car is waiting."),
         { who: 'SAEKO', text: 'You went to see Mibu alone. Brave or stupid?' },
@@ -351,13 +359,13 @@ export const MISSIONS_ACT2: Mission[] = [
         { who: 'JUN', text: "(beat) Last time it wasn't my plan." },
         { who: 'MIKA', text: '(sighs, straightens his collar) At least you look nice.' },
       ] },
-      { t: 'obj', text: 'Enter through the service door.', marker: 'towerService', radius: 36, done: 'atMarker', after: 'm15In' },
+      { t: 'obj', text: 'Enter through the service door.', marker: 'tsukuGala:1', radius: 36, done: 'atMarker', after: 'm15In' }, // just inside it
       { t: 'obj', text: 'Serve drinks on your way to the elevator.', hint: "Guards ignore you while you carry a tray. Don't run. Caterers don't run.", done: 'm15Serve', after: 'm15Lift' },
       { t: 'call', lines: [{ who: 'HIKARI', text: "Elevator's yours. Floor 9. Don't touch the art. Actually, touch one specific art." }] },
-      { t: 'obj', text: 'Reach floor 9.', enter: 'm15ToLanding', done: 'm15At' },
-      { t: 'obj', text: 'Open the safe.', enter: 'm15ToSafe', done: 'm15Open', after: 'm15Bridge' },
-      { t: 'obj', text: 'Photograph the ledger.', enter: 'm15ToSafe', done: 'm15Photo' }, // the ledger pages show under the objective, one per photo
-      { t: 'obj', text: 'Get back to the service elevator.', enter: 'm15Back', done: 'm15At', after: 'm15Done' },
+      { t: 'obj', text: 'Reach floor 9.', marker: 'tsuku9:1', radius: 30, done: 'm15At' },
+      { t: 'obj', text: 'Open the safe.', marker: 'tsuku9:9', radius: 30, enter: 'm15ToSafe', done: 'm15Open', after: 'm15Bridge' },
+      { t: 'obj', text: 'Photograph the ledger.', marker: 'tsuku9:9', radius: 30, enter: 'm15ToSafe', done: 'm15Photo' }, // the ledger pages show under the objective, one per photo
+      { t: 'obj', text: 'Get back to the service elevator.', marker: 'tsuku9:<', radius: 30, enter: 'm15Back', done: 'm15At', after: 'm15Done' },
       { t: 'cut', lines: [
         D('A Tsukuyomi Tower service elevator. JUN holds the ledger drive. His phone buzzes twice: SAEKO on one line, SAWADA on the other. Split screen.'),
         { who: 'SAEKO', text: "Sakamaki-san. You're holding my family's future." },
@@ -400,13 +408,14 @@ export const MISSIONS_ACT2: Mission[] = [
       { t: 'obj', text: "Break through Mibu's roadblock.", hint: 'Flooded streets kill your speed. Stay on high roads.', marker: 'mansionGate', radius: 70, enter: 'm16Block', done: 'atMarker' },
       { t: 'checkpoint', place: 'mansionGate', setup: 'm16AtGate' },
       { t: 'obj', text: 'Defend the mansion. (3 waves, with the ally squad)', enter: 'm16Defend', done: 'm16Waves', after: 'm16Held' },
-      { t: 'obj', text: 'Reach Genzō.', marker: 'mansion', radius: 30, done: 'atMarker' },
-      { t: 'obj', text: 'Get to the roof.', enter: 'm16ToRoof', done: 'atMarker' },
+      { t: 'obj', text: 'Reach Genzō.', marker: 'mansion:9', radius: 30, done: 'atMarker' }, // in his room at the back of the house
+      { t: 'obj', text: 'Get to the roof.', marker: 'mansionRoof:1', radius: 30, done: 'atMarker' }, // up the stairs beside his room
       { t: 'cut', lines: [
         D('The mansion roof. Rain flies sideways. A helicopter lifts off. MIBU leans out of the open door, smiling.'),
         { who: 'MIBU', text: "Sorry, Jun! I'd stay, but the weather!" },
         D('He fires down into the garden. The helicopter vanishes into the storm.'),
       ] },
+      { t: 'run', hook: 'm16Room' }, // back down to Genzō's room
       { t: 'cut', lines: [
         D('The tatami room, its windows shattered, rain blowing in. GENZŌ lies wounded. SAEKO kneels beside him. JUN stands.'),
         { who: 'GENZŌ', text: 'Young man. Come closer.' },

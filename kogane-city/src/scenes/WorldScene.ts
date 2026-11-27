@@ -469,7 +469,7 @@ export class WorldScene extends Phaser.Scene {
   /** Mission helper: put Jun at a named spot inside a room, e.g. enterRoom('pachinko', '1'). */
   enterRoom(id: string, spot = 'D'): void {
     const q = this.map.places[`${id}:${spot}`];
-    if (q) this.moveJun(q.x, q.y);
+    if (q) { this.lastDoor = null; this.moveJun(q.x, q.y); } // (forgetting the last street door makes the way out lead to this building's own door)
   }
 
   vendingNear(x: number, y: number): Furniture | null {

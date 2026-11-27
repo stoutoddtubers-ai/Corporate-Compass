@@ -1,7 +1,7 @@
 import type { InteriorDef } from './interiors';
 
 // Rooms used by the side missions. Same text-map format as data/interiors.ts (the legend is at the top of that file).
-// (The side stories also use the shared rooms: the capsule hotel and Mama Rei's bar.)
+// (The side stories also use the shared rooms, the capsule hotel and Mama Rei's bar, and Act 2's Club Mirage.)
 
 export const INTERIORS_SIDE: Record<string, InteriorDef> = {
   // ----- Daigo's Road -----
@@ -168,22 +168,7 @@ export const INTERIORS_SIDE: Record<string, InteriorDef> = {
   },
 
   // ----- Old Debts -----
-  // Club Mirage: the kitchen (left) and a corner of the club floor (right).
-  // 1 = just inside the kitchen door, 2 = the ice machine (the crate beside it), 3 = the cook, 4-6 = Mirage hosts
-  mirageKitchen: {
-    name: 'CLUB MIRAGE · KITCHEN', floor: 'lino', light: { color: 0xff80c0, alpha: 0.06 },
-    map: [
-      '########################',
-      '#CCCCCC.SS#............#',
-      '#.........#..TT...TT...#',
-      '#.3.......#............#',
-      '#CCCC..2K.....4..5..6..#',
-      '#.........#............#',
-      '#..1......#..TT...TT...#',
-      '#.........#..........LL#',
-      '####DD##################',
-    ],
-  },
+  // (Ice Machine plays in Act 2's Club Mirage room, data/interiors_act2.ts: its kitchen is spot 3)
   // Mrs. Tsuda's small apartment. 1 = Mrs. Tsuda, 2 = Jun at the table
   tsudaFlat: {
     name: "MRS. TSUDA'S APARTMENT", floor: 'tatami',
@@ -228,7 +213,6 @@ export const DOORS_SIDE: { place: string; to: string }[] = [
   { place: 'sgIzakayaDoor', to: 'izakaya' },
   { place: 'sgStation', to: 'stationHall' },
   { place: 'sgTower', to: 'towerF1' },
-  { place: 'clubMirage', to: 'mirageKitchen' },
   { place: 'skTsuda', to: 'tsudaFlat' },
   { place: 'skMibuWarehouse', to: 'mibuWarehouse' },
 ];

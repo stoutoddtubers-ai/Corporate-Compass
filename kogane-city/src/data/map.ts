@@ -277,7 +277,7 @@ export const MAP = {
     canalLot: { block: '3-1b', kind: 'lot', pick: 0 }, // Sawada's canal-side lot, two blocks from the container yard
     truck: { block: '3-0', kind: 'lot', pick: 0 },
     pier: { tile: [155, 108.5] },
-    warehouseGate: { tile: [243, 31.6] }, // just outside the evidence compound's gate
+    warehouseGate: { tile: [243, 30.4] }, // just outside the evidence compound's gate
     temple: { block: '1-2', kind: 'lot', pick: 0, label: 'OLD TEMPLE' },
     // ---- more hospitals and police boxes, so you wake up near where you fell ----
     hospitalWest: { block: 'w1-2', kind: 'building', pick: 2, label: '病院\nHOSPITAL', color: '#b04a4a' },
@@ -312,7 +312,6 @@ export const MAP = {
     lucky7: { block: 'w2-2', kind: 'building', pick: 1, label: 'LUCKY 7\nARCADE' },
     florist: { block: 'w2-3', kind: 'building', pick: 1, label: 'HANABI\nFLORIST' },
     clubMirage: { block: 'w3-3', kind: 'building', pick: 1, label: 'CLUB\nMIRAGE' },
-    pachinkoFloor: { block: 'w2-2', kind: 'lot', pick: 0 }, // M10: the car park at Golden Ball's door stands in for the hall floor
     scrambleCorner: { tile: [48.5, 93.5] }, // M11: the corner Jun waits on
     scrambleYard: { block: 'w1-3', kind: 'lot', pick: 0 }, // M11: the thief's first dash
     miraiStation: { block: 'w1-2', kind: 'building', pick: 0, label: 'STATION' }, // M11: "the station roof"
@@ -321,12 +320,9 @@ export const MAP = {
     screen3: { block: 'w1-3', kind: 'building', pick: 0 },
     screen4: { block: 'w0-3', kind: 'building', pick: 0 },
     screen5: { block: 'w0-2', kind: 'building', pick: 0 },
-    room6: { block: 'w3-3', kind: 'lot', pick: 0 }, // M14: Voice Cave's room 6 (the yard along the alley)
-    voiceCaveStreet: { tile: [123, 119.5] }, // M14: the street outside Voice Cave
-    towerService: { tile: [105, 21] }, // M15: the tower's service door (alley off the east street)
-    towerArchive: { block: 'w2-0', kind: 'building', pick: 4 }, // M15: "floor 9" is the walk round this building
-    mansionGate: { tile: [78, 112] }, // M16: the street at the mansion's alley
-    mibuRoadblock: { tile: [78, 116.5] }, // M16
+    towerService: { tile: [105, 21] }, // M15: the tower's service door (alley off the east street); it opens into the gala floor (data/interiors_act2.ts)
+    mansionGate: { block: 'w2-3', kind: 'lot', pick: 0 }, // M16: the yard in front of the mansion's door, where the ally squad stands (the same yard as mansionYard)
+    mibuRoadblock: { tile: [78, 108.5] }, // M16: on the avenue, level with that yard
     // ---- ACT 3 PLACES (the bay, Rokkaku Hills) ----
     rokkakuTower: { block: 'w0-0', kind: 'building', pick: 0, label: 'ROKKAKU\nTOWER' },
     rokkakuValet: { block: 'w0-0', kind: 'lot', pick: 0 },
@@ -358,7 +354,7 @@ export const MAP = {
     sgIzakaya: { block: '0-2', kind: 'lot', pick: 0 }, // the izakaya in Asagiri where Mr. Endō waits
     sgStation: { block: '2-1', kind: 'building', pick: 0, label: 'TETSUGAWA\nSTATION' },
     sgLockers: { block: '2-1', kind: 'lot', pick: 1 }, // the station forecourt, where Jun parks (the lockers are inside the station)
-    sgIzakayaDoor: { block: '0-2', kind: 'building', pick: 1, label: 'IZAKAYA' }, // the izakaya itself (its yard, sgIzakaya, is where the car waits)
+    sgIzakayaDoor: { block: '0-2', kind: 'building', pick: 7, label: 'IZAKAYA' }, // the izakaya itself (its yard, sgIzakaya, is where the car waits)
     sgTower: { block: '1-0', kind: 'building', pick: 0, label: 'KOGANE 2040\nTOWER SITE' }, // the half-built tower beside the Building 41 lot
     // Old Debts (S-K)
     // (S-K1 uses Act 2's `mamaRei` and `clubMirage`)

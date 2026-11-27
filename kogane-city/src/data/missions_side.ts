@@ -105,7 +105,12 @@ export const SIDE_TUNING = {
   },
 
   // ----- S-K1 Ice Machine -----
-  sk1: { hosts: 3, carrySpeed: 0.6, chasers: 1, deliverRadius: 170 }, // the bar is down an alley: the truck only has to reach the end of it
+  sk1: {
+    hosts: 3, carrySpeed: 0.6, chasers: 1, deliverRadius: 170, // the bar is down an alley: the truck only has to reach the end of it
+    /** Inside Club Mirage (the room "clubMirage"; its spot 3 is the kitchen). Tiles from spot 3: */
+    machine: [-1, -1], cook: [1, -1],
+    hostSpots: ['5', '6', '4'], // where the hosts stand: the two booths and the office
+  },
 
   // ----- S-K2 Funeral Money -----
   sk2: { wait: 6, stayDist: 260, sharks: 4, leaderHp: 90, fleeAt: 25, burnTime: 2.2 },
@@ -414,7 +419,7 @@ export const MISSIONS_SIDE: Mission[] = [
         { who: 'JUN', text: 'You want me to steal an ice machine.' },
         { who: 'MAMA REI', text: 'I want you to liberate one. Warm whisky is a crime too.' },
       ] },
-      { t: 'obj', text: "Get into Club Mirage's kitchen.", marker: 'mirageKitchen:1', radius: 30, done: 'sideOnFoot' }, // just inside the kitchen door
+      { t: 'obj', text: "Get into Club Mirage's kitchen.", marker: 'clubMirage:3', radius: 30, done: 'sideOnFoot' }, // the kitchen, inside the club
       { t: 'obj', text: 'Steal the ice machine.', enter: 'sk1MachineSpot', done: 'sideOnFoot', after: 'sk1Steal' },
       { t: 'obj', text: 'Load it onto a truck.', hint: "The ice machine is heavy. You can't run while carrying it.", done: 'sk1Load', after: 'sk1Loaded' },
       { t: 'obj', text: "Deliver it to Mama Rei's.", marker: 'mamaRei', radius: 170, done: 'sk1Deliver', after: 'sk1Home' },

@@ -7,6 +7,12 @@
 const { chromium } = require('playwright');
 
 const PAY = { 'S-R1': 30000, 'S-G1': 20000, 'S-U1': 40000, 'S-U2': 750000 }; // S-U2: ¥900,000 less 50 points of damage the test gives the truck
+// The rooms each side story must take Jun into (its indoor scenes really are indoors).
+const ROOMS = {
+  'S-R1': ['raijinClub', 'chopCanal', 'chopRail', 'bonesGarage'], 'S-R3': ['raijinClub'],
+  'S-G1': ['capsule'], 'S-G2': ['izakaya', 'stationHall', 'capsule'], 'S-G3': ['towerF1', 'towerF2', 'towerF3', 'towerTop', 'capsule'],
+  'S-K1': ['bar', 'clubMirage'], 'S-K2': ['tsudaFlat'], 'S-K3': ['mibuWarehouse'],
+};
 const only = process.argv.slice(2);
 
 (async () => {
@@ -34,13 +40,15 @@ const only = process.argv.slice(2);
       s.keep.path = path; w.heat.clear(false);
       s.sideDone = [1, 2, 3].filter((n) => n < +id[3]).map((n) => id.slice(0, 3) + n); // the earlier parts of this chain are done
       s.index = parseInt(after.slice(1), 10); // the main story is as far along as when this side story opens (so, for one, the ankle tag is off once it should be)
-      window.__log = { steps: [], fails: 0, starts: 0, cash: P.cash, t0: performance.now() };
+      window.__log = { steps: [], fails: 0, starts: 0, cash: P.cash, t0: performance.now(), rooms: [] };
       s.jumpToId(id);
       return s.mission && s.mission.id;
     };
     /** One cheat for whatever the current objective is. */
     window.__drive = () => {
       const m = s.mission;
+      const room = w.map.interiorAt(P.pos.x, P.pos.y); // note which rooms Jun has been in
+      if (room && window.__log.rooms && !window.__log.rooms.includes(room.id)) window.__log.rooms.push(room.id);
       if (!s.active || !m || s.sideDone.includes(window.__id)) return { over: true };
       if (s.cut) return { cut: true };
       const st = m.steps[s.step];
@@ -74,7 +82,7 @@ const only = process.argv.slice(2);
         case 'sg1Photo': foot(); tp(v.driver.x + 140, v.driver.y); break;
         case 'sg2Drive': sit(s.cars[0]); if (!s.flags.endoIn) tp(v.endo.x + 40, v.endo.y); else if (s.flags.tailed) tp(v.lockers.x, v.lockers.y); break;
         case 'sg2Lose': noChase(); break;
-        case 'sg2Protect': if (!s.flags.atLockers) { sit(v.endoCar); tp(v.lockers.x, v.lockers.y); } else kill(); break;
+        case 'sg2Protect': if (!s.flags.atLockers) { sit(v.endoCar); tp(v.lockers.x, v.lockers.y); } else if (!s.flags.inHall) { foot(); toMk(); } else kill(); break; // park at the station door, follow Endō in to the lockers, fight
         case 'sg3Inside': foot(); toMk(); break;
         case 'sg3Climb': foot(); toMk(); kill(); break;
         case 'sg3Corner': foot(); tp(v.kuroda.x + 20, v.kuroda.y); kill(); break;
@@ -136,7 +144,7 @@ const only = process.argv.slice(2);
       if (r.unknown) { unknown = r.unknown; break; }
       await p.waitForTimeout(110);
     }
-    const end = await ev((id) => { const w = window.__kc, s = w.story, L = window.__log; return { done: s.sideDone.includes(id), steps: L.steps, fails: L.fails, starts: L.starts, cash: w.player.cash - L.cash, secs: (performance.now() - L.t0) / 1000, daigo: w.cars.some((c) => !c.removed && c.def.name === "Daigo's Zokusha" && c.driver === 'none' && c.unlocked), cars: w.cars.length }; }, m.id);
+    const end = await ev((id) => { const w = window.__kc, s = w.story, L = window.__log; return { done: s.sideDone.includes(id), steps: L.steps, fails: L.fails, starts: L.starts, rooms: L.rooms || [], cash: w.player.cash - L.cash, secs: (performance.now() - L.t0) / 1000, daigo: w.cars.some((c) => !c.removed && c.def.name === "Daigo's Zokusha" && c.driver === 'none' && c.unlocked), cars: w.cars.length }; }, m.id);
     const missed = m.objs.filter((i) => !end.steps.includes(i));
     const pay = PAY[m.id] || 0, paid = end.cash >= pay && end.cash <= pay + 30000; // a little slack: dropped cash Jun happens to walk over
     const problems = [];
@@ -150,9 +158,11 @@ const only = process.argv.slice(2);
     if (end.starts !== 1) problems.push(`mission was started ${end.starts}x (Jun died or was arrested?)`);
     if (!paid) problems.push(`cash changed by ${end.cash}, expected ${pay}`);
     if (m.id === 'S-R3' && !end.daigo) problems.push("Daigo's Zokusha was not left for Jun");
+    const notIn = (ROOMS[m.id] || []).filter((r) => !end.rooms.includes(r));
+    if (notIn.length) problems.push('Jun was never inside: ' + notIn.join(', '));
     if (errs.length > errs0) problems.push('page errors');
     if (problems.length) bad++;
-    console.log(`${tag} ${problems.length ? 'FAIL: ' + problems.join('; ') : 'PASS'} | ${m.objs.length - missed.length}/${m.objs.length} objectives | card "${card}" | cash ${end.cash >= 0 ? '+' : ''}${end.cash} | ${end.secs.toFixed(0)}s${m.id === 'S-R3' ? ' | reward bike in world: ' + end.daigo : ''}`);
+    console.log(`${tag} ${problems.length ? 'FAIL: ' + problems.join('; ') : 'PASS'} | ${m.objs.length - missed.length}/${m.objs.length} objectives | card "${card}" | cash ${end.cash >= 0 ? '+' : ''}${end.cash} | ${end.secs.toFixed(0)}s | rooms: ${end.rooms.join(', ') || 'none (all outdoors)'}${m.id === 'S-R3' ? ' | reward bike in world: ' + end.daigo : ''}`);
     await ev(() => { const s = window.__kc.story; if (s.active) s.jumpToId(s.mission.id); }); // (leave nothing half-run)
     await p.waitForTimeout(200);
   }

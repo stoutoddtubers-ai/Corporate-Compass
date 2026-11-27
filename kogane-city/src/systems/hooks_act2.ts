@@ -315,20 +315,23 @@ function m16Wave(w: WorldScene, s: Story): void {
 Object.assign(HOOKS, {
   // ----- M09 Welcome to Hanabi-chō -----
   m09Setup(w, s) {
-    const gate = s.place('hanabiGate'), office = s.place('saekoOffice');
+    s.flags.doorsOpen = true; // a scuffle on the way must not lock Jun out of the shops
+    const gate = s.place('hanabiGate'), roof = spot(s, 'kuroganeRoof', '1');
     for (const [dx, dy] of [[-34, -6], [-16, -12], [16, -12], [34, -6]]) npc(w, s, 'thug', gate.x + dx, gate.y + dy); // the four soldiers
     s.cars.push(storyCar(w, VEHICLES.sedan, gate.x + 72, gate.y + 2, 0, WHITE_SEDAN)); // Saeko's white car
-    npc(w, s, 'saeko', office.x + 18, office.y); // she waits for the envelope at her office (the "rooftop")
-    // The shop owners can be hurt (the mission fails if one dies), so they are made like gang members who never fight.
-    const owner = (id: string, look: string) => { const p = s.place(id); return thug(w, free(w, p.x + 18, p.y), look, 'idle'); };
-    s.vars.owners = [owner('mamaRei', 'mama'), owner('lucky7', 'shopkeeper'), owner('florist', 'grandmother')];
-    s.vars.kaz = owner('clubMirage', 'salaryman');
+    npc(w, s, 'saeko', roof.x + 22, roof.y - 6); // she waits for the envelope on the rooftop above her office
+    // each owner is behind their own counter (the mission fails if one dies)
+    s.vars.owners = [ownerAt(w, s, 'bar', 'mama'), ownerAt(w, s, 'arcade', 'shopkeeper'), ownerAt(w, s, 'florist', 'grandmother')];
+    const k = spot(s, 'clubMirage', '2');
+    s.vars.kaz = thug(w, k, 'salaryman', 'idle'); // Kaz, on his dance floor
   },
   m09Brawl(w, s) {
     s.flags.brawl = true;
     const kaz = s.vars.kaz as Actor, boys = [kaz];
     if (kaz.alive) kaz.state = 'chase';
-    for (let i = 0; i < T.m09Boys; i++) boys.push(thug(w, free(w, kaz.x + Math.cos(i * 2.4 + 1) * 44, kaz.y + Math.sin(i * 2.4 + 1) * 44), 'thug', 'chase'));
+    // his boys come off the booths, then out of the kitchen and the office
+    const from = ['5', '6', '3', '4'];
+    for (let i = 0; i < T.m09Boys; i++) { const q = spot(s, 'clubMirage', from[i % from.length]); boys.push(thug(w, free(w, q.x + (i >= from.length ? 20 : 0), q.y), 'thug', 'chase')); }
     s.vars.boys = boys;
   },
   m09Tally(w, s) {
@@ -340,26 +343,23 @@ Object.assign(HOOKS, {
   // ----- M10 Pachinko Panic -----
   m10Setup(w, s) {
     armed(w);
-    const lot = s.place('pachinkoFloor').rect!, door = s.place('pachinko');
-    const machines: Machine[] = [];
-    for (let r = 0; r < 3; r++) for (let c = 0; c < 8; c++) { // three rows of machines on the hall floor
-      const x = lot.x + 23 + c * 30, y = lot.y + 40 + r * 56;
-      machines.push({ x, y, dead: false, spill: 0, box: prop(w, s, x, y, 20, 12, [0xd8343a, 0xe8b923, 0x3aa0d8][r]).setStrokeStyle(1, 0x000000) });
-    }
+    s.flags.doorsOpen = true;
+    putInside(w, s, 'pachinko', '1', 'pachinko'); // the mission plays on the hall floor
+    const hall = roomOf(w, 'pachinko'), machines = m10Machines(w);
     s.vars.machines = machines;
-    s.vars.saeko = npc(w, s, 'saeko', lot.x + lot.w / 2, lot.y + lot.h - 26); // on the floor, katana drawn
-    s.vars.gamblers = [2, 5, 11, 12, 17, 22].map((i, k) => npc(w, s, ['salaryman', 'elder', 'customer', 'grandmother'][k % 4], machines[i].x, machines[i].y + 15));
-    s.vars.office = fieldTo(w, door); // the cash office is the hall's door
-    s.vars.floor = fieldTo(w, s.place('pachinkoFloor'));
+    s.vars.saeko = npc(w, s, 'saeko', hall.x + hall.w / 2, hall.y + hall.h / 2); // in the middle of the floor, katana drawn
+    // gamblers at the back row of machines (the wide aisle, so nobody's way is blocked)
+    const back = machines.filter((m) => m.y === machines[0].y);
+    s.vars.gamblers = back.slice(0, 6).map((m, k) => npc(w, s, ['salaryman', 'elder', 'customer', 'grandmother'][k % 4], m.x + (k % 2 ? 12 : -12), m.y - TS * 1.45));
+    s.vars.office = fieldTo(w, spot(s, 'pachinko', '4')); // the cash office, in the corner
     s.vars.lost = 0; s.vars.wave = 0; s.vars.slipT = 0;
   },
   m10Start(w, s) { m10Wave(w, s); },
-  m10Van(w, s) {
+  m10Van(_w, s) {
     s.timer = null; s.hint = '';
     const b = s.place('pachinko').rect!;
-    const van = laneCar(w, s, VEHICLES.truck, 0, { x: b.x + b.w / 2, y: b.y - 60 }, 0, T.m10VanCruise); // on the street behind the hall
-    van.panic = 9999; // he is not stopping for lights
-    s.vars.van = van; s.vars.stopT = 0;
+    s.vars.back = { x: b.x + b.w / 2, y: b.y - 60 }; // the street behind the hall
+    s.vars.stopT = 0; s.vars.outT = 0;
   },
   m10Leader(w, s) {
     const van = s.vars.van as Car, at = w.sidePoint(van, -1), p = w.player.pos;
@@ -370,6 +370,14 @@ Object.assign(HOOKS, {
     const to = yards.reduce((a, c) => (dist(c, p) > dist(a, p) ? c : a), yards[0] ?? s.place('hanabiLot'));
     s.vars.boss = boss; s.vars.bossTo = to; s.vars.run = fieldTo(w, to);
   },
+  /** The scene moves to the mansion: Genzō by his garden window, Saeko kneeling, Jun standing. */
+  m10Mansion(w, s) {
+    if (w.player.car) w.player.exitCar();
+    putInside(w, s, 'mansion', '9', 'mansion');
+    const g = spot(s, 'mansion', '8');
+    npc(w, s, 'genzo', g.x, g.y).sprite.rotation = Math.PI / 2;
+    npc(w, s, 'saeko', g.x - 3 * TS, g.y + 10);
+  },
 
   // ----- M11 Scramble -----
   m11Setup(w, s) {
@@ -378,6 +386,10 @@ Object.assign(HOOKS, {
     const kid = npc(w, s, 'student', x.x - 4, x.y + 8);
     kid.body.setImmovable(false);
     s.vars.thief = kid; s.vars.leg = 0; s.vars.lostT = 0;
+    s.flags.doorsOpen = true; // the hideout lets Jun in even with the police about
+    const den = spot(s, 'capsule', '1'); // Hikari waits inside the hideout
+    npc(w, s, 'hikari', den.x - 40, den.y - 8);
+    npc(w, s, 'pip', den.x + 34, den.y + 10); // (and Pip, later, with an ice pack on her elbow)
     s.vars.legs = [s.place('scrambleYard'), s.place('miraiStation')]; // through the crowd to a back yard, then up to the station
     s.vars.field = fieldTo(w, s.place('scrambleYard'));
     for (let i = 0; i < T.m11Crowd; i++) { // the crowd floods the crossing
@@ -456,73 +468,73 @@ Object.assign(HOOKS, {
 
   // ----- M14 The Wakagashira -----
   m14Setup(w, s) {
-    const vip = s.place('karaoke'), room = s.place('room6').rect!;
-    const here = free(w, vip.x, vip.y - 6);
-    w.player.actor.body.reset(here.x, here.y);
-    const m = free(w, vip.x - 52, vip.y - 12);
+    s.flags.doorsOpen = true;
+    putInside(w, s, 'voiceCaveTop', '1', 'karaoke'); // the meeting is in the VIP room on the top floor
+    const m = spot(s, 'voiceCaveTop', '3'), f = spot(s, 'voiceCave2', '7');
     s.vars.mibu = w.gang.spawnThug(m.x, m.y, 'mibu', 'idle', T.m14MibuHp);
-    s.vars.guards = [-1, 1].map((k) => thug(w, free(w, m.x + k * 28, m.y - 18), 'thug', 'idle'));
-    s.vars.fujita = w.gang.spawnThug(room.x + room.w / 2, room.y + 24, 'fujita', 'idle', T.m14FujitaHp);
+    (s.vars.mibu as Actor).sprite.rotation = Math.PI / 2;
+    s.vars.guards = [-1, 1].map((k) => thug(w, spot(s, 'voiceCaveTop', '4', 0, k), 'thug', 'idle')); // the two at the VIP room's door
+    s.vars.fujita = w.gang.spawnThug(f.x, f.y, 'fujita', 'idle', T.m14FujitaHp); // downstairs, in room 6
     s.flags.inside = true;
   },
   m14Dealt(w, s) {
     const f = s.vars.fujita as Actor;
-    if (s.keep.fujita === 'fujitaDead') { if (f.alive) w.hurtActor(f, 999, true, 'melee'); }
-    else f.state = 'flee'; // he runs for the train
+    if (s.keep.fujita === 'fujitaDead') { if (f.alive) w.hurtActor(f, 999, true, 'melee'); return; }
+    // he runs down the corridor for the stairs (and the train)
+    const stairs = spot(s, 'voiceCave2', '<');
+    const i = w.gang.thugs.indexOf(f); // from here he is a bystander, not an enemy
+    if (i >= 0) w.gang.thugs.splice(i, 1);
+    s.actors.push(f);
+    s.vars.runTo = stairs; s.vars.run = fieldTo(w, stairs); s.vars.runT = 0;
   },
-  m14Guards(w, s) {
-    if (s.keep.fujita !== 'fujitaSpared') return;
-    const guards = s.vars.guards as Actor[], out = s.place('voiceCaveStreet');
-    for (let i = 0; i < T.m14Guards; i++) guards.push(thug(w, arrive(w, out, 120, 260), 'thug', 'chase'));
-    for (const g of guards) if (g.alive) g.state = 'chase';
-    const first = guards.find((g) => g.alive);
-    if (first) shout(w, first, B.m14Bodyguard, RED);
-  },
+  /** Fujita spared: the two bodyguards from the VIP room come down the stairs, and more wait in the lobby. */
+  m14Guards(_w, s) { s.flags.hunted = s.keep.fujita === 'fujitaSpared'; },
   m14Out(w, s) {
     s.flags.inside = false; // Jun gets his gun back at the door
     w.setAmbience({ ...AMBIENCE.night, rain: true }); // "in the rain"
-    const out = s.place('voiceCaveStreet');
-    s.cars.push(storyCar(w, VEHICLES.sedan, out.x + 64, out.y, 0, WHITE_SEDAN)); // Saeko's white car is waiting
-    npc(w, s, 'saeko', out.x + 30, out.y - 4);
+    const out = s.place('karaoke'); // the street door
+    s.cars.push(storyCar(w, VEHICLES.sedan, out.x + 70, out.y + 14, 0, WHITE_SEDAN)); // Saeko's white car is waiting
+    npc(w, s, 'saeko', out.x + 32, out.y + 8);
   },
 
   // ----- M15 Fork in the Road -----
   m15Setup(w, s) {
-    const plaza = s.place('towerPlaza').rect!, arch = s.place('towerArchive').rect!;
-    const at = (fx: number, fy: number): Pt => ({ x: plaza.x + plaza.w * fx, y: plaza.y + plaza.h * fy });
-    // the gala, on the tower's plaza: three guests to serve, more guests, three guards, and Ogata beside the second guest
-    s.vars.guests = [at(0.72, 0.3), at(0.3, 0.55), at(0.7, 0.8)].map((p, i) => npc(w, s, ['salaryman', 'elder', 'customer'][i], p.x, p.y));
-    [at(0.2, 0.25), at(0.52, 0.42), at(0.84, 0.6), at(0.25, 0.86), at(0.5, 0.95)].forEach((p, i) => npc(w, s, ['grandmother', 'salaryman', 'elder', 'student', 'customer'][i], p.x, p.y));
-    s.vars.guards = [at(0.5, 0.1), at(0.92, 0.45), at(0.08, 0.7)].map((p) => npc(w, s, 'yatagarasu', p.x, p.y));
-    s.vars.ogata = npc(w, s, 'ogata', at(0.3, 0.55).x + 34, at(0.3, 0.55).y + 30);
-    s.vars.lift = at(0.12, 0.05); // the service elevator
-    // "floor 9" is the walk round the archive building: landing, north-west corner, the safe, south-east corner
-    const x0 = arch.x - TS, x1 = arch.x + arch.w + TS, y0 = arch.y - TS / 2, y1 = arch.y + arch.h + TS;
-    s.vars.loop = [{ x: x0, y: y1 }, { x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }];
-    const patrol = npc(w, s, 'yatagarasu', x1, y1);
-    patrol.body.setImmovable(false);
-    s.vars.patrol = patrol; s.vars.leg = 0; s.vars.sus = 0; s.vars.served = 0; s.vars.linger = 0;
+    s.flags.doorsOpen = true;
+    putInside(w, s, 'ramen', '1', 'ramen'); // the plan is made in the ramen shop after closing
+    const r = spot(s, 'ramen', '1');
+    npc(w, s, 'hikari', r.x - 2 * TS, r.y + 6);
+    // the gala hall: three guests to serve (in this order), more guests, three guards, and Ogata beside the second guest
+    const G = (ch: string, dx = 0, dy = 0) => spot(s, 'tsukuGala', ch, dx, dy);
+    s.vars.guests = ['4', '5', '3'].map((ch, i) => npc(w, s, ['salaryman', 'elder', 'customer'][i], G(ch).x, G(ch).y));
+    [G('4', -5, -6), G('3', 4, 0), G('5', -5, 1), G('4', 3, 4), G('5', 3, -6)].forEach((q, i) => npc(w, s, ['grandmother', 'salaryman', 'elder', 'student', 'customer'][i], q.x, q.y));
+    s.vars.guards = [G('3', 9, -1), G('4', -5, 1), G('5', -8, 4)].map((q) => npc(w, s, 'yatagarasu', q.x, q.y)); // by the elevator, by the kitchen door, by the long bar
+    s.vars.ogata = npc(w, s, 'ogata', G('5', 1, 1).x, G('5', 1, 1).y);
+    s.vars.lift = G('>'); // the service elevator
+    // floor 9: two guards walk the corridor round the floor (its four corners, clockwise from the top left)
+    const loop = ['2', '3', '4', '5'].map((ch) => spot(s, 'tsuku9', ch));
+    s.vars.loop = loop;
+    s.vars.patrols = [0, 1].map((i): Patrol => {
+      const a = npc(w, s, 'yatagarasu', loop[i * 2].x, loop[i * 2].y);
+      a.body.setImmovable(false);
+      return { a, leg: i * 2 + 1 };
+    });
+    s.vars.sus = 0; s.vars.served = 0; s.vars.linger = 0;
   },
   m15In(_w, s) { s.flags.tray = true; },
-  m15Lift(_w, s) {
-    s.flags.tray = false; s.flags.floor9 = true; s.hint = ''; // the tray stays downstairs
-    const loop = s.vars.loop as Pt[], g = s.vars.patrol as Actor;
-    if (dist(g, loop[0]) < 320) { g.body.reset(loop[2].x, loop[2].y); s.vars.leg = 3; } // the guard is never right at the doors as they open
-  },
-  m15ToLanding(_w, s) { const p = (s.vars.loop as Pt[])[0]; s.marker = { x: p.x, y: p.y, r: 30 }; },
-  m15ToSafe(_w, s) { const p = (s.vars.loop as Pt[])[2]; s.marker = { x: p.x, y: p.y, r: 30 }; s.vars.workT = 0; },
+  m15Lift(_w, s) { s.flags.tray = false; s.hint = ''; }, // the tray stays downstairs
+  m15ToSafe(_w, s) { s.vars.workT = 0; },
   m15Bridge(w) { w.fx.bark(w.player.pos, B.m15JunSafe, GOLD); },
   m15Back(w, s) {
-    const p = (s.vars.loop as Pt[])[0];
-    s.marker = { x: p.x, y: p.y, r: 30 };
     s.flags.rush = true; // security is on its way round
-    shout(w, s.vars.patrol as Actor, B.m15Security, '#9cc0ff');
+    const p = w.player.pos, guards = (s.vars.patrols as Patrol[]).map((g) => g.a);
+    shout(w, guards.reduce((a, c) => (dist(c, p) < dist(a, p) ? c : a)), B.m15Security, '#9cc0ff');
   },
-  m15Done(_w, s) { s.flags.floor9 = false; s.timer = null; },
+  m15Done(_w, s) { s.flags.done = true; s.timer = null; },
 
   // ----- M16 Typhoon -----
   m16Setup(w, s) {
     armed(w);
+    s.flags.doorsOpen = true; // the mansion's door stays open to Jun through the fight
     const cop = s.keep.path === 'police', p = w.player.actor;
     const here = free(w, p.x, p.y - 26);
     p.body.reset(here.x, here.y);
@@ -534,10 +546,16 @@ Object.assign(HOOKS, {
     const rb = s.place('mibuRoadblock'), gate = s.place('mansionGate');
     for (const dx of [-27, 27]) s.cars.push(storyCar(w, VEHICLES.sedan, rb.x + dx, rb.y, 0, BLACK_SEDAN)); // Mibu's roadblock
     s.vars.block = Array.from({ length: T.m16Blockers }, (_, i) => thug(w, free(w, rb.x - 54 + i * 36, rb.y - 34), 'thug', 'wait', true));
-    // the ally squad at the gate: Saeko and her loyalists, or Sawada and her riot officers
-    s.vars.allies = [[70, -44], [70, 46], [76, -76], [76, 78]].slice(0, T.m16Squad + 1)
+    // the ally squad at the gate: Saeko and her loyalists, or Sawada and her riot officers...
+    const allies = [[70, -44], [70, 46], [76, -76], [76, 78]].slice(0, T.m16Squad + 1)
       .map(([dx, dy], i) => npc(w, s, i === 0 ? (cop ? 'sawada' : 'saeko') : cop ? 'riot' : 'courier', gate.x + dx, gate.y + dy));
-    s.vars.room = fieldTo(w, s.place('mansion')); // Genzō's room is the mansion's door
+    // ...and the last of them inside the house, in the corridor outside Genzō's door
+    for (let i = 0; i < T.m16HouseGuards; i++) { const q = spot(s, 'mansion', '7', i * 5 - 2, 1); allies.push(npc(w, s, cop ? 'riot' : 'courier', q.x, q.y)); }
+    s.vars.allies = allies;
+    const g = spot(s, 'mansion', '8');
+    npc(w, s, 'genzo', g.x, g.y).sprite.rotation = Math.PI / 2; // Genzō refuses to leave his room
+    s.vars.room = fieldTo(w, s.place('mansion')); // from the street, the way to Genzō is the mansion's front door
+    s.vars.inRoom = fieldTo(w, spot(s, 'mansion', '7')); // inside the house, it is the door of his room
     s.vars.wave = 0;
   },
   m16Block(w, s) {
@@ -549,9 +567,11 @@ Object.assign(HOOKS, {
     m16Wave(w, s);
   },
   m16Held(_w, s) { s.hint = ''; },
-  m16ToRoof(w, s) {
-    const r = s.place('mansion').rect!, f = free(w, r.x + r.w + TS, r.y + r.h / 2);
-    s.marker = { x: f.x, y: f.y, r: 30 };
+  /** After the roof: back in the tatami room, Saeko kneeling beside her father. */
+  m16Room(w, s) {
+    putInside(w, s, 'mansion', '9', 'mansion');
+    const g = spot(s, 'mansion', '8');
+    npc(w, s, 'saeko', g.x - 3 * TS, g.y + 10);
   },
   m16Blade(w) { if (WEAPONS.katana) w.player.giveWeapon('katana'); }, // Genzō's Blade (the plain katana until the Legendary one exists)
 } as Record<string, Hook>);
@@ -572,22 +592,22 @@ Object.assign(CHECKS, {
 
   // ----- M10 -----
   m10Waves: (w, s, dt) => {
-    const machines = s.vars.machines as Machine[], door = s.place('pachinko'), p = w.player.actor;
+    const machines = s.vars.machines as Machine[], office = spot(s, 'pachinko', '4'), p = w.player.actor;
     // a shot that finds a machine instead of a raider
     const gun = w.player.weapon;
-    if (!w.player.car && gun.def.id === s.vars.gunId && gun.mag < (s.vars.gunMag as number)) {
+    if (gun.def.id === s.vars.gunId && gun.mag < (s.vars.gunMag as number)) {
       const dx = Math.cos(w.player.aim), dy = Math.sin(w.player.aim);
-      const along = (o: Pt) => { const a = (o.x - p.x) * dx + (o.y - p.y) * dy; return a > 0 && Math.abs((o.x - p.x) * dy - (o.y - p.y) * dx) < 9 ? a : 1e9; };
+      const along = (o: Pt, half: number) => { const a = (o.x - p.x) * dx + (o.y - p.y) * dy; return a > 0 && Math.abs((o.x - p.x) * dy - (o.y - p.y) * dx) < half ? a - half : 1e9; };
       let hit: Machine | null = null, bd: number = gun.def.range;
-      for (const m of machines) if (!m.dead && along(m) < bd) { bd = along(m); hit = m; }
-      if (hit && !w.gang.thugs.some((t) => t.alive && along(t) < bd)) m10Break(w, s, hit, true);
+      for (const m of machines) if (along(m, TS - 4) < bd) { bd = along(m, TS - 4); hit = m.dead ? null : m; } // a wrecked machine still stops the bullet
+      if (hit && !w.gang.thugs.some((t) => t.alive && along(t, 9) < bd)) m10Break(w, s, hit, true);
     }
     s.vars.gunId = gun.def.id; s.vars.gunMag = gun.mag;
     // raiders with a job: smash machines, or get to the cash office
     for (const t of w.gang.thugs) {
       if (!t.alive || t.state !== 'smash') continue;
       const hits = (t.data.hit as number) || 0;
-      if (t.data.job === 'office') { steer(w, t, s.vars.office as Int16Array, door); if (hits >= T.m10OfficeHits) s.flags.office = true; continue; }
+      if (t.data.job === 'office') { steer(w, t, s.vars.office as Int16Array, office); if (hits >= T.m10OfficeHits) s.flags.office = true; continue; }
       let m = machines[t.data.m as number];
       if (!m || m.dead) {
         const open = machines.filter((x) => !x.dead);
@@ -595,8 +615,11 @@ Object.assign(CHECKS, {
         m = open.reduce((a, c) => (dist(c, t) < dist(a, t) ? c : a));
         t.data.m = machines.indexOf(m); t.data.hit = 0;
       } else if (hits >= T.m10MachineHits) { m10Break(w, s, m, false); t.data.hit = 0; }
-      steer(w, t, s.vars.floor as Int16Array, m);
+      const at = { x: m.sx, y: m.sy };
+      steer(w, t, (m.field ??= fieldTo(w, at)), at);
     }
+    // wrecked machines smoke
+    for (const m of machines) if (m.dead && Math.random() < 0.03) w.fx.puff(m.x + (Math.random() - 0.5) * 30, m.y + (Math.random() - 0.5) * 30, 0x3a3632, 14, 1.1, 0, -26, 1.8, 0.6);
     // spilled steel balls: enemies slip on them, and so does Jun
     const wet = machines.filter((m) => m.spill > 0);
     for (const m of wet) m.spill -= dt;
@@ -607,18 +630,20 @@ Object.assign(CHECKS, {
       if (on && !t.data.onBalls) t.stun = T.m10SlipStun;
       t.data.onBalls = on;
     }
-    const slip = !w.player.car && onBalls(p);
+    const slip = onBalls(p);
     if (slip && !s.flags.onBalls) { const v = p.body.velocity, l = Math.hypot(v.x, v.y) || 1; s.vars.slipT = T.m10SlideTime; s.vars.slipX = v.x / l; s.vars.slipY = v.y / l; }
     s.flags.onBalls = slip;
     if ((s.vars.slipT as number) > 0) {
       s.vars.slipT = (s.vars.slipT as number) - dt;
       const nx = p.x + (s.vars.slipX as number) * T.m10SlideSpeed * dt, ny = p.y + (s.vars.slipY as number) * T.m10SlideSpeed * dt;
-      if (!w.map.isSolid(nx, ny)) p.body.reset(nx, ny);
+      if (![[0, 0], [8, 0], [-8, 0], [0, 8], [0, -8]].some(([ex, ey]) => w.map.isSolid(nx + ex, ny + ey))) p.body.reset(nx, ny);
     }
     alliesFight(w, [s.vars.saeko as Actor], dt, T.m10SaekoReach, T.m10SaekoDamage, T.m10SaekoGap);
     if (Math.random() < 0.006) w.fx.bark(pick(s.vars.gamblers as Actor[]).sprite, pick(B.m10Gamblers), WARM, 'gambler', 4);
     const lost = s.vars.lost as number, wave = s.vars.wave as number;
     s.timer = { label: `WAVE ${wave + 1}/${T.m10Waves.length} · MACHINES LOST ${lost}/${T.m10MaxLost}`, value: lost, max: T.m10MaxLost, kind: 'bar' };
+    // raiders only come while Jun is on the floor; if he steps outside, the marker brings him back to the door
+    s.marker = w.indoors?.id === 'pachinko' ? null : { x: office.x, y: office.y, r: 0 };
     if (w.gang.activeThugs > 0) return false;
     s.vars.wave = wave + 1;
     if (wave + 1 >= T.m10Waves.length) return true;
@@ -627,12 +652,23 @@ Object.assign(CHECKS, {
   },
   m10Lost: (w, s) => {
     if (!s.vars.machines) return false;
-    clearLot(w, s.place('pachinkoFloor').rect!);
     if ((s.vars.lost as number) < T.m10MaxLost && !s.flags.office) return false;
     w.fx.bark((s.vars.saeko as Actor).sprite, B.m10Fail, PALE);
     return true;
   },
-  m10VanStopped: (w, s, dt) => stopped(w, s, s.vars.van as Car, T.m10VanStopHp, dt),
+  m10VanStopped: (w, s, dt) => {
+    if (!s.vars.van) { // the van pulls out once Jun is outside and coming round to the back (or has taken too long about it)
+      const back = s.vars.back as Pt;
+      s.marker = { x: back.x, y: back.y, r: 0 };
+      if (w.indoors) return false;
+      s.vars.outT = (s.vars.outT as number) + dt;
+      if (dist(w.player.pos, back) > T.m10VanNear && (s.vars.outT as number) < T.m10VanWait) return false;
+      const van = laneCar(w, s, VEHICLES.truck, 0, back, 0, T.m10VanCruise);
+      van.panic = 9999; // he is not stopping for lights
+      s.vars.van = van;
+    }
+    return stopped(w, s, s.vars.van as Car, T.m10VanStopHp, dt);
+  },
   m10Caught: (w, s) => {
     const boss = s.vars.boss as Actor;
     s.marker = { x: boss.x, y: boss.y, r: 0 };
@@ -736,9 +772,27 @@ Object.assign(CHECKS, {
   m13Wiped: (_w, s) => !!s.flags.wiped,
 
   // ----- M14 -----
-  m14Failed: (w, s) => {
+  m14Failed: (w, s, dt) => {
     const mibu = s.vars.mibu as Actor | undefined;
-    if (!mibu || !s.flags.inside) return false;
+    if (!mibu) return false;
+    // Fujita, spared, runs for the stairs; once he is gone (or after a few seconds) the bodyguards come for Jun
+    const f = s.vars.fujita as Actor, run = s.vars.run as Int16Array | null;
+    if (run) {
+      s.vars.runT = (s.vars.runT as number) + dt;
+      if (walk(w, f, run, s.vars.runTo as Pt, T.m14FujitaSpeed) < 24 || (s.vars.runT as number) > T.m14FujitaTime) { // down the stairs and gone
+        s.vars.run = null;
+        f.body.setVelocity(0, 0); f.body.enable = false; f.sprite.setVisible(false);
+      }
+    } else if (s.flags.hunted && !s.flags.loosed) {
+      s.flags.loosed = true;
+      const guards = s.vars.guards as Actor[];
+      guards.forEach((g, i) => { if (g.alive) { const q = free(w, spot(s, 'voiceCave2', '>', 1, -1 - i).x, spot(s, 'voiceCave2', '>', 1, -1 - i).y); g.body.reset(q.x, q.y); } }); // down the stairs from the VIP room
+      for (let i = 0; i < T.m14Guards; i++) guards.push(thug(w, spot(s, 'voiceCave', i % 2 ? '2' : '1', i >> 1, 0), 'thug', 'chase')); // and more in the lobby, between Jun and the door
+      for (const g of guards) if (g.alive) g.state = 'chase';
+      const first = guards.find((g) => g.alive);
+      if (first) shout(w, first, B.m14Bodyguard, RED);
+    }
+    if (!s.flags.inside) return false;
     if (w.player.current !== 0) w.player.switchTo(0); // a bodyguard took Jun's gun at the door: no weapons inside
     if (mibu.alive && mibu.state !== 'idle') mibu.state = 'idle';
     if (mibu.hp >= T.m14MibuHp) return false;
@@ -747,7 +801,7 @@ Object.assign(CHECKS, {
   },
   m14Corridor: (w, s) => {
     const mibu = s.vars.mibu as Actor;
-    if (!s.flags.heard && dist(w.player.pos, s.place('karaoke')) > 110) { // overheard on the way down the corridor
+    if (!s.flags.heard && w.indoors?.id === 'voiceCaveTop' && w.player.pos.x < spot(s, 'voiceCaveTop', '4', -1.5).x) { // overheard through the door, on the way down the corridor
       s.flags.heard = true;
       B.m14Mibu.forEach((line, i) => w.time.delayedCall(i * 1900, () => mibu.alive && w.fx.bark(mibu.sprite, line, '#e06a80')));
     }
@@ -763,16 +817,18 @@ Object.assign(CHECKS, {
 
   // ----- M15 -----
   m15Caught: (w, s, dt) => {
-    if (!s.vars.patrol) return false;
-    if (s.flags.floor9) m15Floor9(w, s, dt);
-    else { m15Patrol(s); if (s.flags.tray) m15Gala(w, s, dt); }
+    if (!s.vars.patrols || s.flags.done) return false;
+    const room = w.indoors?.id;
+    if (room === 'tsuku9') m15Floor9(w, s, dt);
+    else if (room === 'tsukuGala' && s.flags.tray) m15Gala(w, s, dt);
+    else if (s.timer) m15Sus(s, -T.m15Drain * dt);
     return !!s.flags.caught;
   },
   m15Serve: (w, s) => {
     const guests = s.vars.guests as Actor[], i = s.vars.served as number, lift = s.vars.lift as Pt;
     if (i >= guests.length) { s.marker = { x: lift.x, y: lift.y, r: 28 }; return near(w, s); }
     s.marker = { x: guests[i].x, y: guests[i].y, r: 28 };
-    if (!w.player.car && near(w, s)) { w.fx.bark(guests[i].sprite, B.m15Guests[i], WARM); s.vars.served = i + 1; }
+    if (near(w, s)) { w.fx.bark(guests[i].sprite, B.m15Guests[i], WARM); s.vars.served = i + 1; }
     return false;
   },
   m15At: (w, s) => near(w, s),
@@ -792,14 +848,19 @@ Object.assign(CHECKS, {
   m16Drive: (w, s) => dist(w.player.pos, s.place('mibuRoadblock')) < T.m16BlockDist || near(w, s),
   m16Waves: (w, s, dt) => {
     alliesFight(w, s.vars.allies as Actor[], dt, T.m16AllyReach, T.m16AllyDamage, T.m16AllyGap);
-    const room = s.place('mansion'), wave = s.vars.wave as number;
-    for (const t of w.gang.thugs) { // the ones heading for Genzō's room
-      if (!t.alive || t.state !== 'smash') continue;
-      steer(w, t, s.vars.room as Int16Array, room);
-      if (((t.data.hit as number) || 0) >= T.m16RoomHits) s.flags.fell = true;
+    const door = s.place('mansion'), room = spot(s, 'mansion', '7'), wave = s.vars.wave as number;
+    let far: Actor | null = null, here = false; // is anyone left to fight where Jun is? If not, the marker points at the others
+    for (const t of w.gang.thugs) {
+      if (!t.alive || t.state === 'flee') continue;
+      if (withJun(w, t)) here = true; else far = t;
+      if (t.state !== 'smash') continue; // the ones heading for Genzō's room
+      if (t.data.indoors) { steer(w, t, s.vars.inRoom as Int16Array, room); if (((t.data.hit as number) || 0) >= T.m16RoomHitsInside) s.flags.fell = true; }
+      else { steer(w, t, s.vars.room as Int16Array, door); if (((t.data.hit as number) || 0) >= T.m16RoomHits) s.flags.fell = true; }
     }
+    s.marker = !here && far ? { x: far.x, y: far.y, r: 0 } : null;
     s.hint = `Wave ${wave + 1} of ${T.m16Waves.length}`;
     if (w.gang.activeThugs > 0) return false;
+    s.marker = null;
     s.vars.wave = wave + 1;
     if (wave + 1 >= T.m16Waves.length) return true;
     m16Wave(w, s);
@@ -811,6 +872,10 @@ Object.assign(CHECKS, {
       if (c.speed > T.m16FloodSpeed) { const k = Math.max(0, 1 - 4 * dt); c.vx *= k; c.vy *= k; }
       if (Math.random() < 0.3) w.fx.puff(c.x + (Math.random() - 0.5) * 30, c.y + (Math.random() - 0.5) * 30, 0xa8d0f0, 7, 0.45, 0, -20, 1.6, 0.5);
       w.fx.bark(c, B.m16JunFlood, GOLD, 'flood', 14);
+    }
+    if (w.indoors?.id === 'mansionRoof') { // the storm on the roof: rain flying sideways
+      const r = w.indoors;
+      for (let k = 0; k < 3; k++) w.fx.puff(r.x + Math.random() * r.w, r.y + Math.random() * r.h, 0xb8d0f0, 3, 0.35, 420, 60, 1, 0.6);
     }
     if (!s.flags.fell) return false;
     s.vars.failHint = B.m16Card;

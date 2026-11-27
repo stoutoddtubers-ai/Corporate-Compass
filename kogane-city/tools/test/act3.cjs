@@ -179,7 +179,7 @@ function audit() {
     const c = await until((o) => !!o.choice, 'the choice'); need(c.choice.join('|') === 'Pay ¥5,000,000|Fight', 'choice options');
     need(await room() === 'fishHall', 'the scene should be inside the market hall'); need(await roomOf('boss') === 'fishHall', 'Hachirō should be in the hall');
     await ev(() => window.__kc.story.choose(0));
-    await obj('Hand over the money.'); await toMarker(); const o = await done();
+    await obj('Hand over the money.'); await until((x) => x.obj !== 'Hand over the money.', 'the payment', toMarker); const o = await done(); // (the marker follows Hachirō, so it appears a moment after the objective)
     has(log.lines, "HACHIRŌ: (counting) Smart. Money's cleaner than blood. Mostly.", 'outro'); need(!log.lines.some((l) => l.includes('frozen tuna. Nobody')), 'fought line shown after paying');
     has(log.cards, "FISH MARKET — COMPLETE | Umibōzu boats stay home for the finale · Unlocked: Umibōzu's Hook (Legendary)", 'card');
     need(o.cash === 6000000 - 5000000 + 200000, 'cash after paying: ' + o.cash); need(o.keep.hachiro === 'hachiroPaid' && o.keep.umibozuHook, 'choice not remembered');
