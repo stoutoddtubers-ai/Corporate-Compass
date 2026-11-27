@@ -12,6 +12,8 @@ import type { WorldScene } from '../scenes/WorldScene';
  */
 export class TrafficSystem {
   private spawnT = 0;
+  /** During the K-Route race the ring is kept clear of traffic. */
+  blockRing = false;
   private lamps: { r: Phaser.GameObjects.Rectangle; seg: LaneSeg }[] = [];
   private byId = new Map<number, Junction>();
 
@@ -53,6 +55,7 @@ export class TrafficSystem {
     const w = this.world, p = w.player.pos;
     for (let n = 0; n < 25; n++) {
       const s = Phaser.Utils.Array.GetRandom(w.map.lanes) as LaneSeg;
+      if (this.blockRing && s.ring) continue;
       const k = 0.1 + Math.random() * 0.8;
       const x = s.ax + s.dx * s.len * k, y = s.ay + s.dy * s.len * k, d = Math.hypot(x - p.x, y - p.y);
       if (d > TRAFFIC.bubbleSpawn[1] || (offscreenOnly ? d < TRAFFIC.bubbleSpawn[0] || w.onScreen(x, y, 80) : d < 200)) continue;
@@ -81,7 +84,7 @@ export class TrafficSystem {
     }
     for (const c of w.cars) {
       if (c.driver !== 'traffic') continue;
-      if (!c.story && Math.hypot(c.x - p.x, c.y - p.y) > TRAFFIC.bubbleRemove) { c.destroy(); continue; } // left the bubble
+      if (!c.story && (Math.hypot(c.x - p.x, c.y - p.y) > TRAFFIC.bubbleRemove || (this.blockRing && c.seg?.ring && !w.onScreen(c.x, c.y, 60)))) { c.destroy(); continue; } // left the bubble
       this.drive(c, dt);
     }
   }

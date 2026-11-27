@@ -11,9 +11,12 @@ export interface LaneSeg {
   axis: 'v' | 'h';
   fromJ: number; toJ: number;
   next: LaneSeg[];
+  /** True for lanes on the K-Route ring. */
+  ring: boolean;
 }
 export interface Rect { x: number; y: number; w: number; h: number }
-export interface Plot extends Rect { district: string; block: string }
+export interface Plot extends Rect { district: string; block: string; roof?: string; height?: number }
+export interface Block extends Rect { id: string; district: string }
 export interface Place { x: number; y: number; sx: number; sy: number; label: string; rect: Rect | null }
 export interface Light { x: number; y: number; color: number; scale: number; alpha: number }
 export interface Junction { id: number; x: number; y: number; lit: boolean; offset: number }
@@ -32,7 +35,7 @@ const css = (n: number) => '#' + n.toString(16).padStart(6, '0');
 const DIST_IDS = Object.keys(DISTRICTS);
 
 // Where each kind of ground tile sits in the generated tile sheet.
-const T = { wall: 0, road: 1, roadDash: 4, kroad: 8, kDash: 9, crossV: 13, crossH: 14, lot: 15, bay: 16, alley: 17, water: 18, planks: 20, bridge: 21, walk: 32, awning: 80, vending: 96, lamp: 108 };
+const T = { rail: 22, arcade: 23, wall: 0, road: 1, roadDash: 4, kroad: 8, kDash: 9, crossV: 13, crossH: 14, lot: 15, bay: 16, alley: 17, water: 18, planks: 20, bridge: 21, walk: 32, awning: 80, vending: 96, lamp: 108 };
 const SHEET_COLS = 16, SHEET_ROWS = 7;
 
 /**
@@ -43,6 +46,10 @@ export class CityMap {
   readonly tiles = new Uint8Array(W * H);
   readonly buildings: Plot[] = []; // in pixels
   readonly lots: Plot[] = [];
+  /** City blocks (the turf zones), in pixels. */
+  readonly blocks: Block[] = [];
+  private floors = new Int16Array(W * H).fill(-1);
+  private laid: { id: string; plot: Plot; door?: string; label?: string }[] = [];
   readonly water: Rect[] = [];
   readonly roads: Rect[] = []; // for the minimap
   readonly lanes: LaneSeg[] = [];
@@ -74,7 +81,7 @@ export class CityMap {
     this.tiles.fill(Tile.Building); // outer wall
     this.fill(2, 2, W - 4, H - 4, Tile.Walk);
     this.fill(2, 2, MAP.riverWidth - 2, H - 4, Tile.Water);
-    this.water.push({ x: 0, y: 0, w: MAP.riverWidth * TS, h: H * TS });
+    this.fill(MAP.pier[0], MAP.pier[1], MAP.pier[2], MAP.pier[3], Tile.Walk); // the river-cruise pier
     for (const v of V) { this.fill(v, h0, rw, hN + rw - h0, Tile.Road); this.roads.push({ x: v * TS, y: h0 * TS, w: rw * TS, h: (hN + rw - h0) * TS }); }
     for (const h of Hh) { this.fill(v0, h, vN + rw - v0, rw, Tile.Road); this.roads.push({ x: v0 * TS, y: h * TS, w: (vN + rw - v0) * TS, h: rw * TS }); }
     for (const h of MAP.bridges) { this.fill(2, h, v0 - 2, rw, Tile.Road); this.roads.push({ x: 0, y: h * TS, w: v0 * TS, h: rw * TS }); }
@@ -96,11 +103,21 @@ export class CityMap {
       const c = MAP.canal;
       if (ci === 3 && (MAP.canal.rows as readonly number[]).includes(cj)) {
         this.fill(c.x, y0, c.w, y1 - y0, Tile.Water);
-        this.water.push({ x: c.x * TS, y: y0 * TS, w: c.w * TS, h: (y1 - y0) * TS });
         parts.push({ id: `${ci}-${cj}a`, r: { x: x0, y: y0, w: c.x - 1 - x0, h: y1 - y0 } });
         parts.push({ id: `${ci}-${cj}b`, r: { x: c.x + c.w + 1, y: y0, w: x1 - (c.x + c.w + 1), h: y1 - y0 } });
       } else parts.push({ id: `${ci}-${cj}`, r: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 } });
       for (const p of parts) this.buildBlock(p.id, p.r, rnd);
+    }
+
+    // water as a few big rectangles (for collisions and the minimap): merge runs row by row
+    const open: Rect[] = [];
+    for (let y = 0; y < H; y++) {
+      const runs: number[][] = [];
+      for (let x = 0; x < W; x++) if (this.tiles[y * W + x] === Tile.Water) { const x0 = x; while (x < W && this.tiles[y * W + x] === Tile.Water) x++; runs.push([x0, x - x0]); }
+      for (const [x0, len] of runs) {
+        const prev = open.find((r) => r.x === x0 * TS && r.w === len * TS && r.y + r.h === y * TS);
+        if (prev) prev.h += TS; else { const r = { x: x0 * TS, y: y * TS, w: len * TS, h: TS }; open.push(r); this.water.push(r); }
+      }
     }
 
     // tiles a car is allowed to plan a route through: not solid, and not hugging a building
@@ -115,6 +132,18 @@ export class CityMap {
   private buildBlock(id: string, r: Rect, rnd: () => number): void {
     const district = MAP.districtAt(r.x + r.w / 2, r.y + r.h / 2), st = DISTRICTS[district];
     this.fill(r.x, r.y, r.w, r.h, Tile.Lot);
+    this.blocks.push({ id, district, x: r.x * TS, y: r.y * TS, w: r.w * TS, h: r.h * TS });
+    const layout = MAP.layouts[id];
+    if (layout) { // a hand-designed landmark block
+      for (const it of layout) {
+        const [x, y, w, h] = [r.x + it.r[0], r.y + it.r[1], it.r[2], it.r[3]];
+        const plot: Plot = { x: x * TS, y: y * TS, w: w * TS, h: h * TS, district, block: id, roof: it.roof, height: it.height };
+        if (it.kind === 'f') { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) this.floors[j * W + i] = it.floor === 'rail' ? T.rail : T.arcade; continue; }
+        if (it.kind === 'l') this.lots.push(plot); else { this.fill(x, y, w, h, Tile.Building); this.buildings.push(plot); }
+        if (it.place) this.laid.push({ id: it.place, plot, door: it.door, label: it.label });
+      }
+      return;
+    }
     const leaves: Rect[] = [];
     const split = (q: Rect) => {
       const canW = q.w >= 2 * st.minSize + 2, canH = q.h >= 2 * st.minSize + 2;
@@ -146,7 +175,8 @@ export class CityMap {
     const V = MAP.vRoads.map((t) => t * TS), Hh = MAP.hRoads.map((t) => t * TS), rw = MAP.roadWidth * TS, nv = V.length;
     const add = (ax: number, ay: number, bx: number, by: number, fromJ: number, toJ: number) => {
       const len = Math.hypot(bx - ax, by - ay);
-      this.lanes.push({ ax, ay, bx, by, dx: (bx - ax) / len, dy: (by - ay) / len, len, axis: ax === bx ? 'v' : 'h', fromJ, toJ, next: [] });
+      const ring = ax === bx ? ax < V[1] || ax > V[nv - 1] : ay < Hh[1] || ay > Hh[Hh.length - 1];
+      this.lanes.push({ ax, ay, bx, by, dx: (bx - ax) / len, dy: (by - ay) / len, len, axis: ax === bx ? 'v' : 'h', fromJ, toJ, next: [], ring });
     };
     const J = (i: number, j: number) => i + j * nv;
     for (let i = 0; i < V.length; i++) for (let j = 0; j < Hh.length - 1; j++) {
@@ -187,6 +217,11 @@ export class CityMap {
 
   /** Pins the story's named places to actual buildings and car parks. */
   private resolvePlaces(): void {
+    for (const l of this.laid) { // places pinned by a hand-designed layout
+      const r = l.plot, cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+      const d = l.door, x = d === 'e' ? r.x + r.w + 22 : d === 'w' ? r.x - 22 : cx, y = d === 's' ? r.y + r.h + 22 : d === 'n' ? r.y - 22 : cy;
+      this.places[l.id] = { x, y, sx: cx, sy: cy, label: l.label ?? '', rect: r };
+    }
     for (const [id, spec] of Object.entries(MAP.places)) {
       if (spec.tile) { this.places[id] = { x: spec.tile[0] * TS, y: spec.tile[1] * TS, sx: 0, sy: 0, label: '', rect: null }; continue; }
       const pool = (spec.kind === 'lot' ? this.lots : this.buildings).filter((p) => p.block === spec.block).sort((a, b) => b.w * b.h - a.w * a.h);
@@ -366,6 +401,8 @@ export class CityMap {
     put(T.alley, () => { asphalt(C.alley); if (rnd() < 2) { g.fillStyle = 'rgba(0,0,0,0.15)'; g.fillRect(0, 14, TS, 2); } });
     for (let i = 0; i < 2; i++) put(T.water + i, () => { g.fillStyle = C.water; g.fillRect(0, 0, TS, TS); g.fillStyle = C.waterLight; for (let k = 0; k < 3; k++) g.fillRect((k * 11 + i * 7) % 26, 5 + k * 10 + i * 3, 7, 1); });
     put(T.planks, () => { g.fillStyle = C.planks; g.fillRect(0, 0, TS, TS); g.fillStyle = 'rgba(0,0,0,0.22)'; for (let k = 0; k < TS; k += 8) g.fillRect(0, k, TS, 1); });
+    put(T.rail, () => { asphalt('#4a4540'); g.fillStyle = '#3a2f28'; for (let k = 2; k < TS; k += 8) g.fillRect(3, k, TS - 6, 3); g.fillStyle = '#9a9a9a'; g.fillRect(8, 0, 2, TS); g.fillRect(22, 0, 2, TS); });
+    put(T.arcade, () => { g.fillStyle = '#b9a58a'; g.fillRect(0, 0, TS, TS); g.fillStyle = '#a3906f'; g.fillRect(0, 0, TS, 1); g.fillRect(0, 16, TS, 1); g.fillRect(0, 0, 1, TS); g.fillRect(16, 0, 1, TS); g.fillStyle = '#c9b89e'; g.fillRect(4, 4, 8, 8); g.fillRect(20, 20, 8, 8); });
     put(T.bridge, () => { asphalt(C.bridge); g.fillStyle = 'rgba(255,255,255,0.10)'; g.fillRect(0, 0, TS, 1); });
     DIST_IDS.forEach((id, d) => {
       const st = DISTRICTS[id];
@@ -412,6 +449,7 @@ export class CityMap {
         const t = this.at(x, y);
         let i = T.wall;
         if (t === Tile.Water) i = T.water + ((x * 7 + y * 3) % 2);
+        else if (this.floors[y * W + x] >= 0 && t !== Tile.Building) i = this.floors[y * W + x];
         else if (t === Tile.Lot) i = lotAt[y * W + x] ? (x % 3 === 1 && y % 6 > 0 && y % 6 < 5 ? T.bay : T.lot) : T.alley;
         else if (t === Tile.Crossing) i = this.at(x - 1, y) === Tile.Crossing || this.at(x + 1, y) === Tile.Crossing ? T.crossV : T.crossH;
         else if (t === Tile.Walk) {
@@ -454,9 +492,15 @@ export class CityMap {
       const g = tex.getContext();
       const D = DISTRICTS[r.district];
       const st = D.roofs[Math.floor(rnd() * D.roofs.length)];
-      g.fillStyle = special.get(r) ?? st.base; g.fillRect(0, 0, w, h);
+      const kinds: Record<string, string[]> = { container: ['#2f7f86', '#b5562e', '#d8b02a', '#3a5f9a'], boxcar: ['#6b3a2a', '#4a4f55'], fence: ['#5a5e63'], shelf: ['#8a7a5a'] };
+      const plain = r.roof ? kinds[r.roof][i % kinds[r.roof].length] : special.get(r);
+      g.fillStyle = plain ?? st.base; g.fillRect(0, 0, w, h);
       g.fillStyle = st.line;
-      if (special.has(r)) { /* plain coloured roof for the police box and hospital */ }
+      if (r.roof) { // containers, boxcars, fences, shelves: flat colour with ribs
+        g.fillStyle = 'rgba(0,0,0,0.22)';
+        if (r.roof === 'shelf') for (let x = 3; x < w; x += 8) g.fillRect(x, 3, 5, h - 6);
+        else if (r.roof !== 'fence') for (let k = 3; k < Math.max(w, h); k += 4) w > h ? g.fillRect(k, 0, 1, h) : g.fillRect(0, k, w, 1);
+      } else if (special.has(r)) { /* plain coloured roof for the police box and hospital */ }
       else if (st.kind === 'tile') { // rows of roof tiles and a ridge beam
         for (let y = 2; y < h; y += 3) g.fillRect(0, y, w, 1);
         g.fillStyle = st.trim; w > h ? g.fillRect(3, h / 2 - 2, w - 6, 3) : g.fillRect(w / 2 - 2, 3, 3, h - 6);
@@ -465,14 +509,14 @@ export class CityMap {
         for (let x = 0; x < w; x += 3) g.fillRect(x, 0, 1, h);
         g.fillStyle = 'rgba(190,220,235,0.35)'; for (let y = 8; y < h - 10; y += 18) g.fillRect(6, y, w - 12, 4);
       }
-      if (!special.has(r) && (st.kind === 'flat' || st.kind === 'plank')) { // clutter: AC units, a water tank
+      if (!plain && (st.kind === 'flat' || st.kind === 'plank')) { // clutter: AC units, a water tank
         for (let n = 0; n < Math.round((w * h) / 3500); n++) {
           const x = 7 + rnd() * (w - 25), y = 7 + rnd() * (h - 25);
           if (rnd() < 0.3) { g.fillStyle = '#6f7f8a'; g.beginPath(); g.arc(x + 6, y + 6, 6, 0, 7); g.fill(); g.fillStyle = '#8fa0aa'; g.beginPath(); g.arc(x + 5, y + 5, 4, 0, 7); g.fill(); }
           else { g.fillStyle = '#8f9498'; g.fillRect(x, y, 11, 8); g.fillStyle = '#5a5f63'; g.beginPath(); g.arc(x + 5.5, y + 4, 2.5, 0, 7); g.fill(); }
         }
       }
-      if (D.neon.length && rnd() < 0.6 && w > 30 && h > 30) { // a glowing billboard on the roof
+      if (!plain && D.neon.length && rnd() < 0.6 && w > 30 && h > 30) { // a glowing billboard on the roof
         const c = D.neon[Math.floor(rnd() * D.neon.length)], bx = 6 + rnd() * (w - 30), by = 6 + rnd() * (h - 22);
         g.fillStyle = '#111'; g.fillRect(bx - 1, by - 1, 20, 10); g.fillStyle = css(c); g.fillRect(bx, by, 18, 8);
         g.fillStyle = 'rgba(255,255,255,0.7)'; g.fillRect(bx + 2, by + 2, 9, 1); g.fillRect(bx + 2, by + 5, 13, 1);
@@ -482,7 +526,7 @@ export class CityMap {
       g.fillStyle = 'rgba(0,0,0,0.38)'; g.fillRect(0, h - 2, w, 2); g.fillRect(w - 2, 0, 2, h);
       tex.refresh();
       tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
-      out.push({ img: scene.add.image(r.x + r.w / 2, r.y + r.h / 2, key).setScale(2).setDepth(20), x: r.x + r.w / 2, y: r.y + r.h / 2, h: MAP.roofHeight });
+      out.push({ img: scene.add.image(r.x + r.w / 2, r.y + r.h / 2, key).setScale(2).setDepth(20), x: r.x + r.w / 2, y: r.y + r.h / 2, h: MAP.roofHeight * (r.height ?? 1) });
     });
     // the Hozuki-mon temple gate: a red beam across the road with one giant lantern
     const gate = this.places.asagiri, gw = (MAP.roadWidth + 2) * TS;
@@ -498,6 +542,26 @@ export class CityMap {
     tex.refresh();
     out.push({ img: scene.add.image(gate.x, gate.y, 'gate').setDepth(20), x: gate.x, y: gate.y, h: MAP.roofHeight * 0.6 });
     this.lights.push({ x: gate.x, y: gate.y, color: 0xff5040, scale: 1.4, alpha: 0.8 });
+    // the shōtengai's canopy: a see-through striped roof over the shopping street
+    for (const b of this.blocks) for (const it of MAP.layouts[b.id] ?? []) {
+      if (it.floor !== 'arcade') continue;
+      const cw = it.r[2] * TS, ch = it.r[3] * TS, key = 'canopy' + b.id;
+      const ct = scene.textures.createCanvas(key, cw / 2, ch / 2)!, cg = ct.getContext();
+      for (let y = 0; y < ch / 2; y += 8) { cg.fillStyle = (y / 8) % 2 ? 'rgba(216,52,58,0.30)' : 'rgba(240,232,208,0.30)'; cg.fillRect(0, y, cw / 2, 8); }
+      cg.fillStyle = 'rgba(60,40,30,0.7)'; cg.fillRect(0, 0, 2, ch / 2); cg.fillRect(cw / 2 - 2, 0, 2, ch / 2);
+      for (let y = 0; y < ch / 2; y += 32) cg.fillRect(0, y, cw / 2, 1);
+      ct.refresh(); ct.setFilter(Phaser.Textures.FilterMode.NEAREST);
+      const x = b.x + it.r[0] * TS + cw / 2, y = b.y + it.r[1] * TS + ch / 2;
+      out.push({ img: scene.add.image(x, y, key).setScale(2).setDepth(20), x, y, h: MAP.roofHeight * 0.6 });
+      for (let ly = b.y + 80; ly < b.y + ch; ly += 128) this.lights.push({ x, y: ly, color: 0xffc070, scale: 1.2, alpha: 0.5 }); // lanterns under the canopy
+    }
+    // a river-cruise boat moored at the pier
+    const bt = scene.textures.createCanvas('boat', 46, 22)!, bg = bt.getContext();
+    bg.fillStyle = '#e8e2d0'; bg.beginPath(); bg.moveTo(0, 11); bg.lineTo(8, 1); bg.lineTo(40, 1); bg.lineTo(46, 11); bg.lineTo(40, 21); bg.lineTo(8, 21); bg.fill();
+    bg.fillStyle = '#b3312f'; bg.fillRect(10, 5, 26, 12); bg.fillStyle = '#16212e'; for (let x = 12; x < 34; x += 6) bg.fillRect(x, 7, 4, 8);
+    bt.refresh(); bt.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    const bx = (MAP.pier[0] - 1.2) * TS, by = (MAP.pier[1] + MAP.pier[3] + 1.4) * TS;
+    out.push({ img: scene.add.image(bx, by, 'boat').setScale(2).setDepth(2), x: bx, y: by, h: 0 });
     return out;
   }
 }

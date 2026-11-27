@@ -7,6 +7,8 @@ import { KMH_PER_PX } from '../data/vehicles';
 import { MAX_PROJECTILES } from '../data/weapons';
 import { t } from '../data/strings';
 import { SPEAKERS } from '../data/characters';
+import { GARAGE } from '../data/garage';
+import { FACTIONS } from '../data/turf';
 import type { WorldScene } from './WorldScene';
 
 const FONT = { fontFamily: 'monospace', fontSize: '12px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 };
@@ -45,6 +47,7 @@ export class HudScene extends Phaser.Scene {
   private spillLabel!: Phaser.GameObjects.Text;
   private rain: { x: number; y: number; v: number }[] = [];
   private rainG!: Phaser.GameObjects.Graphics;
+  private garage!: Phaser.GameObjects.Text;
 
   constructor() {
     super('Hud');
@@ -81,6 +84,7 @@ export class HudScene extends Phaser.Scene {
     this.stampName = this.add.text(GW / 2, 208, '', { ...FONT, fontSize: '14px', align: 'center' }).setOrigin(0.5, 0);
     this.cardTitle = this.add.text(GW / 2, GH / 2 - 24, '', { fontFamily: 'monospace', fontSize: '34px', color: '#e8b923', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5);
     this.cardSub = this.add.text(GW / 2, GH / 2 + 20, '', { ...FONT, fontSize: '14px' }).setOrigin(0.5);
+    this.garage = this.add.text(GW / 2 - 190, 150, '', { ...FONT, fontSize: '12px', lineSpacing: 6 }).setVisible(false);
     this.dlgBox = this.add.graphics();
     this.portrait = this.add.image(96, GH - 78, 'f_jun').setScale(3);
     this.dlgName = this.add.text(160, GH - 128, '', { ...FONT, fontSize: '14px' });
@@ -113,8 +117,8 @@ export class HudScene extends Phaser.Scene {
     });
     const story = w.story;
     // objective line: the mission's, or "Lose the police." when you are just wanted
-    this.objective.setText(story.objective || (heat.level > 0 ? t('OBJ_LOSE_POLICE') : heat.cleanT > 0 ? t('UI_HEAT_CLEAR') : ''));
-    this.objective.setColor(story.objective || heat.level > 0 ? '#ffffff' : '#7fe08a');
+    this.objective.setText(story.objective || w.turf.objective || (heat.level > 0 ? t('OBJ_LOSE_POLICE') : heat.cleanT > 0 ? t('UI_HEAT_CLEAR') : ''));
+    this.objective.setColor(story.objective || w.turf.objective || heat.level > 0 ? '#ffffff' : '#7fe08a');
     this.hint.setText(story.hint);
     this.drawStory(delta / 1000);
     if (heat.level > 0 && heat.searching) {
@@ -166,6 +170,7 @@ export class HudScene extends Phaser.Scene {
         `Projectiles ${w.projectiles.active} / ${MAX_PROJECTILES}`,
         `Effects ${w.fx.activeCount}`,
         `Heat ${heat.level}  ${heat.level ? (heat.seen ? 'SEEN' : `unseen ${heat.timer.toFixed(1)} / ${heat.timeNeeded}s${heat.insideZone ? ' (in zone)' : ''}`) : ''}`,
+        `Turf owned ${w.turf.ownedCount} / ${w.map.blocks.length}   income waiting ¥${w.turf.pending}`,
         `Mission ${story.mission ? story.mission.id : 'none left'}${story.active ? ' step ' + story.step : ' (free roam)'}   F4 skip · F6 restart story`,
         car ? `${car.def.name}  HP ${Math.max(0, Math.round(car.hp))}${car.burning ? `  FIRE ${car.burnTimer.toFixed(1)}s` : ''}` : '',
       ]);
@@ -226,6 +231,23 @@ export class HudScene extends Phaser.Scene {
       g.lineStyle(1, 0xe8b923, 0.8).strokeRect(GW - 310, GH - 138, 300, 30 + this.phoneText.height);
     }
 
+    // Goro's Garage menu
+    this.garage.setVisible(w.garageOpen);
+    const gc = w.player.car;
+    if (w.garageOpen && gc) {
+      const yen = (n: number) => '¥' + n.toLocaleString('en-US'), E = GARAGE.engine;
+      g.fillStyle(0x0b0b10, 0.9).fillRect(GW / 2 - 204, 138, 408, 150);
+      g.lineStyle(2, 0x7fe0ff, 1).strokeRect(GW / 2 - 204, 138, 408, 150);
+      this.garage.setText([
+        `GORO'S GARAGE — ${gc.def.name}`,
+        `1  ${GARAGE.respray.name}  ${yen(GARAGE.respray.price)}   ${GARAGE.respray.note}`,
+        `2  ${E.name} ${gc.up.engine}/3  ${gc.up.engine < 3 ? yen(E.prices[gc.up.engine]) : 'MAX'}   ${E.note}`,
+        `3  ${GARAGE.nitro.name}  ${gc.up.nitro ? 'FITTED' : yen(GARAGE.nitro.price)}   ${GARAGE.nitro.note}`,
+        `4  ${GARAGE.armour.name}  ${gc.up.armour ? 'FITTED' : yen(GARAGE.armour.price)}   ${GARAGE.armour.note}`,
+        'Press 1-4 to buy. Drive off to leave.',
+      ]);
+    }
+
     // mission title card
     this.cardTitle.setVisible(!!s.card); this.cardSub.setVisible(!!s.card);
     if (s.card) {
@@ -261,12 +283,13 @@ export class HudScene extends Phaser.Scene {
     const w = this.world, m = this.mm, p = w.player.pos, S = MM.scale, R = MM.r;
     m.clear();
     m.fillStyle(0x14141c, 0.92).fillRect(MM.x - R, MM.y - R, R * 2, R * 2);
-    const rect = (x: number, y: number, rw: number, rh: number, color: number) => {
+    const rect = (x: number, y: number, rw: number, rh: number, color: number, alpha = 1) => {
       const x0 = Math.max(MM.x - R, MM.x + (x - p.x) * S), y0 = Math.max(MM.y - R, MM.y + (y - p.y) * S);
       const x1 = Math.min(MM.x + R, MM.x + (x + rw - p.x) * S), y1 = Math.min(MM.y + R, MM.y + (y + rh - p.y) * S);
-      if (x1 > x0 && y1 > y0) m.fillStyle(color, 1).fillRect(x0, y0, x1 - x0, y1 - y0);
+      if (x1 > x0 && y1 > y0) m.fillStyle(color, alpha).fillRect(x0, y0, x1 - x0, y1 - y0);
     };
     for (const r of w.map.water) rect(r.x, r.y, r.w, r.h, 0x2a5a78);
+    for (const b of w.map.blocks) rect(b.x, b.y, b.w, b.h, FACTIONS[w.turf.owners[b.id]].color, 0.3); // turf: who owns each block
     for (const r of w.map.roads) { const thin = r.w < r.h; rect(r.x + (thin ? 34 : 0), r.y + (thin ? 0 : 34), r.w - (thin ? 68 : 0), r.h - (thin ? 0 : 68), 0x6f7386); }
     const dot = (x: number, y: number, color: number, size: number) => {
       const dx = (x - p.x) * S, dy = (y - p.y) * S;

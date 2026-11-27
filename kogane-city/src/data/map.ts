@@ -83,28 +83,65 @@ export const MAP = {
   places: {
     prison: { block: '2-3', kind: 'building', pick: 0, label: 'KOGANE\nDETENTION CENTER' },
     asagiri: { tile: [46, 79] }, // Hozuki-mon gate, over the road into the old town
-    ramen: { block: '0-3', kind: 'building', pick: 1, label: 'SAKAMAKI\nRAMEN' },
-    shop1: { block: '0-3', kind: 'building', pick: 2, label: 'CERAMICS' },
-    shop2: { block: '0-3', kind: 'building', pick: 3, label: 'TEA' },
-    shop3: { block: '0-3', kind: 'building', pick: 4, label: 'TOFU' },
-    shotengai: { block: '0-3', kind: 'lot', pick: 0 },
     arcade: { block: '1-3', kind: 'building', pick: 0, label: 'ARCADE' },
     bathhouse: { block: '0-2', kind: 'building', pick: 0, label: 'BATHHOUSE' },
     hospital: { block: '1-2', kind: 'building', pick: 0, label: '病院\nHOSPITAL', color: '#b04a4a' },
     policeBox: { block: '1-2', kind: 'building', pick: 3, label: '交番\nKŌBAN', color: '#2f5fa8' },
     garage: { block: '2-2', kind: 'building', pick: 0, label: "GORO'S\nGARAGE" },
     spray: { block: '2-2', kind: 'lot', pick: 0 },
-    railyard: { block: '3-1a', kind: 'lot', pick: 0, label: 'RAIL YARD' },
     raceStart: { tile: [100, 5.5] }, // K-Route, north side
     catArcade: { block: '0-0', kind: 'building', pick: 0, label: 'ARCADE\n=^.x.^=' },
     hideout: { block: '1-1', kind: 'building', pick: 0, label: 'CAPSULE HOTEL' },
     ambush: { tile: [47, 22] },
     canalLot: { block: '3-1b', kind: 'lot', pick: 0 }, // Sawada's canal-side lot, two blocks from the container yard
-    containerYard: { block: '3-3', kind: 'lot', pick: 0, label: 'CONTAINER YARD' },
-    warehouse: { block: '2-0', kind: 'lot', pick: 0, label: 'KMPD EVIDENCE' },
     truck: { block: '3-0', kind: 'lot', pick: 0 },
-    pier: { tile: [10.5, 108] },
+    pier: { tile: [7, 108.5] },
+    warehouseGate: { tile: [95, 31.6] }, // just outside the evidence compound's gate
   } as Record<string, { block?: string; kind?: 'building' | 'lot'; pick?: number; tile?: number[]; label?: string; color?: string }>,
+  /** The river-cruise pier: planks out over the water [x, y, w, h]. */
+  pier: [4, 107, 6, 3],
+  /**
+   * Hand-designed landmark blocks. Each item is [x, y, w, h] in tiles from the block's
+   * top-left corner. kind: 'b' building, 'l' car park / yard, 'f' special floor.
+   * `place` pins a story place to it; `door` says which wall the door is on.
+   */
+  layouts: {
+    // Asagiri shōtengai: a covered shopping street with Sakamaki Ramen on it
+    '0-3': [
+      { r: [0, 0, 11, 5], kind: 'b', place: 'shop1', door: 'e', label: 'CERAMICS' },
+      { r: [0, 5, 11, 6], kind: 'b', place: 'ramen', door: 'e', label: 'SAKAMAKI\nRAMEN' },
+      { r: [0, 11, 11, 4], kind: 'b', place: 'shop2', door: 'e', label: 'TEA' },
+      { r: [0, 15, 11, 5], kind: 'b', place: 'shop3', door: 'e', label: 'TOFU' },
+      { r: [11, 0, 3, 20], kind: 'f', floor: 'arcade' },
+      { r: [14, 0, 12, 6], kind: 'b' },
+      { r: [14, 7, 12, 6], kind: 'l', place: 'shotengai' },
+      { r: [14, 14, 12, 6], kind: 'b' },
+    ],
+    // Tetsugawa rail yard: tracks and boxcars; the Raijin keep their cars here
+    '3-1a': [
+      { r: [0, 0, 15, 17], kind: 'l', place: 'railyard', label: 'RAIL YARD' },
+      { r: [9, 0, 2, 17], kind: 'f', floor: 'rail' }, { r: [12, 0, 2, 17], kind: 'f', floor: 'rail' },
+      { r: [9, 1, 2, 6], kind: 'b', roof: 'boxcar', height: 0.5 }, { r: [12, 9, 2, 6], kind: 'b', roof: 'boxcar', height: 0.5 },
+      { r: [0, 19, 15, 5], kind: 'b' },
+    ],
+    // Tetsugawa container yard
+    '3-3': [
+      { r: [0, 0, 18, 20], kind: 'l', place: 'containerYard', label: 'CONTAINER YARD' },
+      { r: [1, 1, 4, 2], kind: 'b', roof: 'container', height: 0.5 }, { r: [1, 4, 4, 2], kind: 'b', roof: 'container', height: 0.5 },
+      { r: [13, 1, 2, 4], kind: 'b', roof: 'container', height: 0.5 }, { r: [13, 15, 4, 2], kind: 'b', roof: 'container', height: 0.5 },
+      { r: [1, 16, 4, 2], kind: 'b', roof: 'container', height: 0.5 }, { r: [8, 16, 2, 3], kind: 'b', roof: 'container', height: 0.5 },
+      { r: [20, 0, 16, 9], kind: 'b' }, { r: [20, 11, 16, 9], kind: 'b' },
+    ],
+    // KMPD evidence facility: a fenced compound with one gate (south) and shelving inside
+    '2-0': [
+      { r: [4, 4, 20, 16], kind: 'l', place: 'warehouse', label: 'KMPD EVIDENCE' },
+      { r: [3, 3, 22, 1], kind: 'b', roof: 'fence', height: 0.25 }, { r: [3, 4, 1, 16], kind: 'b', roof: 'fence', height: 0.25 }, { r: [24, 4, 1, 16], kind: 'b', roof: 'fence', height: 0.25 },
+      { r: [3, 20, 9, 1], kind: 'b', roof: 'fence', height: 0.25 }, { r: [16, 20, 9, 1], kind: 'b', roof: 'fence', height: 0.25 },
+      { r: [7, 7, 6, 1], kind: 'b', roof: 'shelf', height: 0.3 }, { r: [7, 10, 6, 1], kind: 'b', roof: 'shelf', height: 0.3 },
+      { r: [15, 7, 6, 1], kind: 'b', roof: 'shelf', height: 0.3 }, { r: [15, 10, 6, 1], kind: 'b', roof: 'shelf', height: 0.3 },
+      { r: [15, 14, 6, 1], kind: 'b', roof: 'shelf', height: 0.3 }, { r: [7, 14, 6, 1], kind: 'b', roof: 'shelf', height: 0.3 },
+    ],
+  } as Record<string, { r: number[]; kind: 'b' | 'l' | 'f'; place?: string; door?: 'n' | 's' | 'e' | 'w'; label?: string; roof?: string; height?: number; floor?: 'arcade' | 'rail' }[]>,
   colors: {
     wall: '#2a231f', road: '#2b2a2e', kroad: '#38373c', bridge: '#4a4640', lot: '#3d3a3a', alley: '#353232',
     water: '#1d3a4a', waterLight: '#2a4f62', planks: '#6e5a48',

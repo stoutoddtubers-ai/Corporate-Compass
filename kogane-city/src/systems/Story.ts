@@ -66,14 +66,18 @@ export class Story {
   private freeRoam(): void {
     this.active = false; this.objective = ''; this.hint = ''; this.showSpill = false; this.timer = null; this.flags.incognito = false;
     this.world.setAmbience(AMBIENCE.night);
+    this.world.traffic.blockRing = false;
     const m = this.mission;
     this.marker = m && m.giver ? { x: this.place(m.giver).x, y: this.place(m.giver).y, r: 34 } : null;
     this.armed = false;
   }
 
-  startMission(): void {
+  /** Starts the current mission. On a retry the opening cutscene is skipped. */
+  startMission(retry = false): void {
     const m = this.mission, w = this.world;
     if (!m) return;
+    w.traffic.blockRing = false;
+    w.turf.abort();
     this.cleanup();
     this.active = true; this.step = 0; this.flags = {}; this.vars = {}; this.timer = null; this.spill = 0; this.showSpill = false; this.failT = 0; this.junCarLine = null;
     const s = this.place(m.start);
@@ -82,6 +86,10 @@ export class Story {
     w.player.heal();
     w.setAmbience(AMBIENCE[m.ambience]);
     HOOKS[m.setup]?.(w, this);
+    if (retry) {
+      while (m.steps[this.step]?.t === 'cut') this.step++;
+      if (m.retryAt) { const r = this.place(m.retryAt); w.player.actor.body.reset(r.x, r.y); }
+    }
     this.enterStep();
   }
 
@@ -142,7 +150,7 @@ export class Story {
   /** After the death / arrest screen: missions restart from their beginning. Returns true if it handled the respawn. */
   onRespawn(): boolean {
     if (!this.active) return false;
-    this.startMission();
+    this.startMission(true);
     return true;
   }
 
@@ -169,6 +177,7 @@ export class Story {
     if (this.phone.length) { this.phone[0].t -= dt; if (this.phone[0].t <= 0) this.phone.shift(); }
     if (this.radio) { this.radio.x += 70 * dt; if (this.radio.x > 960 + this.radio.text.length * 7.3) this.radio = null; }
     if (this.cut) { this.cut.chars += 55 * dt; return; }
+    if (this.card && !this.active) { this.card.t -= dt; if (this.card.t <= 0) this.card = null; } // turf banners
     if (w.mode !== 'play') return;
 
     // The ankle tag: until mission 8 is done, crossing the river means instant 3 lanterns (bible)
@@ -184,14 +193,9 @@ export class Story {
       const dm = m ? Math.hypot(p.pos.x - m.x, p.pos.y - m.y) : 0;
       if (m && dm > m.r + 40) this.armed = true;
       if (m && this.armed && dm < m.r && w.heat.level === 0 && (!p.car || p.car.speed < 120)) { this.startMission(); return; }
-      // Goro's spray booth stays open after mission 3: a respray clears Heat (bible)
-      if (this.index >= 3 && p.car && w.heat.level > 0 && !w.heat.seen) {
-        const s = this.place('spray');
-        if (Math.hypot(p.car.x - s.x, p.car.y - s.y) < 30 && p.car.speed < 80) { p.car.respray(); w.heat.clear(true); w.fx.puff(p.car.x, p.car.y, 0xffffff, 40, 0.5, 0, 0, 2, 0.6); }
-      }
       return;
     }
-    if (this.failT > 0) { this.failT -= dt; if (this.failT <= 0) this.startMission(); return; }
+    if (this.failT > 0) { this.failT -= dt; if (this.failT <= 0) this.startMission(true); return; }
     const m = this.mission!;
     if (m.failCheck && CHECKS[m.failCheck]?.(w, this, dt)) { this.fail(m.failCall); return; }
     const st = m.steps[this.step];

@@ -12,6 +12,7 @@ export const LOOKS: Record<string, Look> = {
   raijin: { jacket: '#5b2a8a', hair: '#e8d24a', accent: '#f2f2f2', accentAt: 'back' }, // Raijin bōsōzoku jacket
   kenta: { jacket: '#f2f2f2', hair: '#e8d24a', accent: '#5b2a8a', accentAt: 'back' }, // white tokkō-fuku coat
   hikari: { jacket: '#3a3f55', hair: '#28d8e8', accent: '#f040a0', accentAt: 'chest' }, // cyan hair, hoodie
+  glitch: { jacket: '#15181c', hair: '#28d8e8', accent: '#28d8e8', accentAt: 'back' }, // Glitch crew: cyan and black
   ogata: { jacket: '#f4f4f0', hair: '#2a2622', accent: '#c9a84a', accentAt: 'chest' }, // white suit
   windbreaker: { jacket: '#2f6f8a', hair: '#1c1a1a', accent: '#f2f2f2', accentAt: 'back' }, // Ogata's hired men
   guard: { jacket: '#5a5f66', hair: '#22242a', accent: '#d8b02a', accentAt: 'chest' }, // rent-a-cops

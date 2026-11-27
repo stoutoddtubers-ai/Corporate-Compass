@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser';
 import { VehicleDef, NITRO, CAR_DAMAGE } from '../data/vehicles';
+import { GARAGE } from '../data/garage';
 import type { CityMap, LaneSeg } from '../systems/CityMap';
 
 export interface CarInput { throttle: number; steer: number; handbrake: boolean; nitro: boolean; brake: boolean }
@@ -52,6 +53,9 @@ export class Car {
   data_bark = '';
   /** Story cars are not removed or steered by the normal traffic rules. */
   story = false;
+  /** Garage upgrades bought for this car. */
+  up = { engine: 0, nitro: 0, armour: 0 };
+  maxHp: number;
   /** Lanes a story car has been told to follow, in order. */
   route: LaneSeg[] = [];
   /** Cruising speed override for AI drivers (0 = default). */
@@ -64,6 +68,7 @@ export class Car {
   constructor(scene: Phaser.Scene, readonly def: VehicleDef, x: number, y: number, heading: number, readonly isPolice = false, colorIndex = -1) {
     this.x = x; this.y = y; this.heading = heading;
     this.hp = def.hp;
+    this.maxHp = def.hp;
     // random traffic avoids the last (black) colour slot, which the story uses
     this.colorIndex = colorIndex >= 0 ? colorIndex : Math.floor(Math.random() * Math.max(1, def.colors.length - (def.colors.length > 2 ? 1 : 0)));
     this.shadow = scene.add.image(x, y, 'carShadow').setDepth(2.8).setDisplaySize(def.length, def.width);
@@ -112,9 +117,10 @@ export class Car {
       this.drifting = this.nitroOn = false;
     } else {
       this.nitroOn = inp.nitro && this.nitro > 0 && inp.throttle > 0;
-      const max = d.maxSpeed * (this.nitroOn ? NITRO.speedMult : 1);
+      const max = d.maxSpeed * (1 + GARAGE.engine.speedPerTier * this.up.engine) * (this.nitroOn ? NITRO.speedMult : 1);
+      const boost = 1 + GARAGE.engine.accelPerTier * this.up.engine;
       if (inp.throttle > 0) {
-        if (vf < max) vf += d.accel * (this.nitroOn ? NITRO.accelMult : 1) * inp.throttle * dt;
+        if (vf < max) vf += d.accel * boost * (this.nitroOn ? NITRO.accelMult : 1) * inp.throttle * dt;
       } else if (inp.throttle < 0) {
         if (vf > 8) vf -= d.brake * dt;
         else if (vf > -d.reverseSpeed) vf -= d.accel * 0.6 * dt;
@@ -133,7 +139,7 @@ export class Car {
 
       this.slip = Math.abs(vl);
       this.drifting = Math.abs(vl) > NITRO.driftMinSlip && sp > NITRO.driftMinSpeed;
-      if (this.nitroOn) this.nitro = Math.max(0, this.nitro - NITRO.drainPerSecond * dt);
+      if (this.nitroOn) this.nitro = Math.max(0, this.nitro - (NITRO.drainPerSecond / (1 + GARAGE.nitro.capacity * this.up.nitro)) * dt);
       else if (this.drifting) this.nitro = Math.min(1, this.nitro + NITRO.fillPerSecond * dt);
     }
 
@@ -183,7 +189,7 @@ export class Car {
         this.lightbar?.setVisible(false);
         return true;
       }
-    } else if (this.hp < this.def.hp * CAR_DAMAGE.smokeAt && this.fxT <= 0) {
+    } else if (this.hp < this.maxHp * CAR_DAMAGE.smokeAt && this.fxT <= 0) {
       this.fxT = 0.12;
       puff(hx, hy, 0x9a9a9a, 9, 0.8, (Math.random() - 0.5) * 20, -30, 1.8);
     }

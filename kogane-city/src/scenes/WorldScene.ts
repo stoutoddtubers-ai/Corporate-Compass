@@ -16,6 +16,8 @@ import { TrafficSystem } from '../systems/TrafficSystem';
 import { PoliceSystem } from '../systems/PoliceSystem';
 import { GangSystem } from '../systems/GangSystem';
 import { Story } from '../systems/Story';
+import { TurfSystem } from '../systems/TurfSystem';
+import { GARAGE } from '../data/garage';
 import { Actor } from '../entities/Actor';
 import { Car } from '../entities/Car';
 import { Player } from '../entities/Player';
@@ -36,6 +38,9 @@ export class WorldScene extends Phaser.Scene {
   police!: PoliceSystem;
   gang!: GangSystem;
   story!: Story;
+  turf!: TurfSystem;
+  /** True while the player's car is parked in Goro's spray booth with the menu up. */
+  garageOpen = false;
   ambience: { color: number; alpha: number; lights: number; rain: boolean } = { color: 0, alpha: 0, lights: 0, rain: false };
   private roofs: { img: Phaser.GameObjects.Image | Phaser.GameObjects.Text; x: number; y: number; h: number }[] = [];
   private shade!: Phaser.GameObjects.Rectangle;
@@ -99,6 +104,7 @@ export class WorldScene extends Phaser.Scene {
     this.police = new PoliceSystem(this);
     this.gang = new GangSystem(this);
     this.story = new Story(this);
+    this.turf = new TurfSystem(this);
 
     this.traffic = new TrafficSystem(this);
 
@@ -195,8 +201,9 @@ export class WorldScene extends Phaser.Scene {
     if (a.kind === 'player') { this.player.takeDamage(dmg, how === 'bullet'); return; }
     a.hp -= dmg;
     if (a.kind === 'thug') { // gang members: no crime, and they fight back
-      if (a.state === 'wait' || a.state === 'guard' || a.state === 'smash') a.state = 'chase';
-      if (a.hp <= 0) { a.kill(); a.timer = 8; this.addPickup(a.x, a.y, 'cash', Phaser.Math.Between(PEDS.cashDrop[0], PEDS.cashDrop[1]), '', 0); }
+      if (a.state === 'wait' || a.state === 'guard' || a.state === 'smash' || a.state === 'idle') a.state = 'chase';
+      for (const o of this.gang.thugs) if (o.state === 'idle' && o.data.turf === a.data.turf && Math.hypot(o.x - a.x, o.y - a.y) < 320) o.state = 'chase'; // their friends join in
+      if (a.hp <= 0) { a.kill(); a.timer = 8; if (byPlayer) this.turf.onThugKilled(a); this.addPickup(a.x, a.y, 'cash', Phaser.Math.Between(PEDS.cashDrop[0], PEDS.cashDrop[1]), '', 0); }
       return;
     }
     if (byPlayer) this.heat.crime(a.kind === 'cop' ? 'hitOfficer' : how === 'melee' ? 'punch' : 'assault');
@@ -263,7 +270,7 @@ export class WorldScene extends Phaser.Scene {
           const dx = cb.x - ca.x, dy = cb.y - ca.y, d = Math.hypot(dx, dy) || 0.01, over = ca.r + cb.r - d;
           if (over <= 0) continue;
           const nx = dx / d, ny = dy / d;
-          const ma = a.wreck ? a.def.mass * 2 : a.def.mass, mb = b.wreck ? b.def.mass * 2 : b.def.mass, tot = ma + mb;
+          const ma = a.def.mass * (a.wreck ? 2 : 1 + GARAGE.armour.mass * a.up.armour), mb = b.def.mass * (b.wreck ? 2 : 1 + GARAGE.armour.mass * b.up.armour), tot = ma + mb;
           a.x -= nx * over * (mb / tot); a.y -= ny * over * (mb / tot);
           b.x += nx * over * (ma / tot); b.y += ny * over * (ma / tot);
           const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
@@ -348,6 +355,7 @@ export class WorldScene extends Phaser.Scene {
     else p.resetWeapons(['fists']); // arrest costs every weapon except melee (bible)
     this.heat.clear(false);
     this.police.standDown(true);
+    this.turf.abort();
     this.story.onRespawn(); // a failed mission restarts from its beginning
     this.cam.x = p.actor.x; this.cam.y = p.actor.y;
   }
@@ -373,6 +381,8 @@ export class WorldScene extends Phaser.Scene {
     this.traffic.update(dt);
     this.police.update(dt);
     this.gang.update(dt);
+    this.turf.update(dt);
+    this.updateGarage();
     for (let i = this.cars.length - 1; i >= 0; i--) {
       const c = this.cars[i];
       if (c.removed) { this.cars.splice(i, 1); continue; }
@@ -421,6 +431,19 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  /** Goro's Garage: park in the spray booth (after mission 3) and press 1-4 to buy. */
+  private updateGarage(): void {
+    const p = this.player, c = p.car, spot = this.map.places.spray;
+    this.garageOpen = !!c && this.story.index >= 3 && !this.story.active && this.mode === 'play' && Math.hypot(c.x - spot.x, c.y - spot.y) < 36 && c.speed < 60;
+    if (!c || !this.garageOpen) return;
+    const k = this.keys, down = (key: Phaser.Input.Keyboard.Key) => Phaser.Input.Keyboard.JustDown(key);
+    const pay = (price: number) => { if (p.cash < price) return false; p.cash -= price; this.fx.puff(c.x, c.y, 0xffffff, 40, 0.5, 0, 0, 2, 0.6); return true; };
+    if (down(k.ONE) && this.heat.level <= 3 && pay(GARAGE.respray.price)) { c.respray(); if (!this.heat.seen) this.heat.clear(true); }
+    if (down(k.TWO) && c.up.engine < 3 && pay(GARAGE.engine.prices[c.up.engine])) c.up.engine++;
+    if (down(k.THREE) && !c.up.nitro && pay(GARAGE.nitro.price)) c.up.nitro = 1;
+    if (down(k.FOUR) && !c.up.armour && pay(GARAGE.armour.price)) { c.up.armour = 1; c.maxHp = c.def.hp * (1 + GARAGE.armour.hp); c.hp = c.maxHp; c.burning = false; }
+  }
+
   /** A few times a second: move the light pool to the lamps on screen, and fill / empty nearby car parks. */
   private slowUpdate(): void {
     const v = this.cameras.main.worldView, p = this.player.pos, a = this.ambience;
@@ -435,6 +458,7 @@ export class WorldScene extends Phaser.Scene {
     // parked cars exist only in car parks near the player
     this.map.lots.forEach((l, i) => {
       const d = Math.hypot(l.x + l.w / 2 - p.x, l.y + l.h / 2 - p.y), have = this.lotCars.get(i);
+      if (l === this.map.places.warehouse.rect) return; // nobody parks inside the police compound
       if (!have && d < PARKED.spawnDist && this.cars.length < TRAFFIC.vehicleCap - 4 && !this.onScreen(l.x + l.w / 2, l.y + l.h / 2, Math.max(l.w, l.h) / 2)) {
         const made: Car[] = [], count = Math.min(PARKED.perLot, Math.floor(l.w / 96));
         for (let k = 0; k < count; k++) {
@@ -457,6 +481,7 @@ export class WorldScene extends Phaser.Scene {
   private updateWorldUi(): void {
     const p = this.player, g = this.bars;
     g.clear();
+    if (this.story.index >= 3 && !this.story.active) { const sp = this.map.places.spray; g.lineStyle(2, 0x7fe0ff, 0.7).strokeCircle(sp.x, sp.y, 30); } // Goro's spray booth
     const mk = this.story.marker;
     if (mk && this.mode !== 'cut') { // the gold ring that shows where to go
       const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 180), r = Math.max(14, Math.min(mk.r, 40));

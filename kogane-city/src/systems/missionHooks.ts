@@ -224,7 +224,7 @@ Object.assign(HOOKS, {
     s.vars.pi = 0; s.vars.ki = 0; s.vars.barkT = 6;
     for (const i of [1, 3, 5]) { const c = (s.vars.cps as { x: number; y: number }[])[i]; npc(w, s, 'raijin', c.x + (i === 3 ? 0 : i === 1 ? 110 : -110), c.y + (i === 3 ? 110 : 0)); }
   },
-  m04Go(w, s) { w.player.putInCar(s.vars.zenki as Car); },
+  m04Go(w, s) { w.player.putInCar(s.vars.zenki as Car); w.traffic.blockRing = true; },
 
   // ----- M05 Signal Lost -----
   m05Setup(w) { w.player.giveWeapon('kitsune9'); w.player.switchTo(w.player.weapons.findIndex((x) => x.def.id === 'kitsune9')); },

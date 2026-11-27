@@ -19,15 +19,15 @@ export class GangSystem {
 
   constructor(private world: WorldScene) {}
 
-  spawnThug(x: number, y: number, look: string, state: 'wait' | 'guard' | 'chase' | 'smash', hp = 60): Actor {
+  spawnThug(x: number, y: number, look: string, state: 'wait' | 'guard' | 'chase' | 'smash' | 'idle', hp = 60): Actor {
     const a = new Actor(this.world, 'thug', x, y, look, hp);
     a.state = state; a.timer = 0.6;
     this.thugs.push(a);
     return a;
   }
 
-  spawnChaser(def: VehicleDef, x: number, y: number, heading: number): Car {
-    const c = this.world.addCar(def, x, y, heading, false, 0);
+  spawnChaser(def: VehicleDef, x: number, y: number, heading: number, color = 0): Car {
+    const c = this.world.addCar(def, x, y, heading, false, color);
     c.driver = 'gang';
     this.chasers.push(c);
     return c;
@@ -57,6 +57,7 @@ export class GangSystem {
         if (a.data.downBark && !a.data.saidDown) { a.data.saidDown = true; w.fx.bark(a.sprite, a.data.downBark as string, '#ff9a9a'); }
         continue;
       }
+      if (a.state === 'idle') { a.body.setVelocity(0, 0); continue; } // hanging around their turf
       if (a.state === 'wait') { a.body.setVelocity(0, 0); a.sprite.rotation = Math.atan2(p.y - a.y, p.x - a.x); continue; }
       if (a.state === 'guard') { a.body.setVelocity(0, 0); if (d < 120) a.state = 'chase'; continue; }
       if (a.state === 'chase' && a.data.fleeAt && a.hp <= (a.data.fleeAt as number)) {
@@ -85,7 +86,7 @@ export class GangSystem {
           const ang = Math.atan2(p.y - a.y, p.x - a.x);
           a.sprite.rotation = ang;
           if (a.timer <= 0) {
-            a.timer = 0.8 + Math.random() * 0.4;
+            a.timer = ((a.data.rate as number) || 0.8) + Math.random() * 0.4 * ((a.data.rate as number) ? 0.3 : 1);
             w.projectiles.fire(a.x + Math.cos(ang) * 12, a.y + Math.sin(ang) * 12, ang + (Math.random() - 0.5) * 0.28, WEAPONS.kitsune9, 'cop');
             if (a.data.bark) w.fx.bark(a.sprite, a.data.bark as string, '#ffd0a0', 'guard', 3);
           }

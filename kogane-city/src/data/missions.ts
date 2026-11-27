@@ -22,6 +22,8 @@ export interface Mission {
   ambience: 'dawnRain' | 'day' | 'afternoon' | 'night';
   setup: string;
   failCheck?: string;
+  /** Where Jun is put when the mission is retried (default: its normal start). */
+  retryAt?: string;
   failCall?: Line;
   steps: Step[];
 }
@@ -325,7 +327,7 @@ export const MISSIONS: Mission[] = [
     ],
   },
   {
-    id: 'M08', title: 'EVIDENCE', giver: 'garage', start: 'garage', ambience: 'night', setup: 'm08Setup',
+    id: 'M08', title: 'EVIDENCE', giver: 'garage', start: 'garage', ambience: 'night', setup: 'm08Setup', retryAt: 'warehouseGate',
     steps: [
       { t: 'cut', lines: [
         D("Goro's Garage, midnight. HIKARI's laptop sits on a toolbox. GORO leans on a tow truck with a clean car strapped to its bed."),
