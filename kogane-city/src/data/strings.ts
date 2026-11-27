@@ -14,6 +14,9 @@ export const STRINGS = {
   OBJ_LOSE_POLICE: 'Lose the police.',
   PROMPT_STEAL: 'E — Steal',
   PROMPT_DRINK: 'E — Drink ¥{price}', // new wording, not yet in the script doc
+  PROMPT_ENTER: 'E — {name}', // NEW: at a door you can go through
+  PROMPT_LEAVE: 'E — Leave', // NEW
+  PROMPT_LOCKED: 'Locked. The police are looking for you.', // NEW: shops shut their doors on a wanted man
 } as const;
 
 export type StringId = keyof typeof STRINGS;

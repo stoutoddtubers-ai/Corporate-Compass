@@ -7,7 +7,7 @@ import type { WorldScene } from '../scenes/WorldScene';
 export interface ShopItem { label: string; price: number; note: string; owned: boolean; buy: () => void }
 
 /**
- * Hachiman Hardware. Walk up to a shop door on foot and the menu opens: arrow keys move,
+ * Hachiman Hardware. Walk in and up to the till and the menu opens: arrow keys move,
  * Enter buys, walking away closes it. Stock grows as the story advances.
  */
 export class Shop {
@@ -36,7 +36,9 @@ export class Shop {
 
   update(): void {
     const w = this.world, p = w.player, k = w.keys;
-    const near = !p.car && w.mode === 'play' && this.places.some((s) => Math.hypot(s.x - p.actor.x, s.y - p.actor.y) < 30);
+    // the menu opens at the till inside the shop
+    const till = w.indoors?.def.till === 'hardware' ? w.indoors.spots.$ : null;
+    const near = !!till && w.mode === 'play' && Math.hypot(till.x - p.actor.x, till.y - p.actor.y) < 34;
     if (!near) { this.open = false; return; }
     if (!this.open) { this.open = true; this.cursor = 0; }
     this.items = this.stock();

@@ -176,10 +176,10 @@ const { chromium } = require('playwright');
       await start('M16', [], path);
       await obj('Get to the Kurogane mansion.');
       await check(`Math.hypot(w.player.pos.x - s.place('${path === 'police' ? 'canalLot' : 'saekoOffice'}').x, w.player.pos.y - s.place('${path === 'police' ? 'canalLot' : 'saekoOffice'}').y) < 120`, 'the start place for this path');
-      await run('w.player.putInCar(s.cars[0]); t.go(100 * 32, 96 * 32); const c = w.player.car; c.heading = 0; c.vx = 300;'); // onto a flooded street
+      await run('w.player.putInCar(s.cars[0]); const q = s.place("scramble"); t.go(q.x + 700, q.y); const c = w.player.car; c.heading = 0; c.vx = 300;'); // onto a flooded street
       await wait(1200);
       await check('w.player.car.speed < 130', 'flood water to slow the car');
-      await run('t.go(78 * 32, 122 * 32);'); // the high road, just south of the roadblock
+      await run(`const rb = s.place('mibuRoadblock'); t.go(rb.x, rb.y + 176);`); // the high road, just south of the roadblock
       await obj("Break through Mibu's roadblock."); await run('t.toMarker();');
       await obj('Defend the mansion. (3 waves, with the ally squad)');
       let note = 'path = ' + path;

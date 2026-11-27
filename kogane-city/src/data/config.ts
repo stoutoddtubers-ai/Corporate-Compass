@@ -4,8 +4,8 @@ export const GAME_HEIGHT = 540;
 export const TILE_SIZE = 32;
 
 // Whole-city map size (in tiles): both river banks and the bay. The bible's long-term target is 1,024 x 1,024.
-export const MAP_TILES_W = 308;
-export const MAP_TILES_H = 186;
+export const MAP_TILES_W = 658;
+export const MAP_TILES_H = 442; // the city is 362 rows; the rest holds building interiors (see MAP.interiorBand)
 
 // Performance budget from the game bible ("Performance budgets").
 export const BUDGET = {

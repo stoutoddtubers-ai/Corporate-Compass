@@ -189,7 +189,7 @@ export class HudScene extends Phaser.Scene {
 
     // rain
     this.rainG.clear();
-    if (w.ambience.rain) {
+    if (w.ambience.rain && !w.indoors) {
       this.rainG.lineStyle(1, 0xaec8e8, 0.35);
       for (const r of this.rain) {
         r.y += r.v * dt; r.x -= r.v * 0.25 * dt;
@@ -199,8 +199,9 @@ export class HudScene extends Phaser.Scene {
     }
 
     // district stamp, 2-3 s at the start
-    const st = s.stamp > 0 && !s.cut && !!DISTRICTS[w.districtId];
-    if (st) { const d = DISTRICTS[w.districtId]; this.stampKanji.setText(d.kanji); this.stampName.setText(`${d.name}\n${d.tagline}`); }
+    const st = s.stamp > 0 && !s.cut && (!!w.indoors || !!DISTRICTS[w.districtId]);
+    if (st && w.indoors) { this.stampKanji.setText(''); this.stampName.setText(w.indoors.def.name); } // walking into a room shows its name
+    else if (st) { const d = DISTRICTS[w.districtId]; this.stampKanji.setText(d.kanji); this.stampName.setText(`${d.name}\n${d.tagline}`); }
     this.stampKanji.setVisible(st).setAlpha(Math.min(1, s.stamp)); this.stampName.setVisible(st).setAlpha(Math.min(1, s.stamp));
 
     // soup spill meter (mission 2)
@@ -342,7 +343,7 @@ export class HudScene extends Phaser.Scene {
     for (const sh of w.shop.places) dot(sh.x, sh.y, 0xf0a030, 4);
     for (const sm of w.story.sideMarkers) dot(sm.x, sm.y, 0xc060ff, 5);
     if (!w.story.active && !w.side.active) for (const st of w.side.starts) dot(st.x, st.y, 0x40d0c0, 4);
-    const mk = w.story.marker ?? w.side.marker;
+    const mk = w.shownMarker();
     if (mk) { // mission marker: a gold diamond, pinned to the rim when it is far away
       let dx = (mk.x - p.x) * S, dy = (mk.y - p.y) * S;
       const d = Math.hypot(dx, dy), lim = R - 7;

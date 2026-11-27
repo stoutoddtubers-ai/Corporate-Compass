@@ -55,11 +55,11 @@ export const SIDE_TUNING = {
   sr3: {
     record: 242, // script: Daigo's lap record, 4:02
     /**
-     * The ring takes about a minute at racing speed, so the lap clock runs faster than real
+     * The ring takes over two minutes at racing speed, so the lap clock runs faster than real
      * time: this many clock seconds per real second. A clean lap reads about 3:20, and each
      * thing left in Kenta's lane costs him about 8 seconds on the clock.
      */
-    clockScale: 3.6,
+    clockScale: 1.55,
     kentaSpeed: 300, cornerSpeed: 175,
     blockedSpeed: 90, // Kenta's speed while something is in his lane
     lineAhead: 160, // how far ahead on the racing line Kenta aims
@@ -119,7 +119,7 @@ export const SIDE_TUNING = {
     share: 900000, // script: "up to ¥900,000", one percent of ninety million
     yenPerHp: 3000, // taken off for each point of damage to the truck ("less for every dent")
     minShare: 90000,
-    auctionTime: 170, // seconds until the auction starts
+    auctionTime: 360, // seconds until the auction starts
     truckCruise: 170,
     catchDist: 260,
     stopHp: 0.5, // the driver gives up below this share of the truck's health

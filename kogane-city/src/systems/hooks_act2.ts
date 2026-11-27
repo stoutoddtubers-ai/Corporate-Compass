@@ -3,6 +3,7 @@ import { ACT2_BARKS as B, ACT2_TUNING as T } from '../data/missions_act2';
 import { AMBIENCE } from '../data/missions';
 import { VEHICLES, BLACK_SEDAN, WHITE_SEDAN } from '../data/vehicles';
 import { WEAPONS } from '../data/weapons';
+import { MAP } from '../data/map';
 import { MAP_TILES_W, MAP_TILES_H, TILE_SIZE as TS } from '../data/config';
 import type { Actor } from '../entities/Actor';
 import type { Car } from '../entities/Car';
@@ -588,7 +589,7 @@ Object.assign(CHECKS, {
       s.timer = null; s.vars.waitT = 0;
       convoy = [0, 1, 2].map((i) => {
         const c = laneCar(w, s, i === 1 ? VEHICLES.truck : VEHICLES.sedan, i === 1 ? 0 : BLACK_SEDAN, { x: tun.x + 230 + i * 110, y: 7 * TS }, 0, 110);
-        c.route = w.map.route(c.seg!, tun.x + TS, 34 * TS).slice(1); // down through the tunnel
+        c.route = w.map.route(c.seg!, tun.x + TS, MAP.hRoads[1] * TS).slice(1); // down through the tunnel
         return c;
       });
       convoy[1].hp = convoy[1].maxHp = VEHICLES.truck.hp * T.m12ArmourMult;

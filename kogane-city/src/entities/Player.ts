@@ -166,6 +166,8 @@ export class Player {
       e.t += dt;
       if (e.car.removed || e.car.wreck || Math.hypot(e.car.x - a.x, e.car.y - a.y) > PLAYER.enterRange + 14) this.entering = null;
       else if (e.t >= e.need) { this.entering = null; this.enterCar(e.car); }
+    } else if (eDown && w.useDoor()) {
+      // went through a door
     } else if (eDown) {
       const c = w.nearestCar(a.x, a.y, PLAYER.enterRange);
       if (!c) w.buyDrink(); // no car in reach: maybe a vending machine is

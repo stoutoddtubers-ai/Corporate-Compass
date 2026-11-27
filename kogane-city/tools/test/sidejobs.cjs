@@ -48,7 +48,7 @@ const ok = (cond, what, detail) => {
   /** A stretch of road well away from every start ring: standing here re-arms the rings. */
   const neutral = () => ev(() => {
     const w = window.__kc;
-    for (const l of w.map.lanes) { const x = l.ax + l.dx * l.len * 0.5, y = l.ay + l.dy * l.len * 0.5; if (x > 5400 && y < 3900 && w.side.spots.every((q) => Math.hypot(q.x - x, q.y - y) > 500)) return { x, y }; }
+    for (const l of w.map.lanes) { const x = l.ax + l.dx * l.len * 0.5, y = l.ay + l.dy * l.len * 0.5; if (x > 11000 && y < 8500 && w.side.spots.every((q) => Math.hypot(q.x - x, q.y - y) > 500)) return { x, y }; }
     return null;
   });
   /** Leave the rings, wait out the cooldown, then pull up in the ring. */
@@ -85,8 +85,8 @@ const ok = (cond, what, detail) => {
   ok(has(1, 'Taxi') && !has(1, 'Ramen') && !has(1, 'K-Route'), 'after mission 1: taxi ranks only', info.by[1]);
   ok(has(2, 'Ramen') && !has(3, 'K-Route'), 'ramen delivery opens after mission 2, not the time trial', info.by[3]);
   ok(has(4, 'K-Route'), 'K-Route time trial opens after mission 4', info.by[4]);
-  ok(info.by[7].every((q) => Number(q.split('@')[1]) > 5056), 'before mission 8 every start is on the east bank', info.by[7]);
-  ok(info.by[8].some((q) => Number(q.split('@')[1]) < 4672), 'after mission 8 there are ranks west of the river', info.by[8]);
+  ok(info.by[7].every((q) => Number(q.split("@")[1]) > 10688), 'before mission 8 every start is on the east bank', info.by[7]);
+  ok(info.by[8].some((q) => Number(q.split("@")[1]) < 9984), 'after mission 8 there are ranks west of the river', info.by[8]);
   ok(info.ranks >= 4 && info.gap > 300 && info.rankTiles.every((q) => q === 'Road'), 'taxi ranks are on the road and apart', info);
 
   // ------------------------------------------------------------------ ramen delivery
@@ -155,7 +155,7 @@ const ok = (cond, what, detail) => {
   await begin('ramen', aside);
   s = await state();
   ok(s.storyMarker === null && !!s.marker, "while a job runs, its marker replaces the story's", s);
-  const east = await ev(() => { const k = window.__kc.side; let n = 0; for (let i = 0; i < 60; i++) { const q = k.kerb({ x: 6000, y: 2000 }, [0, 1e6]); if (!q || q.x < 5056 || q.y > 4032) n++; } return n; });
+  const east = await ev(() => { const k = window.__kc.side, wt = window.__kc.map.water; const riv = wt.filter((r) => r.h > r.w * 2).sort((a, b) => b.w - a.w)[0], sea = wt.slice().sort((a, b) => b.w - a.w)[0], bank = riv.x + riv.w, bay = sea.y; let n = 0; for (let i = 0; i < 60; i++) { const q = k.kerb({ x: bank + 3000, y: 2000 }, [0, 1e6]); if (!q || q.x < bank || q.y > bay) n++; } return n; });
   ok(east === 0, 'before mission 8 taxi stops stay on the east bank', east);
   await ev(() => window.__kc.side.abort());
   await wait(200);
@@ -218,7 +218,7 @@ const ok = (cond, what, detail) => {
   await wait(150);
   s = await state();
   ok(s.active && s.ring === true, 'starts and clears traffic off the ring (blockRing)', s);
-  ok(s.objective === 'Lap the K-Route in 60s.' && s.timer?.label === 'TIME' && s.hint === 'CHECKPOINT 1/8', 'shows the target and the checkpoint', s);
+  ok(s.objective === 'Lap the K-Route in 135s.' && s.timer?.label === 'TIME' && s.hint === 'CHECKPOINT 1/8', 'shows the target and the checkpoint', s);
   cash = s.cash;
   for (let i = 0; i < 8; i++) {
     const before = (await state()).hint;

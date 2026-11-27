@@ -72,7 +72,7 @@ export const SIDE_JOBS = {
   /** K-Route time trial: one lap of the east-bank ring, the mission 4 circuit. */
   race: {
     unlockAfter: 4, // (script) missions finished: THUNDER ROAD ends with "Side job unlocked: Expressway races"
-    targetTime: 60, // PLACEHOLDER: seconds to beat
+    targetTime: 135, // PLACEHOLDER: seconds to beat (a clean lap of the bigger ring is near two minutes)
     prize: 6000, // PLACEHOLDER: yen for beating it
     bonusPerSecond: 200, // PLACEHOLDER: yen for each whole second left on the clock
     checkpointRadius: MISSION_TUNING.raceCheckpointRadius, // (script) as mission 4

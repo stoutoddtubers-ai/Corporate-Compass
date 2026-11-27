@@ -54,7 +54,7 @@ const only = process.argv.slice(2);
       const kill = () => { for (const t of [...w.gang.thugs]) if (t.alive) w.hurtActor(t, 9999, true, 'bullet'); };
       const sit = (c) => { if (P.car !== c) P.putInCar(c); };
       const noChase = () => { for (const c of w.gang.activeChasers) c.destroy(); };
-      const road = { x: 194 * 32, y: 122 * 32 }; // a junction a long way from everything
+      const jn = w.map.junctions.filter((j) => j.lit).sort((a, b) => b.x + b.y - a.x - a.y)[3], road = { x: jn.x, y: jn.y }; // a junction a long way from everything
       switch (st.done) {
         case 'sideOnFoot': foot(); toMk(); break;
         case 'atMarker': toMk(); break;

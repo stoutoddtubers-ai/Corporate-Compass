@@ -7,7 +7,8 @@ import { PEDS, PARKED, PICKUPS, TRAFFIC } from '../data/ai';
 import { HEAT } from '../data/heat';
 import { WEAPONS } from '../data/weapons';
 import { BARKS, pick, t } from '../data/strings';
-import { CityMap, Roof, Furniture } from '../systems/CityMap';
+import { CityMap, Roof, Furniture, Interior, Door } from '../systems/CityMap';
+import { INTERIOR } from '../data/interiors';
 import { DAY } from '../data/missions';
 import { Fx } from '../systems/Fx';
 import { Projectiles } from '../systems/Projectiles';
@@ -53,6 +54,11 @@ export class WorldScene extends Phaser.Scene {
   saveGame?: () => void;
   ambience: { color: number; alpha: number; lights: number; rain: boolean } = { color: 0, alpha: 0, lights: 0, rain: false };
   private roofs: Roof[] = [];
+  private roofGrid: Map<number, Roof[]> | null = null;
+  private roofNear: Roof[] = [];
+  private roofWas: Roof[] = [];
+  /** Rooftops whose picture is painted right now (so the far ones can be thrown away). */
+  private roofMade = new Set<Roof>();
   private wallG!: Phaser.GameObjects.Graphics;
   private halo!: Phaser.GameObjects.Image;
   /** Free roam: the clock runs and the light changes. Missions switch this off. */
@@ -71,6 +77,12 @@ export class WorldScene extends Phaser.Scene {
   private lotCars = new Map<number, Car[]>();
   /** Which district the player is in (HUD shows a title card when it changes). */
   districtId = '';
+  /** The room Jun is in, or null on the street. */
+  indoors: Interior | null = null;
+  /** The street door he last walked in by (the way out leads back here). */
+  lastDoor: { x: number; y: number } | null = null;
+  private roomMask!: Phaser.GameObjects.Graphics;
+  private keepers: Actor[] = [];
   heat!: HeatSystem;
   projectiles!: Projectiles;
   pickups: Pickup[] = [];
@@ -95,6 +107,7 @@ export class WorldScene extends Phaser.Scene {
     // rooftops (they slide with the camera to look tall), and the signs painted on them
     this.roofs = this.map.makeRoofs(this);
     this.wallG = this.add.graphics().setDepth(19);
+    this.roomMask = this.add.graphics().setDepth(29); // hides everything outside the room you are in
     // street furniture that can be hit, sorted into a grid so cars only check what is near them
     for (const f of this.map.furniture) {
       if (!f.solid) continue;
@@ -128,6 +141,13 @@ export class WorldScene extends Phaser.Scene {
     }
     this.people = this.add.group();
     this.physics.add.collider(this.people, this.walls);
+    // someone behind the counter in every shop
+    for (const inn of this.map.interiors) if (inn.spots.n) {
+      const k = new Actor(this, 'ped', inn.spots.n.x, inn.spots.n.y, inn.def.keeper ?? 'shopkeeper', 100);
+      k.sprite.rotation = Math.PI / 2;
+      (k.sprite.body as Phaser.Physics.Arcade.Body).setImmovable(true);
+      this.keepers.push(k);
+    }
 
     this.fx = new Fx(this);
     this.projectiles = new Projectiles(this);
@@ -163,7 +183,7 @@ export class WorldScene extends Phaser.Scene {
     this.bars = this.add.graphics().setDepth(41);
 
     const cam = this.cameras.main;
-    cam.setBounds(0, 0, W, H);
+    cam.setBounds(0, 0, W, MAP.cityH * TILE_SIZE);
     this.cam = { x: this.player.actor.x, y: this.player.actor.y, zoom: 1 };
     cam.centerOn(this.cam.x, this.cam.y);
 
@@ -376,6 +396,79 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** The nearest vending machine within reach, if any. */
+  /** The door, way out or staircase within reach of Jun on foot. */
+  doorNear(): Door | null {
+    const p = this.player;
+    if (p.car || this.mode !== 'play') return null;
+    for (const d of this.map.doors) if (Math.abs(d.x - p.actor.x) < INTERIOR.doorReach && Math.abs(d.y - p.actor.y) < INTERIOR.doorReach) return d;
+    return null;
+  }
+  /** Are street doors shut to Jun right now? (They are while the police are after him, unless a mission says otherwise.) */
+  doorsLocked(): boolean { return this.heat.level >= INTERIOR.lockedAtHeat && !this.story.flags.doorsOpen; }
+
+  /** E at a door: go through it. Returns true if there was a door to use. */
+  useDoor(): boolean {
+    const d = this.doorNear();
+    if (!d) return false;
+    if (d.kind === 'in') {
+      if (this.doorsLocked()) return true;
+      this.lastDoor = { x: d.x, y: d.y };
+    }
+    // the way out leads to the door you came in by; if a mission put you inside, to the room's first street door
+    const out = d.to ?? this.lastDoor ?? this.map.doors.find((o) => o.kind === 'in' && o.interior === d.interior);
+    if (!out) return true;
+    this.moveJun(out.x, out.y + (d.kind === 'out' ? 6 : 0));
+    return true;
+  }
+  /** Puts Jun somewhere else at once (doors, stairs), with a quick fade. */
+  moveJun(x: number, y: number): void {
+    this.player.actor.body.reset(x, y);
+    this.cam.x = x; this.cam.y = y;
+    this.cameras.main.fadeIn(220, 0, 0, 0);
+  }
+  /**
+   * Where to draw the "go here" marker. If the target is in a room Jun is not in, this is the
+   * door or staircase that leads towards it (and from inside a room to a target outside, the way out).
+   */
+  shownMarker(): { x: number; y: number; r: number } | null {
+    const mk = this.story.marker ?? this.side.marker;
+    if (!mk) return null;
+    const map = this.map, here = this.indoors, there = map.interiorAt(mk.x, mk.y);
+    if (here === there) return mk;
+    const doorsIn = (id: string) => map.doors.filter((d) => map.interiorAt(d.x, d.y)?.id === id); // the ways out of a room
+    // walk the stairs from one room towards another (or towards any room with a way to the street)
+    const firstStep = (from: string, done: (id: string) => boolean): Door | null => {
+      const seen = new Set([from]), q: { id: string; first: Door | null }[] = [{ id: from, first: null }];
+      for (let i = 0; i < q.length; i++) {
+        const { id, first } = q[i];
+        if (done(id) && first) return first;
+        for (const d of doorsIn(id)) if (d.kind === 'stairs' && !seen.has(d.interior)) { seen.add(d.interior); q.push({ id: d.interior, first: first ?? d }); }
+      }
+      return null;
+    };
+    const hasExit = (id: string) => doorsIn(id).some((d) => d.kind === 'out');
+    if (here) {
+      const step = there ? firstStep(here.id, (id) => id === there.id) : null;
+      const out = step ?? doorsIn(here.id).find((d) => d.kind === 'out') ?? firstStep(here.id, hasExit);
+      return out ? { x: out.x, y: out.y, r: 18 } : mk;
+    }
+    // on the street: the nearest street door of the room, or of the room its stairs come down to
+    let root = there!.id;
+    if (!map.doors.some((d) => d.kind === 'in' && d.interior === root)) {
+      const down = map.interiors.find((i) => map.doors.some((d) => d.kind === 'in' && d.interior === i.id) && (i.id === root || firstStep(i.id, (id) => id === root)));
+      if (down) root = down.id;
+    }
+    const p = this.player.pos;
+    const street = map.doors.filter((d) => d.kind === 'in' && d.interior === root).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
+    return street ? { x: street.x, y: street.y, r: 18 } : mk;
+  }
+
+  /** Mission helper: put Jun at a named spot inside a room, e.g. enterRoom('pachinko', '1'). */
+  enterRoom(id: string, spot = 'D'): void {
+    const q = this.map.places[`${id}:${spot}`];
+    if (q) this.moveJun(q.x, q.y);
+  }
+
   vendingNear(x: number, y: number): Furniture | null {
     const cx = Math.floor(x / 128), cy = Math.floor(y / 128);
     for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++)
@@ -447,7 +540,7 @@ export class WorldScene extends Phaser.Scene {
     p.cash -= this.bill;
     if (p.car) p.exitCar();
     // wake up at the nearest hospital, or the nearest police box after an arrest (bible)
-    const here = p.pos, spot = this.nearestPlace(dead ? ['hospital', 'hospitalWest', 'hospitalPort'] : ['policeBox', 'policeBoxWest'], here.x, here.y);
+    const here = this.indoors ? (this.lastDoor ?? this.map.doors.find((o) => o.kind === 'in' && o.interior === this.indoors!.id) ?? p.pos) : p.pos, spot = this.nearestPlace(dead ? ['hospital', 'hospitalWest', 'hospitalPort'] : ['policeBox', 'policeBoxWest'], here.x, here.y);
     p.actor.body.reset(spot.x, spot.y);
     p.heal();
     this.mode = 'play';
@@ -488,8 +581,8 @@ export class WorldScene extends Phaser.Scene {
     this.updateGarage();
     this.shop.update();
     // the safehouse (the room above Sakamaki Ramen, once mission 1 is done): heals you and saves the game
-    const home = this.map.places.ramen, hp = this.player;
-    const inside = this.story.index >= 1 && !this.story.active && !hp.car && this.mode === 'play' && Math.hypot(hp.actor.x - home.x, hp.actor.y - home.y) < 44;
+    const home = this.map.places['junRoom:z'], hp = this.player;
+    const inside = this.story.index >= 1 && !this.story.active && this.mode === 'play' && Math.hypot(hp.actor.x - home.x, hp.actor.y - home.y) < 30;
     if (inside && !this.atHome) { hp.heal(); this.saveGame?.(); this.story.phone.push({ from: 'MIKA', text: t('UI_SAVED', { safehouse: 'Sakamaki Ramen' }), t: 3 }); }
     this.atHome = inside;
     for (let i = this.cars.length - 1; i >= 0; i--) {
@@ -529,6 +622,21 @@ export class WorldScene extends Phaser.Scene {
   /** On foot: lead toward the aim. In a car: look ahead and zoom out with speed. */
   private updateCamera(dt: number): void {
     const cam = this.cameras.main, p = this.player;
+    // which room, if any, Jun is in (doors, stairs and missions simply move him; this notices)
+    const inn = this.map.interiorAt(p.pos.x, p.pos.y);
+    if (inn !== this.indoors) {
+      this.indoors = inn;
+      if (inn) { cam.removeBounds(); this.story.stamp = 2.5; } else cam.setBounds(0, 0, this.map.widthPx, MAP.cityH * TILE_SIZE);
+      this.cam.x = p.pos.x; this.cam.y = p.pos.y;
+      this.roomMask.clear();
+      if (inn) { // black out everything round the room (other rooms are stored right beside it)
+        const m = 4000, top = inn.y - 80;
+        this.roomMask.fillStyle(0x08080c, 1).fillRect(inn.x - m, top - m, inn.w + 2 * m, m).fillRect(inn.x - m, inn.y + inn.h, inn.w + 2 * m, m)
+          .fillRect(inn.x - m, top, m, inn.h + 80).fillRect(inn.x + inn.w, top, m, inn.h + 80);
+      }
+    }
+    if (inn) { const l = inn.def.light ?? INTERIOR.defaultLight; this.shade.setFillStyle(l.color, l.alpha); }
+    for (const k of this.keepers) k.animate(dt);
     let fx: number, fy: number, zoom: number = CAMERA.footZoom;
     if (p.car) {
       const c = p.car;
@@ -538,6 +646,11 @@ export class WorldScene extends Phaser.Scene {
       const ptr = this.input.activePointer;
       fx = p.actor.x + ((ptr.x - GAME_WIDTH / 2) / (GAME_WIDTH / 2)) * CAMERA.aimLead * GAME_WIDTH;
       fy = p.actor.y + (((ptr.y - GAME_HEIGHT / 2) / (GAME_HEIGHT / 2)) * CAMERA.aimLead * GAME_HEIGHT) / MAP.squash;
+    }
+    if (inn) { // indoors the camera stays on the room: centred if the room fits the screen, else following Jun inside it
+      const hw = cam.worldView.width / 2, hh = cam.worldView.height / 2, cx = inn.x + inn.w / 2, cy = inn.y + inn.h / 2 - 20;
+      fx = inn.w + 96 <= hw * 2 ? cx : Phaser.Math.Clamp(fx, inn.x - 48 + hw, inn.x + inn.w + 48 - hw);
+      fy = inn.h + 140 <= hh * 2 ? cy : Phaser.Math.Clamp(fy, inn.y - 100 + hh, inn.y + inn.h + 40 - hh);
     }
     const k = Math.min(1, CAMERA.followLerp * dt);
     this.cam.x += (fx - this.cam.x) * k; this.cam.y += (fy - this.cam.y) * k;
@@ -551,12 +664,25 @@ export class WorldScene extends Phaser.Scene {
     const lit = this.ambience.lights > 0.4;
     g.clear();
     this.occl.length = 0;
-    for (const r of this.roofs) {
+    // only the rooftops and street furniture near the screen are looked at: the city is cut into squares
+    if (!this.roofGrid) {
+      this.roofGrid = new Map();
+      for (const r of this.roofs) { r.img.setVisible(false); const k = Math.floor(r.x / 512) + Math.floor(r.y / 512) * 1000; let l = this.roofGrid.get(k); if (!l) this.roofGrid.set(k, (l = [])); l.push(r); }
+    }
+    const near = this.roofNear, was = this.roofWas;
+    was.length = 0; for (const r of near) was.push(r);
+    near.length = 0;
+    const gx0 = Math.floor((mid.x - vw.width / 2 - 620) / 512), gx1 = Math.floor((mid.x + vw.width / 2 + 620) / 512), gy0 = Math.floor((mid.y - vw.height / 2 - 620) / 512), gy1 = Math.floor((mid.y + vw.height / 2 + 620) / 512);
+    for (let gy = gy0; gy <= gy1; gy++) for (let gx = gx0; gx <= gx1; gx++) { const l = this.roofGrid.get(gx + gy * 1000); if (l) for (const r of l) near.push(r); }
+    for (const r of was) r.seen = false;
+    for (const r of near) r.seen = true;
+    for (const r of was) if (!r.seen) r.img.setVisible(false); // left the neighbourhood
+    for (const r of near) {
       if (r.dead) { r.img.setVisible(false); continue; }
       const on = Math.abs(r.x - mid.x) < vw.width / 2 + 360 && Math.abs(r.y - mid.y) < vw.height / 2 + 360;
       r.img.setVisible(on);
       if (!on) continue;
-      if (r.paint && !r.made) { r.paint(); (r.img as Phaser.GameObjects.Image).setTexture(r.key!); r.made = true; } // paint this roof the first time it is seen
+      if (r.paint && !r.made) { r.paint(); (r.img as Phaser.GameObjects.Image).setTexture(r.key!); r.made = true; this.roofMade.add(r); } // paint this roof the first time it is seen
       // oblique view: height leans up the screen, plus a little slide away from the screen centre
       const k = r.h, ps = k * MAP.perspective, lean = k * MAP.heightScale * MAP.tilt;
       r.img.setPosition(r.x + (r.x - mid.x) * ps, r.y + (r.y - mid.y) * ps - lean);
@@ -578,7 +704,7 @@ export class WorldScene extends Phaser.Scene {
       const wall = (ax: number, ay: number, bx: number, by: number, AX: number, AY: number, BX: number, BY: number, c: number, side: number) => {
         g.fillStyle(c, alpha).fillTriangle(ax, ay, bx, by, BX, BY).fillTriangle(ax, ay, BX, BY, AX, AY);
         const rise = Math.hypot(AX - ax, AY - ay);
-        if (!tall || rise < 7) return; // low things (fences, containers) and walls seen nearly edge-on get no windows
+        if (!tall || rise < 7 || r.noWin) return; // low things (fences, containers) and walls seen nearly edge-on get no windows
         // a point on the wall: s along the wall, t from the ground (0) up to the roof (1)
         const px = (s: number, t: number) => ax + (bx - ax) * s + (AX - ax + (BX - AX - bx + ax) * s) * t;
         const py = (s: number, t: number) => ay + (by - ay) * s + (AY - ay + (BY - AY - by + ay) * s) * t;
@@ -645,7 +771,7 @@ export class WorldScene extends Phaser.Scene {
     this.map.shimmer(); // water ripples
     // forget rooftop pictures that are far behind us
     const here = this.cameras.main.midPoint;
-    for (const r of this.roofs) if (r.made && (Math.abs(r.x - here.x) > 2600 || Math.abs(r.y - here.y) > 2000)) { (r.img as Phaser.GameObjects.Image).setTexture('dot'); this.textures.remove(r.key!); r.made = false; }
+    for (const r of this.roofMade) if (r.made && (Math.abs(r.x - here.x) > 2600 || Math.abs(r.y - here.y) > 2000)) { (r.img as Phaser.GameObjects.Image).setTexture('dot'); this.textures.remove(r.key!); r.made = false; this.roofMade.delete(r); }
     if (this.dayCycle) this.tickDay(0.3);
     const v = this.cameras.main.worldView, p = this.player.pos, a = this.ambience;
     let n = 0;
@@ -675,7 +801,7 @@ export class WorldScene extends Phaser.Scene {
       }
     });
 
-    const id = MAP.districtAt(p.x / TILE_SIZE, p.y / TILE_SIZE);
+    const id = this.indoors ? this.districtId : MAP.districtAt(p.x / TILE_SIZE, p.y / TILE_SIZE);
     if (id !== this.districtId) { this.districtId = id; this.story.stamp = 3; }
   }
 
@@ -688,7 +814,7 @@ export class WorldScene extends Phaser.Scene {
     if (this.story.index >= 3 && !this.story.active) { const sp = this.map.places.spray; g.lineStyle(2, 0x7fe0ff, 0.7).strokeCircle(sp.x, sp.y, 30); } // Goro's spray booth
     for (const sm of this.story.sideMarkers) g.lineStyle(2, 0xc060ff, 0.5 + 0.4 * Math.sin(this.time.now / 200)).strokeCircle(sm.x, sm.y, 26); // side stories: violet rings
     if (!this.story.active) for (const st of this.side.starts) if (!this.side.active && this.onScreen(st.x, st.y, 60)) g.lineStyle(2, 0x40d0c0, 0.75).strokeCircle(st.x, st.y, 24); // side jobs: teal rings
-    const mk = this.story.marker ?? this.side.marker;
+    const mk = this.shownMarker();
     if (mk && this.mode !== 'cut') { // the gold ring that shows where to go
       const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 180), r = Math.max(14, Math.min(mk.r, 40));
       g.lineStyle(2, 0xe8b923, 0.5 + 0.4 * pulse).strokeCircle(mk.x, mk.y, r * (0.8 + 0.2 * pulse));
@@ -698,8 +824,10 @@ export class WorldScene extends Phaser.Scene {
     if (!p.car && this.mode === 'play' && !p.entering) near = this.nearestCar(p.actor.x, p.actor.y, PLAYER.enterRange);
     // vending machines sell drinks when you are hurt and no car is in reach
     const vend = !near && !p.car && this.mode === 'play' && !p.entering && p.hp < PLAYER.maxHp ? this.vendingNear(p.actor.x, p.actor.y) : null;
-    this.prompt.setVisible(!!near || !!vend);
-    if (near) this.prompt.setText(t('PROMPT_STEAL')).setPosition(near.x, near.y - 30);
+    const door = this.doorNear();
+    this.prompt.setVisible(!!near || !!vend || !!door);
+    if (door) this.prompt.setText(door.kind === 'out' ? t('PROMPT_LEAVE') : door.kind === 'in' && this.doorsLocked() ? t('PROMPT_LOCKED') : t('PROMPT_ENTER', { name: door.label })).setPosition(door.x, door.y - 26);
+    else if (near) this.prompt.setText(t('PROMPT_STEAL')).setPosition(near.x, near.y - 30);
     else if (vend) this.prompt.setText(t('PROMPT_DRINK', { price: PLAYER.drink.price })).setPosition(vend.x, vend.y - 34);
     // enemies and pickups hidden behind a building show through as rings
     const hidden = (x: number, y: number) => this.occl.some((o) => x > o[0] && x < o[2] && y > o[1] && y < o[3]);

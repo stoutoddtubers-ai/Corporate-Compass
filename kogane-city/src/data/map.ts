@@ -131,32 +131,96 @@ Object.assign(DISTRICTS, {
   },
 } as Record<string, DistrictStyle>);
 
+// ---------------------------------------------------------------------------------------
+// The street plan, after Tokyo: a few wide avenues (the grid the story was written on) with
+// two narrow side streets in every gap, so each big block is a knot of small ones.
+// ---------------------------------------------------------------------------------------
+
+/** The first, small city's avenues. Story places written as tiles were measured on this plan; `MAP.tx/ty` moves them. */
+const OLD_V = [12, 44, 76, 108, 140, 160, 192, 224, 258, 300], OLD_H = [4, 34, 64, 94, 120, 148, 178];
+/** Width of a side street, in tiles (avenues are `roadWidth`). */
+const SIDE_W = 2;
+/**
+ * What fills each gap between two avenues. A pair [a, b] = two side streets, with new blocks
+ * a and b tiles wide after them (the first block of every gap keeps its old size, so the
+ * story's hand-built blocks still fit). A single number = no side streets, the gap is that wide
+ * (the river, the bay, the port island).
+ */
+const GAPS_V: (number[] | number)[] = [[20, 18], [18, 22], [22, 18], [18, 20], 24, [20, 20], [18, 22], [22, 18], [20, 18]];
+const GAPS_H: (number[] | number)[] = [[20, 18], [18, 20], [22, 18], [18, 18], 36, 30];
+function layOut(old: number[], gaps: (number[] | number)[]): { main: number[]; side: number[] } {
+  const main = [old[0]], side: number[] = [];
+  gaps.forEach((g, i) => {
+    if (typeof g === 'number') { main.push(main[i] + g); return; }
+    const s1 = main[i] + old[i + 1] - old[i], s2 = s1 + SIDE_W + g[0];
+    side.push(s1, s2); main.push(s2 + SIDE_W + g[1]);
+  });
+  return { main, side };
+}
+const LV = layOut(OLD_V, GAPS_V), LH = layOut(OLD_H, GAPS_H);
+/** Moves a tile coordinate from the old plan to this one: it keeps its distance from the avenue it was beside. */
+function moveTile(v: number, old: number[], main: number[]): number {
+  let i = 0;
+  while (i < old.length - 1 && v >= old[i + 1] - 3.5) i++; // a spot on the kerb just before an avenue stays with that avenue
+  if (i < old.length - 1 && main[i + 1] - main[i] <= old[i + 1] - old[i] + 16 && v - old[i] > (old[i + 1] - old[i]) / 2) return main[i + 1] - (old[i + 1] - v); // river / bay: stay with the nearer bank
+  return main[i] + (v - old[i]);
+}
+const tx = (x: number): number => moveTile(x, OLD_V, LV.main), ty = (y: number): number => moveTile(y, OLD_H, LH.main);
+
+/**
+ * How each district's backstreets behave, after the part of Tokyo it is modelled on.
+ *  - `streets`: chance that a side street actually runs through a big block. Low = superblocks.
+ *  - `lanes`: when it does not, the chance it is a shopping lane for people on foot instead of nothing.
+ *  - `parks`: chance that a small block is a park (grass, trees, sometimes a pond).
+ */
+export const GRAIN: Record<string, { streets: number; lanes: number; parks: number }> = {
+  asagiri: { streets: 0.8, lanes: 0.9, parks: 0.1 }, // Asakusa, Ueno, Yanaka: tight old streets, Nakamise-style lanes, temple greens
+  denpa: { streets: 0.75, lanes: 0.7, parks: 0.03 }, // Akihabara: a dense grid with covered electronics lanes
+  tetsugawa: { streets: 0.4, lanes: 0, parks: 0.02 }, // the Keihin industrial belt: big yards, few through streets
+  hanabi: { streets: 0.9, lanes: 0.9, parks: 0.02 }, // Kabukichō and Golden Gai: the finest grain in the city
+  mirai: { streets: 0.7, lanes: 0.85, parks: 0.1 }, // Shibuya and Harajuku: Center-gai, Takeshita-dōri, Yoyogi's green
+  marukane: { streets: 0.5, lanes: 0.2, parks: 0.07 }, // Marunouchi and Ginza: office superblocks, Hibiya's park
+  rokkaku: { streets: 0.6, lanes: 0.3, parks: 0.12 }, // Roppongi and Azabu: towers on big plots, embassy gardens
+  shiokaze: { streets: 0, lanes: 0, parks: 0 }, // the port island has no side streets
+};
+
 export const MAP = {
   /**
-   * First tile of each north-south and east-west road. One grid covers the whole city:
+   * First tile of each north-south and east-west avenue. One grid covers the whole city:
    * columns 0-4 are the west side, 5-9 the east bank, with the river between columns 4 and 5.
    * Rows 0-4 are the city; rows 5-6 are the port island, across the bay.
    */
-  vRoads: [12, 44, 76, 108, 140, 160, 192, 224, 258, 300],
-  hRoads: [4, 34, 64, 94, 120, 148, 178],
+  vRoads: LV.main,
+  hRoads: LH.main,
   roadWidth: 4,
-  /** The Kurokawa River: first water tile and width. Every east-west city road crosses it on a bridge (5 bridges, bible). */
-  river: { x: 146, w: 12 },
+  /** Side streets: first tile of each. They run the length of the city but do not cross the river or the bay. */
+  vSide: LV.side,
+  hSide: LH.side,
+  sideWidth: SIDE_W,
+  /** The city ends at this row. Below it, out of sight, is a band of tiles where building interiors are kept (data/interiors.ts). */
+  cityH: LH.main[6] + 8,
+  interiorBand: { y: LH.main[6] + 18, rows: 68 },
+  /** Old-plan tile -> this plan (see `places`). */
+  tx, ty,
+  /** The Kurokawa River: first water tile and width. Every east-west avenue crosses it on a bridge (5 bridges, bible). */
+  river: { x: LV.main[4] + 6, w: LV.main[5] - LV.main[4] - 8 },
   /** Kogane Bay: everything from this row south is sea, except the port island. */
-  bay: { y: 126 },
-  /** The port island: which road columns and rows it uses, and the one road that reaches it (the Bay Bridge). */
+  bay: { y: LH.main[4] + 6 },
+  /** The port island: which avenue columns and rows it uses, and the one road that reaches it (the Bay Bridge). */
   port: { v0: 5, v1: 8, h0: 5, h1: 6, bridge: 7 },
   /** The east bank's K-Route loop (the mission 4 race circuit), as first tiles of its four roads. */
-  eastRing: { west: 160, east: 300, north: 4, south: 120 },
+  eastRing: { west: LV.main[5], east: LV.main[9], north: LH.main[0], south: LH.main[4] },
   /** A canal through the industrial blocks: first tile, width, and which block rows it cuts (east column 3). */
-  canal: { x: 279, w: 3, rows: [1, 2] },
+  canal: { x: tx(279), w: 3, rows: [1, 2] },
+  /** Kogane Castle: a moated garden in the middle of the west side, as the Imperial Palace sits in Tokyo. It takes the south-east corner of this big block. */
+  castle: { block: 'w3-1' },
   /** Which district a tile is in. */
-  districtAt(tx: number, ty: number): string {
-    if (ty >= 126) return 'shiokaze';
-    if (tx >= 224) return 'tetsugawa';
-    if (tx >= 152) return ty < 64 ? 'denpa' : 'asagiri';
-    if (tx >= 76) return ty < 64 ? 'marukane' : 'hanabi';
-    return ty < 64 ? 'rokkaku' : 'mirai';
+  districtAt(x: number, y: number): string {
+    if (y >= LH.main[4] + 6) return 'shiokaze';
+    if (x >= LV.main[7]) return 'tetsugawa';
+    if (x >= (LV.main[4] + LV.main[5]) / 2 + 2) return y < LH.main[2] ? 'denpa' : 'asagiri';
+    if (x >= LV.main[2]) return y < LH.main[2] ? 'marukane' : 'hanabi';
+    return y < LH.main[2] ? 'rokkaku' : 'mirai';
   },
   /** How strongly rooftops slide away from the screen centre to fake height (the GTA 2 trick). */
   roofHeight: 0.05, // used for low things: fences, containers, the gate
@@ -178,7 +242,8 @@ export const MAP = {
   /**
    * Story places. `block` names a city block: east bank "column-row" (0-0 is its top left; the
    * two canal blocks split into "3-1a"/"3-1b"), west side "wColumn-row", port island "p0"-"p2". `pick` chooses the Nth biggest building or
-   * car park in that block. `tile` pins a place to an exact spot instead.
+   * car park in that block (the block's original corner first, then the rest). `tile` pins a place
+   * to an exact spot instead, written on the OLD small plan; the game moves it with `tx/ty`.
    */
   places: {
     prison: { block: '2-3', kind: 'building', pick: 0, label: 'KOGANE\nDETENTION CENTER' },
@@ -288,7 +353,7 @@ export const MAP = {
     suSalvage: { block: 'p0', kind: 'lot', pick: 1 }, // the quay where the salvage "barge" works
   } as Record<string, { block?: string; kind?: 'building' | 'lot'; pick?: number; tile?: number[]; label?: string; color?: string }>,
   /** The river-cruise pier: planks out over the water [x, y, w, h]. */
-  pier: [152, 107, 6, 3],
+  pier: [tx(152), ty(107), 6, 3],
   /**
    * Hand-designed landmark blocks. Each item is [x, y, w, h] in tiles from the block's
    * top-left corner. kind: 'b' building, 'l' car park / yard, 'f' special floor.

@@ -1,4 +1,5 @@
 import type { Mission, Line, Step } from './missions';
+import { MAP } from './map';
 
 // Missions 9-16, copied line for line from the Script and Writing doc ("Act 2 script" tab).
 // Text lives here; the game logic each mission needs is in src/systems/hooks_act2.ts.
@@ -37,7 +38,7 @@ export const ACT2_TUNING = {
   m11ScooterStopHp: 0.5,
 
   // M12 Gold Rush
-  m12ConvoyTime: 60, // seconds to get the dump truck across the tunnel before the convoy shows up
+  m12ConvoyTime: 120, // seconds to get the dump truck across the tunnel before the convoy shows up
   m12ConvoyWait: 25, // if the convoy has not reached the tunnel by then, it is stopped where it is
   m12StopShort: 110, // the convoy stops this far from the dump truck
   m12ArmourMult: 3, // the armoured truck has this many times a box truck's health
@@ -66,7 +67,11 @@ export const ACT2_TUNING = {
 
   // M16 Typhoon
   /** Flooded streets, in tiles [x, y, width, height]. The K-Route (the "high roads") stays dry. */
-  m16Floods: [[16, 94, 124, 4], [108, 68, 4, 52], [76, 68, 4, 42]],
+  m16Floods: [
+    [MAP.vRoads[0] + 4, MAP.hRoads[3], MAP.vRoads[4] - MAP.vRoads[0] - 4, 4], // the Mirai-zaka / Hanabi-chō main street
+    [MAP.vRoads[3], MAP.hRoads[2] + 4, 4, MAP.hRoads[4] - MAP.hRoads[2] - 4], // two avenues down to the south road
+    [MAP.vRoads[2], MAP.hRoads[2] + 4, 4, MAP.hRoads[4] - MAP.hRoads[2] - 14],
+  ],
   m16FloodSpeed: 70, // a car in flood water is held to about this speed
   m16BlockDist: 520, // Mibu's roadblock opens fire inside this distance
   m16Blockers: 4,
