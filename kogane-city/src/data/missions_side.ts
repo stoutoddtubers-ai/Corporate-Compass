@@ -39,9 +39,12 @@ export const SIDE_TUNING = {
     roadblockCars: 3,
     copSpeed: 250,
     copTakes: 2, // riders one police car can knock down
-    copCooldown: 1.2,
+    copCooldown: 0.5,
     hitDist: 34,
-    blockDist: 110, // a police car gives up when Jun's car gets this close
+    flank: 64, // police come up the next lane over, this far from the pack's line
+    cutIn: 170, // and turn into the column this close to the rider they picked
+    blockAhead: 320, blockSide: 30, // a police car stops when Jun's car is this far ahead of it, in its lane
+    copLife: 14, // seconds before a police car that missed gives up
     copStopHp: 0.6,
     cheerEvery: 8, // seconds between "For Daigo!"
     /** Checkpoint numbers that end each objective (of 14 round the ring). */
@@ -53,11 +56,13 @@ export const SIDE_TUNING = {
     record: 242, // script: Daigo's lap record, 4:02
     /**
      * The ring takes about a minute at racing speed, so the lap clock runs faster than real
-     * time: this many clock seconds per real second. A clean lap reads about 3:10.
+     * time: this many clock seconds per real second. A clean lap reads about 3:20, and each
+     * thing left in Kenta's lane costs him about 8 seconds on the clock.
      */
-    clockScale: 3,
+    clockScale: 3.6,
     kentaSpeed: 300, cornerSpeed: 175,
     blockedSpeed: 90, // Kenta's speed while something is in his lane
+    lineAhead: 160, // how far ahead on the racing line Kenta aims
     lookAhead: 230, laneHalf: 30, dodge: 48,
     checkpointRadius: 180,
     clearDist: 80, // traffic pulls over / police stop when Jun's car gets this close
@@ -98,7 +103,7 @@ export const SIDE_TUNING = {
   },
 
   // ----- S-K1 Ice Machine -----
-  sk1: { hosts: 3, carrySpeed: 0.6, chasers: 1, deliverRadius: 90 },
+  sk1: { hosts: 3, carrySpeed: 0.6, chasers: 1, deliverRadius: 170 }, // the bar is down an alley: the truck only has to reach the end of it
 
   // ----- S-K2 Funeral Money -----
   sk2: { wait: 6, stayDist: 260, sharks: 4, leaderHp: 90, fleeAt: 25, burnTime: 2.2 },
@@ -394,7 +399,7 @@ export const MISSIONS_SIDE: Mission[] = [
   // Old Debts — Kurogane-kai (plays the same on both Act 2 paths: the script has no _A / _B lines here)
   // =====================================================================================
   {
-    id: 'S-K1', title: 'ICE MACHINE', giver: 'skMamaRei', start: 'skMamaRei', after: 'M09',
+    id: 'S-K1', title: 'ICE MACHINE', giver: 'mamaRei', start: 'mamaRei', after: 'M09',
     ambience: 'night', // PLACEHOLDER: the script gives no time of day
     setup: 'sk1Setup', failCheck: 'sk1Failed',
     steps: [
@@ -407,10 +412,10 @@ export const MISSIONS_SIDE: Mission[] = [
         { who: 'JUN', text: 'You want me to steal an ice machine.' },
         { who: 'MAMA REI', text: 'I want you to liberate one. Warm whisky is a crime too.' },
       ] },
-      { t: 'obj', text: "Get into Club Mirage's kitchen.", marker: 'skMirage', radius: 30, done: 'sideOnFoot' },
+      { t: 'obj', text: "Get into Club Mirage's kitchen.", marker: 'clubMirage', radius: 30, done: 'sideOnFoot' },
       { t: 'obj', text: 'Steal the ice machine.', enter: 'sk1MachineSpot', done: 'sideOnFoot', after: 'sk1Steal' },
       { t: 'obj', text: 'Load it onto a truck.', hint: "The ice machine is heavy. You can't run while carrying it.", done: 'sk1Load', after: 'sk1Loaded' },
-      { t: 'obj', text: "Deliver it to Mama Rei's.", marker: 'skMamaRei', radius: 90, done: 'sk1Deliver' },
+      { t: 'obj', text: "Deliver it to Mama Rei's.", marker: 'mamaRei', radius: 170, done: 'sk1Deliver' },
       { t: 'cut', lines: [
         D("Mama Rei's. The new machine hums. A perfect round cube drops into a glass."),
         { who: 'MAMA REI', text: 'Look at that. Round. Like a little moon.' },

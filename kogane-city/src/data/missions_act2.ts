@@ -73,7 +73,7 @@ export const ACT2_TUNING = {
   m16Waves: [5, 6, 7], // Mibu's soldiers per wave (script: 3 waves)
   m16RoomHits: 6, // seconds a soldier needs at Genzō's door before "The house fell."
   m16Squad: 3, // allies beside Saeko / Sawada
-  m16AllyReach: 230, m16AllyDamage: 14, m16AllyGap: 0.9,
+  m16AllyReach: 120, m16AllyDamage: 6, m16AllyGap: 1, // the squad holds the street side; Genzō's door is just out of their reach
 };
 const T = ACT2_TUNING;
 
@@ -352,7 +352,7 @@ export const MISSIONS_ACT2: Mission[] = [
       { t: 'obj', text: 'Reach floor 9.', enter: 'm15ToLanding', done: 'm15At' },
       { t: 'obj', text: 'Open the safe.', enter: 'm15ToSafe', done: 'm15Open', after: 'm15Bridge' },
       { t: 'obj', text: 'Photograph the ledger.', enter: 'm15ToSafe', done: 'm15Photo' }, // the ledger pages show under the objective, one per photo
-      { t: 'obj', text: 'Get back to the service elevator.', enter: 'm15Back', done: 'm15At' },
+      { t: 'obj', text: 'Get back to the service elevator.', enter: 'm15Back', done: 'm15At', after: 'm15Done' },
       { t: 'cut', lines: [
         D('A Tsukuyomi Tower service elevator. JUN holds the ledger drive. His phone buzzes twice: SAEKO on one line, SAWADA on the other. Split screen.'),
         { who: 'SAEKO', text: "Sakamaki-san. You're holding my family's future." },

@@ -13,7 +13,9 @@ const P = (who: string, text: string): Line => ({ who, text, if: 'police' }); //
 
 /** "The Act 2 ally" as mission giver: Saeko's office, or Sawada's canal-side lot (where she met Jun in mission 7). */
 const ALLY = { yakuza: 'saekoOffice', police: 'canalLot' };
-const TALK = 'KOGANE TALK 1260';
+/** The news station's name on the radio ticker (as in Act 1). */
+export const KOGANE_TALK = 'KOGANE TALK 1260';
+const TALK = KOGANE_TALK;
 
 /** PLACEHOLDER numbers the script does not give. */
 export const ACT3_TUNING = {
@@ -39,7 +41,7 @@ export const ACT3_TUNING = {
   m18KnifeDamage: 40, // tuna knife (bible)
 
   // M19 Sea Legs
-  m19TruckSpeed: 135, // px/s
+  m19TruckSpeed: 120, // px/s: about 40 seconds from the river to the ship
   m19CatchDist: 230,
   m19BoardDist: 95, m19BoardTime: 2,
   m19Smugglers: 4,
@@ -69,6 +71,8 @@ export const ACT3_TUNING = {
   m23Floors: 40, m23PerCheckpoint: 10, // (script)
   m23Waves: [4, 4], // Yatagarasu per wave; each stretch of ten floors is this many waves
   m23Lobby: 3,
+  m23CopsThrough: 2, // the allies hold the streets: this many officers (and patrol cars) reach the tower at a time
+  m23RaijinTime: 45, // seconds no police get through after Kenta's call
 
   // M24 Amaterasu Maru
   m24ShipSpeed: 60, m24ShipRun: 1500, // px/s and px the ship slides along the quay
@@ -354,7 +358,7 @@ export const MISSIONS_ACT3: Mission[] = [
   },
   // ===================================================================================
   {
-    id: 'M23', title: 'TSUKUYOMI', giver: ALLY, start: 'hideout', ambience: 'afternoon', setup: 'm23Setup',
+    id: 'M23', title: 'TSUKUYOMI', giver: ALLY, start: 'glitchAlley', ambience: 'afternoon', setup: 'm23Setup',
     steps: [
       { t: 'cut', lines: [
         D('The Glitch hideout. Every monitor shows Tsukuyomi Tower. HIKARI, PIP, KENTA and GORO crowd around; the ally is on a video call.'),
@@ -367,7 +371,7 @@ export const MISSIONS_ACT3: Mission[] = [
         { who: 'JUN', text: 'Floor by floor.' },
         { who: 'HIKARI', text: "Forty floors. …I didn't say it was a good plan." },
       ] },
-      { t: 'obj', text: 'Break into Tsukuyomi Tower.', marker: 'towerPlaza', radius: 150, done: 'm23Break', after: 'm23BreakIn' },
+      { t: 'obj', text: 'Break into Tsukuyomi Tower.', marker: 'towerPlaza', radius: 150, enter: 'm23Lobby', done: 'atMarker', after: 'm23BreakIn' },
       { t: 'radio', text: 'DJ ŌKAMI: Tsukuyomi Tower is under attack! Folks, this is the most exciting Tuesday in Kogane history.' },
       // "Fight up to floor 40. (checkpoints at floors 10, 20 and 30)"
       { t: 'obj', text: 'Fight up to floor 40.', enter: 'm23Floors', done: 'm23Climb' },

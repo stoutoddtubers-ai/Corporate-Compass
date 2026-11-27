@@ -261,6 +261,7 @@ export const MAP = {
     rokkakuRoof: { block: 'w0-0', kind: 'lot', pick: 1 }, // stands in for the rooftop party (mission 20)
     mibuStaging: { block: 'w1-0', kind: 'lot', pick: 1 }, // where the ally's people gather before mission 22
     amaterasuQuay: { tile: [232, 147] }, // north quay, where Jun boards the ship (mission 24)
+    glitchAlley: { tile: [209, 52.3] }, // outside the Glitch hideout's door (mission 23 starts here)
     // ---- SIDE STORY PLACES ----
     raijinClubhouse: { block: '3-0', kind: 'building', pick: 0, label: 'RAIJIN\nCLUBHOUSE' },
     // Daigo's Road (S-R): Bones Tamura's three chop shops in Tetsugawa
@@ -277,8 +278,7 @@ export const MAP = {
     sgStation: { block: '2-1', kind: 'building', pick: 0, label: 'TETSUGAWA\nSTATION' },
     sgLockers: { block: '2-1', kind: 'lot', pick: 1 }, // the station forecourt, where the lockers are
     // Old Debts (S-K)
-    skMamaRei: { block: 'w3-3', kind: 'building', pick: 4, label: "MAMA REI'S" },
-    skMirage: { block: 'w2-2', kind: 'building', pick: 1, label: 'CLUB MIRAGE' }, // the door is the kitchen door
+    // (S-K1 uses Act 2's `mamaRei` and `clubMirage`)
     skSaeko: { tile: [88, 116] }, // the side gate of the Kurogane mansion: Saeko's side stories start here
     skTsuda: { block: '1-3', kind: 'building', pick: 4 }, // Mrs. Tsuda's apartment in Asagiri
     skMibuYard: { block: '3-2b', kind: 'lot', pick: 0 }, // the yard of Mibu's canal warehouse
