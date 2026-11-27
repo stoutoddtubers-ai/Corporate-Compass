@@ -17,6 +17,19 @@ export const LOOKS: Record<string, Look> = {
   windbreaker: { jacket: '#2f6f8a', hair: '#1c1a1a', accent: '#f2f2f2', accentAt: 'back' }, // Ogata's hired men
   guard: { jacket: '#5a5f66', hair: '#22242a', accent: '#d8b02a', accentAt: 'chest' }, // rent-a-cops
   courier: { jacket: '#3a2f2a', hair: '#0c0c0c', accent: '#8a1c1c', accentAt: 'chest' },
+  saeko: { jacket: '#f4f4f0', hair: '#141218', accent: '#8a8f98', accentAt: 'back' }, // white suit, katana on the back
+  genzo: { jacket: '#22222a', hair: '#c8c8c8', accent: '#6a4a2a', accentAt: 'chest' }, // dark kimono, cane
+  mibu: { jacket: '#6a1f2e', hair: '#101010', accent: '#e8c84a', accentAt: 'chest' }, // burgundy suit, gold watch
+  amane: { jacket: '#0e0e12', hair: '#d0d4dc', accent: '#9aa0aa', accentAt: 'chest' }, // all black, silver hair
+  tetsu: { jacket: '#1a1c20', hair: '#8a8a8a', accent: '#4a5a3a', accentAt: 'chest' }, // black tactical gear
+  hachiro: { jacket: '#d8d2c0', hair: '#e0b08a', accent: '#2a5a8a', accentAt: 'chest' }, // bald, market apron
+  pip: { jacket: '#28d8e8', hair: '#3a2a22', accent: '#15181c', accentAt: 'back' }, // Glitch courier
+  fujita: { jacket: '#6f7078', hair: '#2a2622', accent: '#f2f2f2', accentAt: 'chest' }, // Kurogane accountant
+  yatagarasu: { jacket: '#e8e8f0', hair: '#1a1c20', accent: '#9aa0aa', accentAt: 'chest' }, // Tsukuyomi security: white and silver
+  umibozu: { jacket: '#2f8f86', hair: '#3a2a22', accent: '#d8702a', accentAt: 'back' }, // dockworkers: teal and rust
+  riot: { jacket: '#1e2a4a', hair: '#1a1c20', accent: '#f2f2f2', accentAt: 'back' }, // riot officer
+  priest: { jacket: '#c8a030', hair: '#e0b08a' }, // head priest
+  mama: { jacket: '#a02a5a', hair: '#2a1a1a', accent: '#f0d030', accentAt: 'chest' }, // bar mama
   customer: { jacket: '#4f7f8a', hair: '#55504a' },
   elder: { jacket: '#8a7f6a', hair: '#d8d8d8' },
   salaryman: { jacket: '#3d4a6a', hair: '#1c1a1a', accent: '#f2f2f2', accentAt: 'chest' },
@@ -39,6 +52,16 @@ export const SPEAKERS: Record<string, { name: string; color: string; look: strin
   HIKARI: { name: 'HIKARI', color: '#28d8e8', look: 'hikari' },
   OGATA: { name: 'OGATA', color: '#f0e8c8', look: 'ogata' },
   TAPE: { name: 'TAPE', color: '#9a9aa8', look: 'courier' },
+  SAEKO: { name: 'SAEKO', color: '#f0f0f0', look: 'saeko' },
+  'GENZŌ': { name: 'GENZŌ', color: '#c8c0a8', look: 'genzo' },
+  MIBU: { name: 'MIBU', color: '#e06a80', look: 'mibu' },
+  AMANE: { name: 'AMANE', color: '#d0d4dc', look: 'amane' },
+  TETSU: { name: 'TETSU', color: '#a8c080', look: 'tetsu' },
+  'HACHIRŌ': { name: 'HACHIRŌ', color: '#6ad0c8', look: 'hachiro' },
+  PIP: { name: 'PIP', color: '#28d8e8', look: 'pip' },
+  FUJITA: { name: 'FUJITA', color: '#b0b4c0', look: 'fujita' },
+  SASAKI: { name: 'SASAKI', color: '#c06060', look: 'thug' },
+  COURIER: { name: 'COURIER', color: '#c0a080', look: 'courier' },
   'DJ ŌKAMI': { name: 'DJ ŌKAMI', color: '#7fe0ff', look: 'customer' },
   'UNKNOWN NUMBER': { name: 'UNKNOWN NUMBER', color: '#c9a0ff', look: 'raijin' },
 };

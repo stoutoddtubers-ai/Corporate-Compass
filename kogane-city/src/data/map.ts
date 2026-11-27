@@ -1,5 +1,6 @@
-// The east bank of Kogane City (Act 1): Asagiri, Denpa-chō and Tetsugawa, the Kurokawa
-// River on the west edge with two bridges, and the K-Route expressway ring around it all.
+// Kogane City: the east bank (Asagiri, Denpa-chō, Tetsugawa), the Kurokawa River with five
+// bridges, the west side (Hanabi-chō, Mirai-zaka, Marukane, Rokkaku Hills) and, over the
+// Bay Bridge to the south, the Shiokaze Port island.
 // Everything is in tiles (32 px). Roads are 4 tiles wide with a sidewalk either side.
 // City blocks are filled in by a repeatable generator (same city every time), then the
 // story's named places are pinned to particular buildings and car parks below.
@@ -62,20 +63,100 @@ export const DISTRICTS: Record<string, DistrictStyle> = {
   },
 };
 
+Object.assign(DISTRICTS, {
+  hanabi: {
+    name: 'HANABI-CHŌ', kanji: '花火町', tagline: 'The night never ends. Neither do the debts.',
+    minSize: 4, maxSize: 9, lotChance: 0.1,
+    walk: '#5f5458', walkLine: '#4e4448', kerb: '#8a7c80',
+    roofs: [
+      { base: '#3a2a2c', line: '#2c2022', trim: '#58444a', kind: 'flat' },
+      { base: '#1f1c22', line: '#16141a', trim: '#3a3540', kind: 'flat' },
+      { base: '#5a3038', line: '#48262c', trim: '#7a4650', kind: 'tile' },
+    ],
+    awnings: ['#e0408a', '#c81e5a', '#f0b030', '#7a2ad0'], awningChance: 0.85,
+    neon: [0xff3aa0, 0xff3030, 0xffb020], lamp: 0xff6aa8, // pink and red neon
+    height: [0.09, 0.14], walls: [0x4a3034, 0x2a2428, 0x6a3a44], // dark brick, black
+  },
+  mirai: {
+    name: 'MIRAI-ZAKA', kanji: '未来坂', tagline: "Everyone's watching. Everyone's filming.",
+    minSize: 5, maxSize: 11, lotChance: 0.1,
+    walk: '#b8bcc2', walkLine: '#9da1a8', kerb: '#e0e2e6',
+    roofs: [
+      { base: '#e8e8e8', line: '#cfcfcf', trim: '#ffffff', kind: 'flat' },
+      { base: '#b8d0e0', line: '#9fb8c8', trim: '#d8ecf6', kind: 'metal' },
+      { base: '#d0d4dc', line: '#b8bcc4', trim: '#eef0f4', kind: 'flat' },
+    ],
+    awnings: ['#f04a4a', '#30b0f0', '#f0d030', '#40c870'], awningChance: 0.8,
+    neon: [0xff4040, 0x30b0ff, 0xf0e030, 0x40e080, 0xe040f0], lamp: 0xffffff, // billboard rainbow, white light
+    height: [0.11, 0.17], walls: [0xe0e0e0, 0x9fc0d6, 0xc8ccd4], // clean white, glass
+  },
+  marukane: {
+    name: 'MARUKANE', kanji: '丸金', tagline: 'Where the money sleeps.',
+    minSize: 7, maxSize: 13, lotChance: 0.08,
+    walk: '#9aa2ac', walkLine: '#828a94', kerb: '#c8d0d8',
+    roofs: [
+      { base: '#5f7286', line: '#4e6074', trim: '#8296aa', kind: 'flat' },
+      { base: '#7f8e9c', line: '#6c7a88', trim: '#a2b0be', kind: 'metal' },
+      { base: '#44505e', line: '#38424e', trim: '#66727f', kind: 'flat' },
+    ],
+    awnings: ['#c9a84a', '#2a3a52'], awningChance: 0.25,
+    neon: [0xf0c850], lamp: 0xdfeaff, // gold accents, cool white light
+    height: [0.16, 0.24], walls: [0x6a7c90, 0x90a8c0, 0x4a5868], // steel blue-grey, glass
+  },
+  rokkaku: {
+    name: 'ROKKAKU HILLS', kanji: '六角ヒルズ', tagline: 'The view is better from the top.',
+    minSize: 6, maxSize: 12, lotChance: 0.18,
+    walk: '#7e8488', walkLine: '#696f73', kerb: '#aab0b4',
+    roofs: [
+      { base: '#3d444c', line: '#30363d', trim: '#5c646e', kind: 'flat' },
+      { base: '#4a5a4c', line: '#3c4a3e', trim: '#6a7c6c', kind: 'flat' },
+      { base: '#55505e', line: '#46424e', trim: '#777080', kind: 'tile' },
+    ],
+    awnings: ['#d8c9a3', '#7a5ad0'], awningChance: 0.2,
+    neon: [0xa070ff], lamp: 0xc8a8ff, // champagne and violet uplighting
+    height: [0.13, 0.2], walls: [0x4a525c, 0xd8cdb0, 0x5a5466], // dark slate
+  },
+  shiokaze: {
+    name: 'SHIOKAZE PORT', kanji: '潮風港', tagline: 'What comes in by sea leaves by sea.',
+    minSize: 8, maxSize: 16, lotChance: 0.4,
+    walk: '#70787a', walkLine: '#5c6466', kerb: '#9aa2a4',
+    roofs: [
+      { base: '#2f7f86', line: '#266a70', trim: '#4a9ea6', kind: 'metal' },
+      { base: '#b5562e', line: '#964626', trim: '#d0704a', kind: 'metal' },
+      { base: '#5a6266', line: '#4a5256', trim: '#7a8286', kind: 'flat' },
+    ],
+    awnings: ['#d8702a', '#2f7f86'], awningChance: 0.1,
+    neon: [], lamp: 0x9affb0, // green harbour lights
+    height: [0.06, 0.1], walls: [0x3f7f84, 0x9a5a3a, 0x5c6468], // container teal, rust
+  },
+} as Record<string, DistrictStyle>);
+
 export const MAP = {
-  /** Water tiles along the west edge: the Kurokawa River. */
-  riverWidth: 10,
-  /** First tile of each north-south and east-west road. The outermost ones form the K-Route ring. */
-  vRoads: [12, 44, 76, 110, 152],
-  hRoads: [4, 34, 64, 94, 120],
+  /**
+   * First tile of each north-south and east-west road. One grid covers the whole city:
+   * columns 0-4 are the west side, 5-9 the east bank, with the river between columns 4 and 5.
+   * Rows 0-4 are the city; rows 5-6 are the port island, across the bay.
+   */
+  vRoads: [12, 44, 76, 108, 140, 160, 192, 224, 258, 300],
+  hRoads: [4, 34, 64, 94, 120, 148, 178],
   roadWidth: 4,
-  /** East-west roads that carry on west over the river as bridges. */
-  bridges: [34, 94],
-  /** A canal through the industrial blocks: first tile, width, and which block rows it cuts. */
-  canal: { x: 131, w: 3, rows: [1, 2] },
+  /** The Kurokawa River: first water tile and width. Every east-west city road crosses it on a bridge (5 bridges, bible). */
+  river: { x: 146, w: 12 },
+  /** Kogane Bay: everything from this row south is sea, except the port island. */
+  bay: { y: 126 },
+  /** The port island: which road columns and rows it uses, and the one road that reaches it (the Bay Bridge). */
+  port: { v0: 5, v1: 8, h0: 5, h1: 6, bridge: 7 },
+  /** The east bank's K-Route loop (the mission 4 race circuit), as first tiles of its four roads. */
+  eastRing: { west: 160, east: 300, north: 4, south: 120 },
+  /** A canal through the industrial blocks: first tile, width, and which block rows it cuts (east column 3). */
+  canal: { x: 279, w: 3, rows: [1, 2] },
   /** Which district a tile is in. */
   districtAt(tx: number, ty: number): string {
-    return tx >= 76 ? 'tetsugawa' : ty < 64 ? 'denpa' : 'asagiri';
+    if (ty >= 126) return 'shiokaze';
+    if (tx >= 224) return 'tetsugawa';
+    if (tx >= 152) return ty < 64 ? 'denpa' : 'asagiri';
+    if (tx >= 76) return ty < 64 ? 'marukane' : 'hanabi';
+    return ty < 64 ? 'rokkaku' : 'mirai';
   },
   /** How strongly rooftops slide away from the screen centre to fake height (the GTA 2 trick). */
   roofHeight: 0.05, // used for low things: fences, containers, the gate
@@ -95,30 +176,58 @@ export const MAP = {
   perspective: 0.6,
   lampSpacing: 7, // tiles between street lamps
   /**
-   * Story places. `block` is "column-row" of the city block (0-0 is top left; the two
-   * canal blocks split into "3-1a"/"3-1b"). `pick` chooses the Nth biggest building or
+   * Story places. `block` names a city block: east bank "column-row" (0-0 is its top left; the
+   * two canal blocks split into "3-1a"/"3-1b"), west side "wColumn-row", port island "p0"-"p2". `pick` chooses the Nth biggest building or
    * car park in that block. `tile` pins a place to an exact spot instead.
    */
   places: {
     prison: { block: '2-3', kind: 'building', pick: 0, label: 'KOGANE\nDETENTION CENTER' },
-    asagiri: { tile: [46, 79] }, // Hozuki-mon gate, over the road into the old town
+    asagiri: { tile: [194, 79] }, // Hozuki-mon gate, over the road into the old town
     arcade: { block: '1-3', kind: 'building', pick: 0, label: 'ARCADE' },
     bathhouse: { block: '0-2', kind: 'building', pick: 0, label: 'BATHHOUSE' },
     hospital: { block: '1-2', kind: 'building', pick: 0, label: '病院\nHOSPITAL', color: '#b04a4a' },
     policeBox: { block: '1-2', kind: 'building', pick: 3, label: '交番\nKŌBAN', color: '#2f5fa8' },
     garage: { block: '2-2', kind: 'building', pick: 0, label: "GORO'S\nGARAGE" },
     spray: { block: '2-2', kind: 'lot', pick: 0 },
-    raceStart: { tile: [100, 5.5] }, // K-Route, north side
+    raceStart: { tile: [248, 5.5] }, // K-Route, north side
     catArcade: { block: '0-0', kind: 'building', pick: 0, label: 'ARCADE\n=^.x.^=' },
     hideout: { block: '1-1', kind: 'building', pick: 0, label: 'CAPSULE HOTEL' },
-    ambush: { tile: [47, 22] },
+    ambush: { tile: [195, 22] },
     canalLot: { block: '3-1b', kind: 'lot', pick: 0 }, // Sawada's canal-side lot, two blocks from the container yard
     truck: { block: '3-0', kind: 'lot', pick: 0 },
-    pier: { tile: [7, 108.5] },
-    warehouseGate: { tile: [95, 31.6] }, // just outside the evidence compound's gate
+    pier: { tile: [155, 108.5] },
+    warehouseGate: { tile: [243, 31.6] }, // just outside the evidence compound's gate
+    temple: { block: '1-2', kind: 'lot', pick: 0, label: 'OLD TEMPLE' },
+    // ---- ACT 2 PLACES (west side) ----
+    saekoOffice: { block: 'w3-2', kind: 'building', pick: 0, label: 'KUROGANE\nOFFICE' },
+    hanabiLot: { block: 'w3-2', kind: 'lot', pick: 0 },
+    pachinko: { block: 'w2-2', kind: 'building', pick: 0, label: 'GOLDEN BALL\nPACHINKO' },
+    karaoke: { block: 'w3-3', kind: 'building', pick: 0, label: 'VOICE CAVE\nKARAOKE' },
+    mansion: { block: 'w2-3', kind: 'building', pick: 0, label: 'KUROGANE\nMANSION' },
+    mansionYard: { block: 'w2-3', kind: 'lot', pick: 0 },
+    scramble: { tile: [46, 96] }, // the Mirai-zaka scramble crossing
+    miraiLot: { block: 'w1-2', kind: 'lot', pick: 0 },
+    midoriPark: { block: 'w0-3', kind: 'lot', pick: 0, label: 'MIDORI PARK' },
+    tsukuyomiTower: { block: 'w2-0', kind: 'building', pick: 0, label: 'TSUKUYOMI\nTOWER' },
+    towerPlaza: { block: 'w2-0', kind: 'lot', pick: 0 },
+    tomonTunnel: { tile: [110, 20] }, // on the road through Marukane
+    centralStation: { block: 'w3-0', kind: 'building', pick: 0, label: 'KOGANE\nCENTRAL' },
+    marukaneLot: { block: 'w2-1', kind: 'lot', pick: 0 },
+    // ---- ACT 3 PLACES (the bay, Rokkaku Hills) ----
+    rokkakuTower: { block: 'w0-0', kind: 'building', pick: 0, label: 'ROKKAKU\nTOWER' },
+    rokkakuValet: { block: 'w0-0', kind: 'lot', pick: 0 },
+    mibuTower: { block: 'w1-0', kind: 'building', pick: 0, label: 'MIBU\nTOWER' },
+    mibuPlaza: { block: 'w1-0', kind: 'lot', pick: 0 },
+    containerPort: { block: 'p0', kind: 'lot', pick: 0, label: 'SHIOKAZE\nCONTAINER PORT' },
+    fishMarket: { block: 'p1', kind: 'building', pick: 0, label: 'FISH MARKET' },
+    fishMarketYard: { block: 'p1', kind: 'lot', pick: 0 },
+    pier9: { block: 'p2', kind: 'lot', pick: 0, label: 'PIER 9' },
+    bayBridge: { tile: [226, 136] },
+    // ---- SIDE STORY PLACES ----
+    raijinClubhouse: { block: '3-0', kind: 'building', pick: 0, label: 'RAIJIN\nCLUBHOUSE' },
   } as Record<string, { block?: string; kind?: 'building' | 'lot'; pick?: number; tile?: number[]; label?: string; color?: string }>,
   /** The river-cruise pier: planks out over the water [x, y, w, h]. */
-  pier: [4, 107, 6, 3],
+  pier: [152, 107, 6, 3],
   /**
    * Hand-designed landmark blocks. Each item is [x, y, w, h] in tiles from the block's
    * top-left corner. kind: 'b' building, 'l' car park / yard, 'f' special floor.

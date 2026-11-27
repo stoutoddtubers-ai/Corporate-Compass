@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { VehicleDef, NITRO, CAR_DAMAGE } from '../data/vehicles';
 import { GARAGE } from '../data/garage';
+import { SHEET } from '../systems/sprites';
 import type { CityMap, LaneSeg } from '../systems/CityMap';
 
 export interface CarInput { throttle: number; steer: number; handbrake: boolean; nitro: boolean; brake: boolean }
@@ -79,9 +80,9 @@ export class Car {
     this.colorIndex = colorIndex >= 0 ? colorIndex : Math.floor(Math.random() * Math.max(1, def.colors.length - (def.colors.length > 2 ? 1 : 0)));
     this.shadow = scene.add.image(x, y, 'carShadow').setDepth(2.8).setDisplaySize(def.length, def.width);
     const base = `car_${def.id}_${this.colorIndex}`;
-    if (scene.textures.exists('atlas') && scene.textures.get('atlas').has(base + '_d0')) {
+    if (SHEET[base + '_d0']) {
       this.dirBase = base; // Blender renders: one picture per direction, at twice game size
-      this.sprite = scene.add.image(x, y, 'atlas', base + '_d0').setScale(0.5).setDepth(3);
+      this.sprite = scene.add.image(x, y, SHEET[base + '_d0'], base + '_d0').setScale(0.5).setDepth(3);
     } else this.sprite = scene.add.image(x, y, base).setDepth(3);
     this.glowBrake = scene.add.image(x, y, 'glow').setTint(0xff2020).setScale(0.3).setDepth(31).setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
     this.beam = scene.add.image(x, y, 'beam').setOrigin(0, 0.5).setDepth(31).setBlendMode(Phaser.BlendModes.ADD).setVisible(false);

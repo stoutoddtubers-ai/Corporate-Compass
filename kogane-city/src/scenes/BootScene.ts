@@ -2,6 +2,7 @@ import * as Phaser from 'phaser';
 import { LOOKS, Look } from '../data/characters';
 import { VEHICLES, VehicleDef } from '../data/vehicles';
 import ATLAS from '../data/atlas.json';
+import { SHEET } from '../systems/sprites';
 
 const hex = (n: number) => '#' + n.toString(16).padStart(6, '0');
 /** Lighten (amt > 0) or darken (amt < 0) a colour. */
@@ -22,29 +23,30 @@ export class BootScene extends Phaser.Scene {
   }
 
   preload(): void {
-    // the sprite sheet rendered in Blender (tools/blender/render_assets.py)
-    this.load.image('atlas', 'assets/atlas.png');
+    // the sprite sheets rendered in Blender (tools/blender/render_assets.py)
+    for (let i = 0; i < ATLAS.pages; i++) this.load.image('atlas' + i, `assets/atlas${i}.png`);
   }
 
   /**
-   * Cuts each Blender-rendered sprite out of the sheet and uses it in place of the
-   * code-drawn placeholder with the same name. If the sheet is missing, the game still
-   * runs on the placeholders.
+   * Registers every Blender-rendered sprite. Cars, people and street furniture are drawn
+   * straight from the sheets; textures that get painted into tiles, rooftops and portraits
+   * are also cut out as their own small pictures. If a sheet is missing, the game still
+   * runs on the code-drawn placeholders.
    */
   private useAtlas(): void {
-    if (!this.textures.exists('atlas')) return;
-    const sheet = this.textures.get('atlas');
-    sheet.setFilter(Phaser.Textures.FilterMode.LINEAR); // rendered art is scaled down smoothly
-    const src = sheet.getSourceImage() as HTMLImageElement;
     for (const [key, f] of Object.entries(ATLAS.frames)) {
-      const fr = sheet.add(key, 0, f.x, f.y, f.w, f.h); // cars, people and street furniture are drawn straight from the sheet
+      const name = 'atlas' + f.page;
+      if (!this.textures.exists(name)) continue;
+      const sheet = this.textures.get(name);
+      sheet.setFilter(Phaser.Textures.FilterMode.LINEAR); // rendered art is scaled down smoothly
+      const fr = sheet.add(key, 0, f.x, f.y, f.w, f.h);
+      SHEET[key] = name;
       const oy = (f as { oy?: number }).oy;
       if (fr && oy) { fr.customPivot = true; fr.pivotX = 0.5; fr.pivotY = oy; } // tall pictures are anchored at their feet
       if (!/^(ground_|roof_|prop_|f_)/.test(key)) continue;
-      // textures that get painted into tiles, rooftops and portraits also exist as their own small pictures
       if (this.textures.exists(key)) this.textures.remove(key);
       const tex = this.textures.createCanvas(key, f.w, f.h)!;
-      tex.getContext().drawImage(src, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+      tex.getContext().drawImage(sheet.getSourceImage() as HTMLImageElement, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
       tex.refresh();
       tex.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }

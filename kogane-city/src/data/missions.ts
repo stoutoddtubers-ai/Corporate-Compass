@@ -1,30 +1,48 @@
-// Missions 1-3, copied line for line from the Script and Writing doc ("Act 1 script" tab).
+import { MISSIONS_ACT2 } from './missions_act2';
+import { MISSIONS_ACT3 } from './missions_act3';
+import { MISSIONS_SIDE } from './missions_side';
+
+// Missions 1-8, copied line for line from the Script and Writing doc ("Act 1 script" tab).
 // Text lives here; the small bits of game logic each mission needs are the named
 // "hooks" in src/systems/missionHooks.ts.
-export interface Line { who: string; text: string; /** only show if this flag is set ("!flag" = not set) */ if?: string }
+/**
+ * Conditions (`if`): a name is true when a mission flag or a remembered choice has that name
+ * or that value. "yakuza" / "police" are the Act 2 path; "!name" means not. Script lines
+ * marked _A are written `if: 'yakuza'`, lines marked _B `if: 'police'`.
+ */
+export interface Line { who: string; text: string; if?: string }
 
-export type Step =
+export type Step = (
   | { t: 'cut'; lines: Line[] }
   | { t: 'obj'; text: string; hint?: string; marker?: string; radius?: number; need?: 'car' | 'scooter' | 'zenki'; enter?: string; done: string; after?: string }
-  | { t: 'card'; title: string; sub: string }
+  /** Title card. `pay` is the mission's payout in yen. */
+  | { t: 'card'; title: string; sub: string; pay?: number }
   | { t: 'text'; from: string; text: string }
   | { t: 'call'; lines: Line[] }
   | { t: 'radio'; text: string; station?: string }
-  | { t: 'run'; hook: string };
+  | { t: 'run'; hook: string }
+  /** The player picks one option; `set` is remembered for the rest of the game as that option's value. */
+  | { t: 'choice'; prompt: string; set: string; options: { label: string; value: string }[] }
+  /** A retry resumes from here: Jun is put at `place` and the `setup` hook rebuilds whatever the next steps need. */
+  | { t: 'checkpoint'; place?: string; setup?: string }
+) & { if?: string };
 
 export interface Mission {
   id: string;
   title: string;
-  /** Place where the mission starts (walk into the marker). null = starts by itself. */
-  giver: string | null;
-  /** Where Jun is put when the mission (re)starts. */
-  start: string;
-  ambience: 'dawnRain' | 'day' | 'afternoon' | 'night';
+  /** Place where the mission starts (walk into the marker). null = starts by itself. May differ by Act 2 path. */
+  giver: string | { yakuza: string; police: string } | null;
+  /** Where Jun is put when the mission (re)starts. May differ by Act 2 path. */
+  start: string | { yakuza: string; police: string };
+  ambience: 'dawnRain' | 'day' | 'afternoon' | 'night' | 'storm';
   setup: string;
   failCheck?: string;
   /** Where Jun is put when the mission is retried (default: its normal start). */
   retryAt?: string;
   failCall?: Line;
+  /** Side stories only: the main mission that must be finished first, and the earlier part of the chain. */
+  after?: string;
+  afterSide?: string;
   steps: Step[];
 }
 
@@ -56,7 +74,7 @@ export const MISSION_TUNING = {
   guardSeeDist: 190, // evidence warehouse guards
 };
 
-export const MISSIONS: Mission[] = [
+const ACT1: Mission[] = [
   {
     id: 'M01', title: 'GATE OUT', giver: null, start: 'prison', ambience: 'dawnRain', setup: 'm01Setup',
     steps: [
@@ -412,6 +430,7 @@ export const AMBIENCE = {
   day: { color: 0xfff2d0, alpha: 0.0, lights: 0, rain: false },
   afternoon: { color: 0x5a2a10, alpha: 0.16, lights: 0.25, rain: false },
   night: { color: 0x0a0f2a, alpha: 0.46, lights: 1, rain: false },
+  storm: { color: 0x0a1020, alpha: 0.5, lights: 1, rain: true }, // typhoon night
 } as const;
 
 /**
@@ -432,3 +451,8 @@ export const DAY = {
   rainChance: 0.3,
   rainFor: 90,
 };
+
+/** The main story, in order. */
+export const MISSIONS: Mission[] = [...ACT1, ...MISSIONS_ACT2, ...MISSIONS_ACT3];
+/** Optional side stories: four chains of three, each part opening after a main mission. */
+export const SIDE_MISSIONS: Mission[] = MISSIONS_SIDE;

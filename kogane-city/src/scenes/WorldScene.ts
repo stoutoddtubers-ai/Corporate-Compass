@@ -18,6 +18,8 @@ import { PoliceSystem } from '../systems/PoliceSystem';
 import { GangSystem } from '../systems/GangSystem';
 import { Story } from '../systems/Story';
 import { TurfSystem } from '../systems/TurfSystem';
+import { SideJobs } from '../systems/SideJobs';
+import { createSideJobs } from '../systems/sideJobsImpl';
 import { GARAGE } from '../data/garage';
 import { Actor } from '../entities/Actor';
 import { Car } from '../entities/Car';
@@ -40,8 +42,11 @@ export class WorldScene extends Phaser.Scene {
   gang!: GangSystem;
   story!: Story;
   turf!: TurfSystem;
+  side!: SideJobs;
   /** True while the player's car is parked in Goro's spray booth with the menu up. */
   garageOpen = false;
+  /** Writes the whole game to the browser's storage (set up by the save system). */
+  saveGame?: () => void;
   ambience: { color: number; alpha: number; lights: number; rain: boolean } = { color: 0, alpha: 0, lights: 0, rain: false };
   private roofs: Roof[] = [];
   private wallG!: Phaser.GameObjects.Graphics;
@@ -129,6 +134,7 @@ export class WorldScene extends Phaser.Scene {
     this.gang = new GangSystem(this);
     this.story = new Story(this);
     this.turf = new TurfSystem(this);
+    this.side = createSideJobs(this);
 
     this.traffic = new TrafficSystem(this);
 
@@ -438,6 +444,7 @@ export class WorldScene extends Phaser.Scene {
     this.heat.clear(false);
     this.police.standDown(true);
     this.turf.abort();
+    this.side.abort();
     this.story.onRespawn(); // a failed mission restarts from its beginning
     this.cam.x = p.actor.x; this.cam.y = p.actor.y;
   }
@@ -464,6 +471,7 @@ export class WorldScene extends Phaser.Scene {
     this.police.update(dt);
     this.gang.update(dt);
     this.turf.update(dt);
+    if (!this.story.active && this.mode === 'play') this.side.update(dt); else if (this.side.active) this.side.abort();
     this.updateGarage();
     for (let i = this.cars.length - 1; i >= 0; i--) {
       const c = this.cars[i];
@@ -529,6 +537,7 @@ export class WorldScene extends Phaser.Scene {
       const on = Math.abs(r.x - mid.x) < vw.width / 2 + 360 && Math.abs(r.y - mid.y) < vw.height / 2 + 360;
       r.img.setVisible(on);
       if (!on) continue;
+      if (r.paint && !r.made) { r.paint(); (r.img as Phaser.GameObjects.Image).setTexture(r.key!); r.made = true; } // paint this roof the first time it is seen
       // oblique view: height leans up the screen, plus a little slide away from the screen centre
       const k = r.h, ps = k * MAP.perspective, lean = k * MAP.heightScale * MAP.tilt;
       r.img.setPosition(r.x + (r.x - mid.x) * ps, r.y + (r.y - mid.y) * ps - lean);
@@ -615,6 +624,9 @@ export class WorldScene extends Phaser.Scene {
   /** A few times a second: move the light pool to the lamps on screen, and fill / empty nearby car parks. */
   private slowUpdate(): void {
     this.map.shimmer(); // water ripples
+    // forget rooftop pictures that are far behind us
+    const here = this.cameras.main.midPoint;
+    for (const r of this.roofs) if (r.made && (Math.abs(r.x - here.x) > 2600 || Math.abs(r.y - here.y) > 2000)) { (r.img as Phaser.GameObjects.Image).setTexture('dot'); this.textures.remove(r.key!); r.made = false; }
     if (this.dayCycle) this.tickDay(0.3);
     const v = this.cameras.main.worldView, p = this.player.pos, a = this.ambience;
     let n = 0;
@@ -654,7 +666,9 @@ export class WorldScene extends Phaser.Scene {
     g.clear();
     this.halo.setPosition(p.pos.x, p.pos.y).setVisible(!p.car && this.mode !== 'cut');
     if (this.story.index >= 3 && !this.story.active) { const sp = this.map.places.spray; g.lineStyle(2, 0x7fe0ff, 0.7).strokeCircle(sp.x, sp.y, 30); } // Goro's spray booth
-    const mk = this.story.marker;
+    for (const sm of this.story.sideMarkers) g.lineStyle(2, 0xc060ff, 0.5 + 0.4 * Math.sin(this.time.now / 200)).strokeCircle(sm.x, sm.y, 26); // side stories: violet rings
+    if (!this.story.active) for (const st of this.side.starts) if (!this.side.active && this.onScreen(st.x, st.y, 60)) g.lineStyle(2, 0x40d0c0, 0.75).strokeCircle(st.x, st.y, 24); // side jobs: teal rings
+    const mk = this.story.marker ?? this.side.marker;
     if (mk && this.mode !== 'cut') { // the gold ring that shows where to go
       const pulse = 0.5 + 0.5 * Math.sin(this.time.now / 180), r = Math.max(14, Math.min(mk.r, 40));
       g.lineStyle(2, 0xe8b923, 0.5 + 0.4 * pulse).strokeCircle(mk.x, mk.y, r * (0.8 + 0.2 * pulse));

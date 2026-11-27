@@ -48,6 +48,7 @@ export class HudScene extends Phaser.Scene {
   private rain: { x: number; y: number; v: number }[] = [];
   private rainG!: Phaser.GameObjects.Graphics;
   private garage!: Phaser.GameObjects.Text;
+  private choiceText!: Phaser.GameObjects.Text;
 
   constructor() {
     super('Hud');
@@ -86,6 +87,7 @@ export class HudScene extends Phaser.Scene {
     this.cardSub = this.add.text(GW / 2, GH / 2 + 20, '', { ...FONT, fontSize: '14px' }).setOrigin(0.5);
     this.garage = this.add.text(GW / 2 - 190, 150, '', { ...FONT, fontSize: '12px', lineSpacing: 6 }).setVisible(false);
     this.dlgBox = this.add.graphics();
+    this.choiceText = this.add.text(GW / 2, GH / 2 - 60, '', { fontFamily: 'monospace', fontSize: '15px', color: '#ffffff', align: 'center', lineSpacing: 10, wordWrap: { width: 700 } }).setOrigin(0.5, 0).setVisible(false);
     this.portrait = this.add.image(96, GH - 78, 'f_jun').setScale(3);
     this.dlgName = this.add.text(160, GH - 128, '', { ...FONT, fontSize: '14px' });
     this.dlgText = this.add.text(160, GH - 106, '', { fontFamily: 'monospace', fontSize: '15px', color: '#ffffff', wordWrap: { width: 740 }, lineSpacing: 4 });
@@ -96,6 +98,8 @@ export class HudScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-SPACE', next);
     this.input.keyboard!.on('keydown-ENTER', next);
     this.input.keyboard!.on('keydown-E', next);
+    // a choice: press its number
+    ['ONE', 'TWO', 'THREE'].forEach((k, i) => this.input.keyboard!.on('keydown-' + k, () => this.world.story.choose(i)));
   }
 
   update(_t: number, delta: number): void {
@@ -117,9 +121,9 @@ export class HudScene extends Phaser.Scene {
     });
     const story = w.story;
     // objective line: the mission's, or "Lose the police." when you are just wanted
-    this.objective.setText(story.objective || w.turf.objective || (heat.level > 0 ? t('OBJ_LOSE_POLICE') : heat.cleanT > 0 ? t('UI_HEAT_CLEAR') : ''));
-    this.objective.setColor(story.objective || w.turf.objective || heat.level > 0 ? '#ffffff' : '#7fe08a');
-    this.hint.setText(story.hint);
+    this.objective.setText(story.objective || w.side.objective || w.turf.objective || (heat.level > 0 ? t('OBJ_LOSE_POLICE') : heat.cleanT > 0 ? t('UI_HEAT_CLEAR') : ''));
+    this.objective.setColor(story.objective || w.side.objective || w.turf.objective || heat.level > 0 ? '#ffffff' : '#7fe08a');
+    this.hint.setText(story.hint || w.side.hint);
     this.drawStory(delta / 1000);
     if (heat.level > 0 && heat.searching) {
       // how close the search is to being called off
@@ -180,6 +184,7 @@ export class HudScene extends Phaser.Scene {
   /** Cutscene text box, title cards, phone messages, radio ticker, district stamp, spill meter, rain. */
   private drawStory(dt: number): void {
     const w = this.world, s = w.story, g = this.g;
+    const meter = s.timer ?? w.side.timer; // a mission's or a side job's countdown / meter
 
     // rain
     this.rainG.clear();
@@ -204,10 +209,10 @@ export class HudScene extends Phaser.Scene {
     }
 
     // mission countdown or meter (camera timer, detection eye, shops left...)
-    this.spillLabel.setVisible(s.showSpill || !!s.timer);
-    this.spillLabel.setText(s.timer ? (s.timer.kind === 'time' ? `${s.timer.label} ${Math.max(0, Math.ceil(s.timer.value))}s` : s.timer.label) : 'SOUP SPILLED');
-    if (s.timer && s.timer.kind === 'bar') {
-      const k = Math.max(0, Math.min(1, s.timer.value / s.timer.max));
+    this.spillLabel.setVisible(s.showSpill || !!meter);
+    this.spillLabel.setText(meter ? (meter.kind === 'time' ? `${meter.label} ${Math.max(0, Math.ceil(meter.value))}s` : meter.label) : 'SOUP SPILLED');
+    if (meter && meter.kind === 'bar') {
+      const k = Math.max(0, Math.min(1, meter.value / meter.max));
       g.fillStyle(0x000000, 0.6).fillRect(GW - 114, GH - 48, 104, 8);
       g.fillStyle(k < 0.5 ? 0x7fe08a : k < 0.8 ? 0xf2c230 : 0xe04a3a, 1).fillRect(GW - 112, GH - 46, 100 * k, 4);
     }
@@ -259,6 +264,13 @@ export class HudScene extends Phaser.Scene {
     const c = s.cut, d = this.dlgBox;
     d.clear();
     for (const o of [this.dlgName, this.dlgText, this.dlgNext, this.portrait]) o.setVisible(!!c);
+    this.choiceText.setVisible(!!s.choice);
+    if (s.choice) { // the player decides: one line per option, picked with its number
+      d.fillStyle(0x000000, 0.6).fillRect(0, 0, GW, GH);
+      this.choiceText.setText([s.choice.prompt, '', ...s.choice.options.map((o, i) => `${i + 1}   ${o.label}`)]);
+      d.fillStyle(0x0b0b10, 0.95).fillRect(GW / 2 - 380, GH / 2 - 80, 760, this.choiceText.height + 40);
+      d.lineStyle(2, 0xe8b923, 1).strokeRect(GW / 2 - 380, GH / 2 - 80, 760, this.choiceText.height + 40);
+    }
     if (!c) return;
     const line = c.lines[c.i], sp = SPEAKERS[line.who];
     d.fillStyle(0x000000, 0.45).fillRect(0, 0, GW, GH);
@@ -313,7 +325,9 @@ export class HudScene extends Phaser.Scene {
     for (const a of w.police.cops) if (a.alive) dot(a.x, a.y, 0x4a8cff, 3);
     for (const a of w.gang.thugs) if (a.alive) dot(a.x, a.y, 0xc060ff, 3);
     for (const c of w.gang.activeChasers) dot(c.x, c.y, 0xc060ff, 5);
-    const mk = w.story.marker;
+    for (const sm of w.story.sideMarkers) dot(sm.x, sm.y, 0xc060ff, 5);
+    if (!w.story.active && !w.side.active) for (const st of w.side.starts) dot(st.x, st.y, 0x40d0c0, 4);
+    const mk = w.story.marker ?? w.side.marker;
     if (mk) { // mission marker: a gold diamond, pinned to the rim when it is far away
       let dx = (mk.x - p.x) * S, dy = (mk.y - p.y) * S;
       const d = Math.hypot(dx, dy), lim = R - 7;

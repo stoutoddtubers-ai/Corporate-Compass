@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser';
 import { PLAYER } from '../data/player';
+import { SHEET } from '../systems/sprites';
 import type { WorldScene } from '../scenes/WorldScene';
 
 /** A tiny rotation that means "the facing has been read": lets animate() notice when someone turns the sprite. */
@@ -39,8 +40,9 @@ export class Actor {
 
   constructor(scene: WorldScene, readonly kind: ActorKind, x: number, y: number, look: string, hp: number) {
     this.base = 'p_' + look;
-    this.dirs = scene.textures.exists('atlas') && scene.textures.get('atlas').has(this.base + '_0_d0');
-    this.sprite = this.dirs ? scene.physics.add.image(x, y, 'atlas', this.base + '_0_d0').setDepth(4) : scene.physics.add.image(x, y, this.base).setDepth(4);
+    const sheet = SHEET[this.base + '_0_d0'];
+    this.dirs = !!sheet;
+    this.sprite = sheet ? scene.physics.add.image(x, y, sheet, this.base + '_0_d0').setDepth(4) : scene.physics.add.image(x, y, this.base).setDepth(4);
     if (this.sprite.width > 20) { // Blender sprite, drawn at twice game size
       const k = PLAYER.spriteScale, r = PLAYER.radius / k; // the collision circle stays the same size on the ground
       this.sprite.setScale(k);

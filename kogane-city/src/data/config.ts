@@ -3,9 +3,9 @@ export const GAME_WIDTH = 960;
 export const GAME_HEIGHT = 540;
 export const TILE_SIZE = 32;
 
-// East-bank map size (in tiles). The full game targets 1,024 x 1,024 for all eight districts.
-export const MAP_TILES_W = 160;
-export const MAP_TILES_H = 128;
+// Whole-city map size (in tiles): both river banks and the bay. The bible's long-term target is 1,024 x 1,024.
+export const MAP_TILES_W = 308;
+export const MAP_TILES_H = 186;
 
 // Performance budget from the game bible ("Performance budgets").
 export const BUDGET = {

@@ -23,6 +23,8 @@ SCALE = 2  # render at 2x game size
 TILT = 1.0
 DIRS = 16
 ONLY = sys.argv[sys.argv.index('--only') + 1] if '--only' in sys.argv else ''
+# '--looks a,b,c' renders just those characters (all poses and the portrait)
+ONLY_LOOKS = sys.argv[sys.argv.index('--looks') + 1].split(',') if '--looks' in sys.argv else None
 
 # ---- colours copied from src/data/vehicles.ts and src/data/characters.ts ----
 VEHICLES = {
@@ -45,6 +47,14 @@ LOOKS = {
     'salaryman': ('#3d4a6a', '#1c1a1a', '#f2f2f2', 'chest'), 'student': ('#c9c9d6', '#2a2622', '#3a5aa8', 'back'),
     'grandmother': ('#a8788f', '#d8d8d8', None, None), 'rider': ('#3f9a5a', '#e04a3a', '#f2f2f2', 'back'),
     'builder': ('#c98a2a', '#f2d02a', None, None), 'shopkeeper': ('#35607a', '#3a2a22', '#f0ece2', 'chest'),
+    # Act 2-3 cast and factions
+    'saeko': ('#f4f4f0', '#141218', '#8a8f98', 'back'), 'genzo': ('#22222a', '#c8c8c8', '#6a4a2a', 'chest'),
+    'mibu': ('#6a1f2e', '#101010', '#e8c84a', 'chest'), 'amane': ('#0e0e12', '#d0d4dc', '#9aa0aa', 'chest'),
+    'tetsu': ('#1a1c20', '#8a8a8a', '#4a5a3a', 'chest'), 'hachiro': ('#d8d2c0', '#e0b08a', '#2a5a8a', 'chest'),
+    'pip': ('#28d8e8', '#3a2a22', '#15181c', 'back'), 'fujita': ('#6f7078', '#2a2622', '#f2f2f2', 'chest'),
+    'yatagarasu': ('#e8e8f0', '#1a1c20', '#9aa0aa', 'chest'), 'umibozu': ('#2f8f86', '#3a2a22', '#d8702a', 'back'),
+    'riot': ('#1e2a4a', '#1a1c20', '#f2f2f2', 'back'), 'priest': ('#c8a030', '#e0b08a', None, None),
+    'mama': ('#a02a5a', '#2a1a1a', '#f0d030', 'chest'),
 }
 
 def rgb(c):
@@ -223,7 +233,7 @@ def vehicle(vid, v, ci):
     render_dirs(s, f'car_{vid}_{ci}', L + 14, 18)
 
 # ---------------------------------------------------------------- people: 3 frames (standing, left step, right step)
-HATS = {'cop': 'cap', 'builder': 'helmet', 'mika': 'bandana', 'goro': 'goggles', 'rider': 'helmet', 'grandmother': 'bun', 'hikari': 'spiky', 'glitch': 'hood', 'kenta': 'pomp', 'raijin': 'pomp'}
+HATS = {'riot': 'helmet', 'yatagarasu': 'cap', 'mama': 'bun', 'cop': 'cap', 'builder': 'helmet', 'mika': 'bandana', 'goro': 'goggles', 'rider': 'helmet', 'grandmother': 'bun', 'hikari': 'spiky', 'glitch': 'hood', 'kenta': 'pomp', 'raijin': 'pomp'}
 def person(lid, look, frame):
     s = reset(); MATS.clear()
     jacket, hair, accent, at = look
@@ -421,6 +431,7 @@ jobs = []
 for vid, v in VEHICLES.items():
     for ci in range(len(v['colors'])): jobs.append(('car', lambda vid=vid, v=v, ci=ci: vehicle(vid, v, ci)))
 for lid, look in LOOKS.items():
+    if ONLY_LOOKS is not None and lid not in ONLY_LOOKS: continue
     for fr in (0, 1, 2): jobs.append(('person', lambda lid=lid, look=look, fr=fr: person(lid, look, fr)))
     for fr in (3, 4): jobs.append(('pose', lambda lid=lid, look=look, fr=fr: person(lid, look, fr)))  # punch, knocked down
     jobs.append(('bust', lambda lid=lid, look=look: bust(lid, look)))
@@ -428,7 +439,9 @@ for n in ('asphalt0', 'asphalt1', 'asphalt2', 'paver', 'kerb', 'water0', 'water1
 for n in ('tile', 'metal', 'plank', 'flat'): jobs.append(('roof', lambda n=n: roof_tile(n)))
 for n in ('ac', 'tank', 'vent', 'skylight', 'dish', 'solar', 'vending0', 'vending1', 'vending2', 'lamp', 'tree0', 'tree1', 'tree2', 'bench', 'bin', 'cone', 'crate', 'gate'): jobs.append(('prop', lambda n=n: prop(n)))
 for kind, job in jobs:
-    if ONLY != 'pack' and (not ONLY or ONLY == kind): job()  # '--only pack' just rebuilds the sheet
+    if ONLY_LOOKS is not None:
+        if kind in ('person', 'pose', 'bust'): job()
+    elif ONLY != 'pack' and (not ONLY or ONLY == kind): job()  # '--only pack' just rebuilds the sheets
 
 from PIL import Image, ImageFilter
 # props get a soft drop shadow, added here so it is easy to tune
@@ -449,16 +462,23 @@ def load(f):
     t = next((v for k, v in TRIM.items() if f.startswith(k)), 0)
     return im.crop((t, t, im.width - t, im.height - t)) if t else im
 imgs = [(f[:-4], load(f)) for f in files]
+# Two sheets, so neither goes over 4096 px (the largest picture some graphics cards take):
+# sheet 0 holds vehicles, props, ground and portraits; sheet 1 holds the people.
 PAD, SHEET_W = 2, 4096
-x = y = PAD; row = 0; frames = {}
-for name, im in sorted(imgs, key=lambda t: -t[1].height):
-    if x + im.width + PAD > SHEET_W: x = PAD; y += row + PAD; row = 0
-    frames[name] = dict(x=x, y=y, w=im.width, h=im.height); x += im.width + PAD; row = max(row, im.height)
-sheet = Image.new('RGBA', (SHEET_W, y + row + PAD), (0, 0, 0, 0))
-for name, im in imgs: sheet.paste(im, (frames[name]['x'], frames[name]['y']))
+frames = {}
 os.makedirs(os.path.join(ROOT, 'public', 'assets'), exist_ok=True)
-sheet.save(os.path.join(ROOT, 'public', 'assets', 'atlas.png'), optimize=True)
-import glob
+pages = [[t for t in imgs if not t[0].startswith('p_')], [t for t in imgs if t[0].startswith('p_')]]
+for page, group in enumerate(pages):
+    x = y = PAD; row = 0
+    for name, im in sorted(group, key=lambda t: -t[1].height):
+        if x + im.width + PAD > SHEET_W: x = PAD; y += row + PAD; row = 0
+        frames[name] = dict(page=page, x=x, y=y, w=im.width, h=im.height); x += im.width + PAD; row = max(row, im.height)
+    sheet = Image.new('RGBA', (SHEET_W, y + row + PAD), (0, 0, 0, 0))
+    for name, im in group: sheet.paste(im, (frames[name]['x'], frames[name]['y']))
+    sheet.save(os.path.join(ROOT, 'public', 'assets', f'atlas{page}.png'), optimize=True)
+    print('ATLAS', page, sheet.size, len(group), 'sprites')
+old = os.path.join(ROOT, 'public', 'assets', 'atlas.png')
+if os.path.exists(old): os.remove(old)
 # origins are remembered between runs, so rendering only part of the set keeps the rest
 _op = os.path.join(OUT, 'origins.json')
 _all = json.load(open(_op)) if os.path.exists(_op) else {}
@@ -466,5 +486,4 @@ _all.update(ORIGIN); ORIGIN = _all
 json.dump(ORIGIN, open(_op, 'w'))
 for n, oy in ORIGIN.items():
     if n in frames and abs(oy - 0.5) > 0.001: frames[n]['oy'] = round(oy, 4)
-json.dump(dict(scale=SCALE, tilt=TILT, frames=frames), open(os.path.join(ROOT, 'src', 'data', 'atlas.json'), 'w'), indent=1)
-print('ATLAS', sheet.size, len(frames), 'sprites')
+json.dump(dict(scale=SCALE, tilt=TILT, pages=len(pages), frames=frames), open(os.path.join(ROOT, 'src', 'data', 'atlas.json'), 'w'), indent=1)

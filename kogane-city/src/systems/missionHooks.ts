@@ -10,10 +10,10 @@ import type { Story } from './Story';
 
 // The "code hooks for set pieces" (bible, Architecture): the few things each mission
 // needs that plain text can't describe. Named so data/missions.ts can refer to them.
-type Hook = (w: WorldScene, s: Story) => void;
-type Check = (w: WorldScene, s: Story, dt: number) => boolean;
+export type Hook = (w: WorldScene, s: Story) => void;
+export type Check = (w: WorldScene, s: Story, dt: number) => boolean;
 
-const npc = (w: WorldScene, s: Story, look: string, x: number, y: number): Actor => {
+export const npc = (w: WorldScene, s: Story, look: string, x: number, y: number): Actor => {
   const f = free(w, x, y);
   const a = new Actor(w, 'ped', f.x, f.y, look, 999);
   a.body.setImmovable(true);
@@ -28,17 +28,17 @@ export function free(w: WorldScene, x: number, y: number): { x: number; y: numbe
   }
   return { x, y };
 }
-function nearestLot(w: WorldScene, x: number, y: number) {
+export function nearestLot(w: WorldScene, x: number, y: number) {
   return w.map.lots.reduce((b, l) => (Math.hypot(l.x + l.w / 2 - x, l.y + l.h / 2 - y) < Math.hypot(b.x + b.w / 2 - x, b.y + b.h / 2 - y) ? l : b));
 }
 /** A car that belongs to the mission: the city's tidy-up rules leave it alone. */
-function storyCar(w: WorldScene, def: (typeof VEHICLES)[string], x: number, y: number, heading: number, color: number): Car {
+export function storyCar(w: WorldScene, def: (typeof VEHICLES)[string], x: number, y: number, heading: number, color: number): Car {
   for (const c of w.cars) if (!c.story && c.driver === 'none' && Math.hypot(c.x - x, c.y - y) < 60) c.destroy(); // clear the parking space
   const c = w.addCar(def, x, y, heading, false, color);
   c.story = true;
   return c;
 }
-const near = (w: WorldScene, s: Story): boolean => {
+export const near = (w: WorldScene, s: Story): boolean => {
   const m = s.marker, p = w.player;
   if (!m) return false;
   if (m.need === 'car' && !p.car) return false;
@@ -181,10 +181,10 @@ export const CHECKS: Record<string, Check> = {
 // Missions 4-8
 // =====================================================================================
 
-const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+export const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 
 /** Simple AI driver: steer at a point, hold a speed, back out if stuck. */
-function aiDrive(c: Car, tx: number, ty: number, want: number, dt: number): void {
+export function aiDrive(c: Car, tx: number, ty: number, want: number, dt: number): void {
   const inp = c.input;
   inp.nitro = false; inp.handbrake = false; inp.brake = false;
   if (c.reverseT > 0) { c.reverseT -= dt; inp.throttle = -1; inp.steer = c.panic; return; }
@@ -198,7 +198,7 @@ function aiDrive(c: Car, tx: number, ty: number, want: number, dt: number): void
 }
 
 /** A story car driven by the traffic AI along the lanes (optionally to a destination). */
-function laneCar(w: WorldScene, s: Story, def: (typeof VEHICLES)[string], color: number, near: { x: number; y: number }, back: number, cruise: number): Car {
+export function laneCar(w: WorldScene, s: Story, def: (typeof VEHICLES)[string], color: number, near: { x: number; y: number }, back: number, cruise: number): Car {
   const lane = w.map.nearestLane(near.x, near.y);
   const along = (near.x - lane.ax) * lane.dx + (near.y - lane.ay) * lane.dy;
   const k = Phaser.Math.Clamp((along - back) / lane.len, 0.03, 0.97);
@@ -212,15 +212,15 @@ function laneCar(w: WorldScene, s: Story, def: (typeof VEHICLES)[string], color:
 Object.assign(HOOKS, {
   // ----- M04 Thunder Road -----
   m04Setup(w, s) {
-    const st = s.place('raceStart'), V = MAP.vRoads, Hh = MAP.hRoads, rw = MAP.roadWidth;
-    const N = Hh[0] * TS + 32, S = (Hh[Hh.length - 1] + rw) * TS - 32, Wx = V[0] * TS + 32, E = (V[V.length - 1] + rw) * TS - 32; // the clockwise lane of the ring
+    const st = s.place('raceStart'), R = MAP.eastRing, rw = MAP.roadWidth;
+    const N = R.north * TS + 32, S = (R.south + rw) * TS - 32, Wx = R.west * TS + 32, E = (R.east + rw) * TS - 32; // the clockwise lane of the east-bank ring
     for (const c of [...w.cars]) if (c !== w.player.car && dist(c, st) < 260) c.destroy(); // clear the start line
     const z = storyCar(w, VEHICLES.sports, st.x, N - 14, 0, 1); // the Zenki, in its new paint
     const k = storyCar(w, VEHICLES.bike, st.x, N + 16, 0, 0);
     k.driver = 'gang';
     s.cars.push(z, k); s.vars.zenki = z; s.vars.kenta = k;
     // one lap: corners and the middle of each side, then back to the start line
-    s.vars.cps = [[E, N], [E, w.map.heightPx / 2], [E, S], [w.map.widthPx / 2, S], [Wx, S], [Wx, w.map.heightPx / 2], [Wx, N], [st.x, N]].map(([x, y]) => ({ x, y }));
+    s.vars.cps = [[E, N], [E, (N + S) / 2], [E, S], [(Wx + E) / 2, S], [Wx, S], [Wx, (N + S) / 2], [Wx, N], [st.x, N]].map(([x, y]) => ({ x, y }));
     s.vars.pi = 0; s.vars.ki = 0; s.vars.barkT = 6;
     for (const i of [1, 3, 5]) { const c = (s.vars.cps as { x: number; y: number }[])[i]; npc(w, s, 'raijin', c.x + (i === 3 ? 0 : i === 1 ? 110 : -110), c.y + (i === 3 ? 110 : 0)); }
   },
