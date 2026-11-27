@@ -63,6 +63,8 @@ export class CityMap {
   private carPass = new Uint8Array(W * H);
   private queue = new Int32Array(W * H);
   private decals = new Int16Array(W * H).fill(-1);
+  /** Street furniture drawn as sprites: trees, benches, bins, crates, cones. `h` > 0 makes it stand up (2.5D). */
+  readonly furniture: { x: number; y: number; key: string; h: number }[] = [];
 
   constructor() {
     this.build();
@@ -250,18 +252,37 @@ export class CityMap {
       this.decals[y * W + x] = T.lamp;
       this.lights.push({ x: (x + 0.5) * TS, y: (y + 0.5) * TS, color: DISTRICTS[MAP.districtAt(x, y)].lamp, scale: 1.7, alpha: 0.55 });
     };
+    // street trees between the lamps: cherry and green in Asagiri, a few in Denpa-chō, none in the industrial east
+    const treeAt = (x: number, y: number) => {
+      if (this.at(x, y) !== Tile.Walk || this.decals[y * W + x] >= 0) return;
+      const d = MAP.districtAt(x, y), roll = rnd();
+      if (d === 'tetsugawa' || (d === 'denpa' && roll > 0.35) || roll > 0.8) return;
+      this.furniture.push({ x: (x + 0.5) * TS, y: (y + 0.5) * TS, key: 'prop_tree' + (d === 'asagiri' && roll < 0.25 ? 2 : roll < 0.5 ? 0 : 1), h: 0.05 });
+      this.decals[y * W + x] = -2; // keep awnings off this tile
+    };
+    for (const v of V.slice(1, -1)) for (let y = Hh[0] + rw + 6; y < Hh[Hh.length - 1]; y += MAP.lampSpacing) { treeAt(v - 1, y + 1); treeAt(v + rw, y + 4); }
+    for (const h of Hh.slice(1, -1)) for (let x = V[0] + rw + 6; x < V[V.length - 1]; x += MAP.lampSpacing) { treeAt(x + 1, h - 1); treeAt(x + 4, h + rw); }
     for (const v of V) for (let y = Hh[0] + rw + 3; y < Hh[Hh.length - 1]; y += MAP.lampSpacing) { lampAt(v - 1, y); lampAt(v + rw, y + 3); }
     for (const h of Hh) for (let x = V[0] + rw + 3; x < V[V.length - 1]; x += MAP.lampSpacing) { lampAt(x, h - 1); lampAt(x + 3, h + rw); }
+    // crates and traffic cones scattered round the industrial yards
+    for (const l of this.lots) {
+      if (l.district !== 'tetsugawa') continue;
+      for (let n = 0; n < 5; n++) {
+        const x = l.x + 14 + rnd() * (l.w - 28), y = rnd() < 0.5 ? l.y + 12 + rnd() * 10 : l.y + l.h - 22 + rnd() * 10;
+        if (!this.isSolid(x, y)) this.furniture.push({ x, y, key: rnd() < 0.6 ? 'prop_crate' : 'prop_cone', h: 0 });
+      }
+    }
     // awnings / vending machines on sidewalk tiles that touch a building
     const side = [[0, -1], [0, 1], [-1, 0], [1, 0]]; // building is above, below, left, right of the tile
     for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
-      if (this.at(x, y) !== Tile.Walk || this.decals[y * W + x] >= 0) continue;
+      if (this.at(x, y) !== Tile.Walk || this.decals[y * W + x] !== -1) continue;
       const s = side.findIndex(([dx, dy]) => this.at(x + dx, y + dy) === Tile.Building);
       if (s < 0 || x < V[0] || x > V[V.length - 1] + rw) continue;
       const st = DISTRICTS[MAP.districtAt(x, y)], roll = rnd();
       // colour changes every few tiles so it reads as a row of different shops
       const shop = Math.floor((s < 2 ? x : y) / 3) + s * 7;
       if (roll < st.awningChance) this.decals[y * W + x] = T.awning + s * 4 + (shop % st.awnings.length);
+      else if (roll > 0.955) this.furniture.push({ x: (x + 0.5 - side[s][0] * 0.2) * TS, y: (y + 0.5 - side[s][1] * 0.2) * TS, key: roll > 0.98 && st !== DISTRICTS.tetsugawa ? 'prop_bench' : 'prop_bin', h: 0 });
       else if (roll < st.awningChance + 0.05) {
         const c = Math.floor(rnd() * 3);
         this.decals[y * W + x] = T.vending + s * 3 + c;
@@ -386,13 +407,27 @@ export class CityMap {
       // copy with a 1 px border of repeated edge pixels, so tiles don't show seams when zoomed
       for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [0, 0]]) sheet.drawImage(tmp, x + dx, y + dy);
     };
+    // Blender-rendered ground textures are grey; they are laid over the tile's colour
+    const img = (k: string) => (scene.textures.exists(k) ? (scene.textures.get(k).getSourceImage() as CanvasImageSource) : null);
+    const relief = (key: string, lift = 0.1): boolean => {
+      const im = img(key);
+      if (!im) return false;
+      g.globalCompositeOperation = 'overlay'; g.drawImage(im, 0, 0, TS, TS);
+      g.globalCompositeOperation = 'screen'; g.globalAlpha = lift; g.drawImage(im, 0, 0, TS, TS);
+      g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+      return true;
+    };
+    /** Draws a rendered decal turned to face one side: 0 = as rendered, then quarter turns. */
+    const turned = (im: CanvasImageSource, quarter: number) => { g.save(); g.translate(16, 16); g.rotate((quarter * Math.PI) / 2); g.drawImage(im, -16, -16, TS, TS); g.restore(); };
+    let variant = 0;
     const asphalt = (base: string) => {
       g.fillStyle = base; g.fillRect(0, 0, TS, TS);
+      if (relief('ground_asphalt' + (variant % 3))) return;
       for (let k = 0; k < 7; k++) { g.fillStyle = rnd() < 0.5 ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.11)'; g.fillRect(rnd() * 30, rnd() * 30, 2, 2); }
     };
     const dash = (i: number, color: string) => { g.fillStyle = color; if (i === 0) g.fillRect(31, 8, 1, 16); if (i === 1) g.fillRect(0, 8, 1, 16); if (i === 2) g.fillRect(8, 31, 16, 1); if (i === 3) g.fillRect(8, 0, 16, 1); };
     put(T.wall, () => { g.fillStyle = C.wall; g.fillRect(0, 0, TS, TS); });
-    for (let i = 0; i < 3; i++) put(T.road + i, () => { asphalt(C.road); if (i === 2) { g.fillStyle = 'rgba(0,0,0,0.10)'; g.fillRect(5, 7, 20, 14); } });
+    for (let i = 0; i < 3; i++) put(T.road + i, () => { variant = i; asphalt(C.road); variant = i === 2 ? 0 : i; });
     for (let i = 0; i < 4; i++) put(T.roadDash + i, () => { asphalt(C.road); dash(i, C.laneLine); });
     put(T.kroad, () => asphalt(C.kroad));
     for (let i = 0; i < 4; i++) put(T.kDash + i, () => { asphalt(C.kroad); dash(i, C.kLine); });
@@ -401,8 +436,8 @@ export class CityMap {
     put(T.lot, () => asphalt(C.lot));
     put(T.bay, () => { asphalt(C.lot); g.fillStyle = 'rgba(255,255,255,0.22)'; g.fillRect(0, 0, 2, TS); });
     put(T.alley, () => { asphalt(C.alley); if (rnd() < 2) { g.fillStyle = 'rgba(0,0,0,0.15)'; g.fillRect(0, 14, TS, 2); } });
-    for (let i = 0; i < 2; i++) put(T.water + i, () => { g.fillStyle = C.water; g.fillRect(0, 0, TS, TS); g.fillStyle = C.waterLight; for (let k = 0; k < 3; k++) g.fillRect((k * 11 + i * 7) % 26, 5 + k * 10 + i * 3, 7, 1); });
-    put(T.planks, () => { g.fillStyle = C.planks; g.fillRect(0, 0, TS, TS); g.fillStyle = 'rgba(0,0,0,0.22)'; for (let k = 0; k < TS; k += 8) g.fillRect(0, k, TS, 1); });
+    for (let i = 0; i < 2; i++) put(T.water + i, () => { g.fillStyle = C.water; g.fillRect(0, 0, TS, TS); if (relief('ground_water' + i, 0.22)) return; g.fillStyle = C.waterLight; for (let k = 0; k < 3; k++) g.fillRect((k * 11 + i * 7) % 26, 5 + k * 10 + i * 3, 7, 1); });
+    put(T.planks, () => { g.fillStyle = C.planks; g.fillRect(0, 0, TS, TS); if (relief('ground_planks', 0.05)) return; g.fillStyle = 'rgba(0,0,0,0.22)'; for (let k = 0; k < TS; k += 8) g.fillRect(0, k, TS, 1); });
     put(T.rail, () => { asphalt('#4a4540'); g.fillStyle = '#3a2f28'; for (let k = 2; k < TS; k += 8) g.fillRect(3, k, TS - 6, 3); g.fillStyle = '#9a9a9a'; g.fillRect(8, 0, 2, TS); g.fillRect(22, 0, 2, TS); });
     put(T.arcade, () => { g.fillStyle = '#b9a58a'; g.fillRect(0, 0, TS, TS); g.fillStyle = '#a3906f'; g.fillRect(0, 0, TS, 1); g.fillRect(0, 16, TS, 1); g.fillRect(0, 0, 1, TS); g.fillRect(16, 0, 1, TS); g.fillStyle = '#c9b89e'; g.fillRect(4, 4, 8, 8); g.fillRect(20, 20, 8, 8); });
     put(T.bridge, () => { asphalt(C.bridge); g.fillStyle = 'rgba(255,255,255,0.10)'; g.fillRect(0, 0, TS, 1); });
@@ -410,6 +445,11 @@ export class CityMap {
       const st = DISTRICTS[id];
       for (let m = 0; m < 16; m++) put(T.walk + d * 16 + m, () => {
         g.fillStyle = st.walk; g.fillRect(0, 0, TS, TS);
+        const kerb = img('ground_kerb');
+        if (relief('ground_paver', 0.06) && kerb) { // rendered paving, with a raised kerb stone on each side that meets the road
+          if (m & 1) turned(kerb, 0); if (m & 2) turned(kerb, 2); if (m & 4) turned(kerb, 1); if (m & 8) turned(kerb, 3);
+          return;
+        }
         g.fillStyle = st.walkLine; g.fillRect(0, 0, TS, 1); g.fillRect(0, 16, TS, 1); g.fillRect(8, 0, 1, 16); g.fillRect(24, 16, 1, 16);
         g.fillStyle = st.kerb; // a pale kerb on the sides that meet the road: bits = left, right, up, down
         if (m & 1) g.fillRect(0, 0, 3, TS); if (m & 2) g.fillRect(TS - 3, 0, 3, TS); if (m & 4) g.fillRect(0, 0, TS, 3); if (m & 8) g.fillRect(0, TS - 3, TS, 3);
@@ -417,7 +457,16 @@ export class CityMap {
     });
     // things drawn on top of the ground: awnings (4 sides x 4 colours), vending machines, lamp posts
     const all = [...new Set(DIST_IDS.flatMap((id) => DISTRICTS[id].awnings))];
+    const cloth = img('ground_awning'), tint = document.createElement('canvas'); tint.width = tint.height = TS;
     for (let s = 0; s < 4; s++) for (let c = 0; c < 4; c++) put(T.awning + s * 4 + c, () => {
+      if (cloth) { // rendered pleated cloth, dyed this shop's colour and turned to hang off the right wall
+        const t = tint.getContext('2d')!;
+        t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, TS, TS); t.drawImage(cloth, 0, 0, TS, TS);
+        t.globalCompositeOperation = 'multiply'; t.fillStyle = all[(c + s) % all.length]; t.fillRect(0, 0, TS, TS);
+        t.globalCompositeOperation = 'destination-in'; t.drawImage(cloth, 0, 0, TS, TS);
+        turned(tint, [0, 2, 3, 1][s]);
+        return;
+      }
       g.fillStyle = all[(c + s) % all.length];
       const horiz = s < 2, o = s === 0 || s === 2 ? 0 : TS - 8;
       horiz ? g.fillRect(1, o, TS - 2, 8) : g.fillRect(o, 1, 8, TS - 2);
@@ -428,10 +477,12 @@ export class CityMap {
     for (let s = 0; s < 4; s++) for (let c = 0; c < 3; c++) put(T.vending + s * 3 + c, () => {
       const horiz = s < 2, w = horiz ? 13 : 9, h = horiz ? 9 : 13;
       const x = s === 2 ? 1 : s === 3 ? TS - w - 1 : 10, y = s === 0 ? 1 : s === 1 ? TS - h - 1 : 10;
+      const vm = img('prop_vending' + c);
+      if (vm) { g.save(); g.translate(x + w / 2, y + h / 2); g.rotate(horiz ? 0 : Math.PI / 2); g.drawImage(vm, -10, -10, 20, 20); g.restore(); return; }
       g.fillStyle = ['#e04a4a', '#4a9ae0', '#f2f2f2'][c]; g.fillRect(x, y, w, h);
       g.fillStyle = 'rgba(255,255,255,0.85)'; g.fillRect(x + 2, y + 2, w - 4, h - 4);
     });
-    put(T.lamp, () => { g.fillStyle = '#1c1a18'; g.beginPath(); g.arc(16, 16, 3.5, 0, 7); g.fill(); g.fillStyle = '#ffe2b0'; g.beginPath(); g.arc(16, 16, 1.6, 0, 7); g.fill(); });
+    put(T.lamp, () => { const lm = img('prop_lamp'); if (lm) { g.drawImage(lm, 6, 6, 20, 20); return; } g.fillStyle = '#1c1a18'; g.beginPath(); g.arc(16, 16, 3.5, 0, 7); g.fill(); g.fillStyle = '#ffe2b0'; g.beginPath(); g.arc(16, 16, 1.6, 0, 7); g.fill(); });
     tex.refresh();
     tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
   }
@@ -465,13 +516,14 @@ export class CityMap {
             let d = -1; // which edge the centre-line dash sits on
             if (v !== undefined && h === undefined && this.at(x, y - 1) !== Tile.Crossing && this.at(x, y + 1) !== Tile.Crossing) d = x === v + 1 ? 0 : x === v + 2 ? 1 : -1;
             if (h !== undefined && v === undefined && this.at(x - 1, y) !== Tile.Crossing && this.at(x + 1, y) !== Tile.Crossing) d = y === h + 1 ? 2 : y === h + 2 ? 3 : -1;
-            i = ring ? (d >= 0 ? T.kDash + d : T.kroad) : d >= 0 ? T.roadDash + d : T.road + ((x * 13 + y * 7) % 3);
+            i = ring ? (d >= 0 ? T.kDash + d : T.kroad) : d >= 0 ? T.roadDash + d : T.road + ((x * 13 + y * 7) % 23 === 0 ? 2 : (x + y) % 2);
           }
         }
         row.push(i);
       }
       ground.push(row);
     }
+    for (let i = 0; i < this.decals.length; i++) if (this.decals[i] < -1) this.decals[i] = -1;
     const map = scene.make.tilemap({ data: ground, tileWidth: TS, tileHeight: TS });
     const set = map.addTilesetImage('tiles', 'tiles', TS, TS, 1, 2)!;
     map.createLayer(0, set, 0, 0)!.setDepth(0);
@@ -533,6 +585,12 @@ export class CityMap {
       const hgt = r.roof ? MAP.roofHeight * (r.height ?? 1) : D.height[0] + rnd() * (D.height[1] - D.height[0]);
       out.push({ img: scene.add.image(r.x + r.w / 2, r.y + r.h / 2, key).setDepth(20), x: r.x + r.w / 2, y: r.y + r.h / 2, h: hgt, rect: r, wall: D.walls[i % D.walls.length] });
     });
+    // street furniture rendered in Blender; trees stand up a little, the rest sits on the ground
+    for (const f of this.furniture) {
+      if (!has(f.key)) continue;
+      const tree = f.h > 0;
+      out.push({ img: scene.add.image(f.x, f.y, f.key).setScale(0.5).setDepth(tree ? 19.5 : 2).setAlpha(tree ? 0.94 : 1), x: f.x, y: f.y, h: f.h });
+    }
     // the Hozuki-mon temple gate: a red beam across the road with one giant lantern
     const gate = this.places.asagiri, gw = (MAP.roadWidth + 2) * TS;
     const tex = scene.textures.createCanvas('gate', gw, 40)!;

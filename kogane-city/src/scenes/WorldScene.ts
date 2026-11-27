@@ -396,6 +396,8 @@ export class WorldScene extends Phaser.Scene {
       if (c.updateDamageFx(dt, (x, y, col, size, life, vx, vy, grow) => this.fx.puff(x, y, col, size, life, vx, vy, grow))) this.explode(c);
       if (c.wreck && c.wreckTimer <= 0) { c.destroy(); this.cars.splice(i, 1); }
     }
+    this.player.actor.animate(dt);
+    for (const a of this.npcs()) a.animate(dt);
     this.collideCars();
     this.collideCarPeople();
     for (const c of this.cars) c.sync();
@@ -450,18 +452,30 @@ export class WorldScene extends Phaser.Scene {
       const alpha = hidden ? 0.4 : 1;
       r.img.setAlpha(alpha);
       const col = r.wall ?? 0x666666, dark = Phaser.Display.Color.IntegerToColor(col).darken(28).color;
-      const wall = (ax: number, ay: number, bx: number, by: number, AX: number, AY: number, BX: number, BY: number, c: number) => {
+      const tall = k >= 0.06, day = !lit, seed = (b.x * 7 + b.y * 13) | 0;
+      const wall = (ax: number, ay: number, bx: number, by: number, AX: number, AY: number, BX: number, BY: number, c: number, side: number) => {
         g.fillStyle(c, alpha).fillTriangle(ax, ay, bx, by, BX, BY).fillTriangle(ax, ay, BX, BY, AX, AY);
-        if (k < 0.06) return; // low things (fences, containers) get no windows
-        for (const t of [0.38, 0.72]) { // two rows of windows: lit at night
-          g.lineStyle(2, lit ? 0xffd98a : 0x1c2530, alpha * (lit ? 0.55 : 0.5));
-          g.lineBetween(ax + (AX - ax) * t, ay + (AY - ay) * t, bx + (BX - bx) * t, by + (BY - by) * t);
+        const rise = Math.hypot(AX - ax, AY - ay);
+        if (!tall || rise < 7) return; // low things (fences, containers) and walls seen nearly edge-on get no windows
+        // a point on the wall: s along the wall, t from the ground (0) up to the roof (1)
+        const px = (s: number, t: number) => ax + (bx - ax) * s + (AX - ax + (BX - AX - bx + ax) * s) * t;
+        const py = (s: number, t: number) => ay + (by - ay) * s + (AY - ay + (BY - AY - by + ay) * s) * t;
+        g.fillStyle(0x000000, 0.22 * alpha).fillTriangle(px(0, 0), py(0, 0), px(1, 0), py(1, 0), px(1, 0.14), py(1, 0.14)).fillTriangle(px(0, 0), py(0, 0), px(1, 0.14), py(1, 0.14), px(0, 0.14), py(0, 0.14)); // shop-front band
+        const n = Math.max(1, Math.floor(Math.hypot(bx - ax, by - ay) / 22)), rows = k > 0.12 ? 3 : 2;
+        for (let row = 0; row < rows; row++) {
+          const t0 = 0.24 + (row * 0.7) / rows, t1 = t0 + 0.42 / rows;
+          for (let i = 0; i < n; i++) {
+            const s0 = (i + 0.22) / n, s1 = (i + 0.78) / n;
+            const on = !day && ((seed + i * 31 + row * 17 + side * 5) % 7) < 3; // some windows are lit at night
+            g.fillStyle(day ? 0x4a6478 : on ? 0xffd98a : 0x141c26, alpha * (day ? 0.85 : on ? 0.9 : 0.8));
+            g.fillTriangle(px(s0, t0), py(s0, t0), px(s1, t0), py(s1, t0), px(s1, t1), py(s1, t1)).fillTriangle(px(s0, t0), py(s0, t0), px(s1, t1), py(s1, t1), px(s0, t1), py(s0, t1));
+          }
         }
       };
-      if (mid.x < x0) wall(x0, y0, x0, y1, X0, Y0, X0, Y1, dark); // we see its west wall
-      else if (mid.x > x1) wall(x1, y0, x1, y1, X1, Y0, X1, Y1, dark); // east wall
-      if (mid.y < y0) wall(x0, y0, x1, y0, X0, Y0, X1, Y0, col); // north wall
-      else if (mid.y > y1) wall(x0, y1, x1, y1, X0, Y1, X1, Y1, col); // south wall
+      if (mid.x < x0) wall(x0, y0, x0, y1, X0, Y0, X0, Y1, dark, 0); // we see its west wall
+      else if (mid.x > x1) wall(x1, y0, x1, y1, X1, Y0, X1, Y1, dark, 1); // east wall
+      if (mid.y < y0) wall(x0, y0, x1, y0, X0, Y0, X1, Y0, col, 2); // north wall
+      else if (mid.y > y1) wall(x0, y1, x1, y1, X0, Y1, X1, Y1, col, 3); // south wall
     }
   }
 

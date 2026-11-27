@@ -268,7 +268,7 @@ export class HudScene extends Phaser.Scene {
     if (sp) {
       d.fillStyle(0x24202a, 1).fillRect(44, GH - 130, 104, 104);
       d.lineStyle(1, Phaser.Display.Color.HexStringToColor(sp.color).color, 1).strokeRect(44, GH - 130, 104, 104);
-      this.portrait.setTexture('f_' + sp.look);
+      this.portrait.setTexture('f_' + sp.look).setDisplaySize(96, 96);
     }
     const x = sp ? 164 : 60;
     this.dlgName.setText(sp ? sp.name : '').setColor(sp?.color ?? '#fff').setX(x);
