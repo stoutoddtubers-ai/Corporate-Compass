@@ -31,7 +31,7 @@ export const ACT3_TUNING = {
 
   // M17 Low Tide
   m17Guards: 5,
-  m17See: 170, // px a dockhand can see
+  m17See: 150, // px a dockhand can see
 
   // M18 Fish Market
   m18Price: 5000000, // (script)
@@ -189,7 +189,7 @@ export const MISSIONS_ACT3: Mission[] = [
         D('His crew picks up hooks and crates.'),
         { who: 'HACHIRŌ', text: '—swim.' },
       ] },
-      { t: 'choice', prompt: '', set: 'hachiro', options: [{ label: 'Pay ¥5,000,000', value: 'hachiroPaid' }, { label: 'Fight', value: 'hachiroFought' }] },
+      { t: 'choice', prompt: 'Pay me five million and my boats stay home that night. Or—', set: 'hachiro', options: [{ label: 'Pay ¥5,000,000', value: 'hachiroPaid' }, { label: 'Fight', value: 'hachiroFought' }] },
       { t: 'run', hook: 'm18Chosen' }, // not enough cash forces the fight
       { t: 'obj', text: 'Hand over the money.', done: 'm18Pay', if: 'hachiroPaid' },
       { t: 'obj', text: "Beat Hachirō's crew.", hint: 'Tuna knife — press E to pick up.', enter: 'm18Brawl', done: 'm18Crew', if: 'hachiroFought' },
@@ -434,7 +434,7 @@ export const MISSIONS_ACT3: Mission[] = [
         { who: 'TETSU', text: "Keep it, give it away, drown it. Whatever you pick, you'll still be my best work." },
         { who: 'JUN', text: 'I was never your work.' },
       ] },
-      { t: 'choice', prompt: '', set: 'ending', options: [{ label: 'Keep it', value: 'shogun' }, { label: 'Give it to Asagiri', value: 'oldtown' }, { label: 'Sink it', value: 'cleanslate' }] },
+      { t: 'choice', prompt: 'What does a driver do with all this gold?', set: 'ending', options: [{ label: 'Keep it', value: 'shogun' }, { label: 'Give it to Asagiri', value: 'oldtown' }, { label: 'Sink it', value: 'cleanslate' }] },
       { t: 'cut', lines: [
         A('SAEKO', "(her men lift TETSU) Hayami-san. The family has questions. You'll have a long time to answer them."),
         P('SAWADA', "(cuffing him) Tetsu Hayami, you're under arrest. Again, technically. You were dead."),

@@ -686,7 +686,7 @@ Object.assign(CHECKS, {
     noPolice(w);
     if (p.entering?.car === h) p.entering = null; // nobody steals a helicopter
     h.x = at.x + Math.sin(now * 1.3) * 14; h.y = at.y + Math.cos(now * 0.9) * 8; h.vx = h.vy = 0; // it sways on the pad as it spools up
-    drawChopper(g, h.x, h.y - 18 - (1 - t / T.m22HeliTime) * 60, now * 30);
+    drawChopper(g, h.x, h.y - 8, now * (12 + 30 * (1 - t / T.m22HeliTime))); // drawn right over what the bullets hit; the rotor spins up as it gets ready to leave
     s.timer = { label: L.helicopter, value: t, max: T.m22HeliTime, kind: 'time' };
     if (h.hp <= 0 || h.burning || h.wreck) { // down it comes
       g.clear(); scuttle(w, h); s.timer = null;
