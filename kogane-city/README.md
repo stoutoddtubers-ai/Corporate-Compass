@@ -6,7 +6,13 @@ Phaser 4 + TypeScript + Vite, WebGL only, 960x540 scaled up in whole steps.
 What is in the game now:
 
 - The whole city: eight districts on both banks of the Kurokawa River, the bay, the port
-  island and the K-Route ring road.
+  island and the K-Route ring road. The street plan follows Tokyo: wide avenues with narrow
+  side streets between them, superblocks, shopping lanes for people on foot, parks with
+  ponds, a moated castle garden, and the Kanjō Line, an elevated loop railway with six
+  stations and running trains.
+- Interiors: walk into the ramen shop (Jun's room is upstairs: sleep to heal and save),
+  a konbini in every big block, Hachiman Hardware, the pachinko hall, arcades, bars, capsule
+  inns (a paid bed in every district) and the buildings the story's indoor scenes use.
 - The full story: 24 missions in three acts, the yakuza / police fork at mission 15 and
   three endings. All text is copied from the Script and Writing doc.
 - Twelve side stories in four chains of three (Daigo's Road, Building 41, Old Debts,
@@ -15,7 +21,7 @@ What is in the game now:
 - Turf wars over 37 zones, with daily income from the zones you hold.
 - Heat levels 1-5, police on foot and in cars, roadblocks.
 - Ten weapons besides fists, Hachiman Hardware shops, a garage with upgrades and resprays,
-  vending machines, a safehouse that heals and saves.
+  vending machines, beds that heal and save.
 - A day and night cycle with rain, and a title screen with Continue / New game.
 
 ## Run it
@@ -32,13 +38,35 @@ from `dist/assets/` beside it.
 ## Controls
 
 On foot: WASD move, mouse aim, left click fire, right click steady aim, Space dodge roll,
-1-5 or mouse wheel switch weapon, R reload, V punch or swing, E get in a car / use.
+1-5 or mouse wheel switch weapon, R reload, V punch or swing, E get in a car / go through
+a door / use. Doors stay shut while the police are after you.
 Driving: W/S accelerate and brake/reverse, A/D steer, Space handbrake (drifting fills
 nitro), Shift nitro, E get out.
 Menus (garage, shop): Up/Down and Enter. Story choices: 1, 2 or 3.
 Click / Space / Enter moves a cutscene on.
 F3 toggles the debug overlay; F4 skips to the next mission; F6 restarts the story.
 Progress is saved in the browser. "New game" on the title screen wipes it.
+
+## How the city is laid out (`src/data/map.ts`)
+
+- `vRoads` / `hRoads` are the avenues. Story places name the big blocks between them
+  ("2-3", "w1-0", "p1"), so the story does not care how far apart the avenues are.
+- `GAPS_V` / `GAPS_H` say how wide the new small blocks in each gap are. Bigger numbers =
+  a bigger city.
+- `GRAIN` gives each district its Tokyo character: how often a side street runs through,
+  how often it is a walking lane instead, and how many parks.
+- `rail` is the loop railway; `castle` is the moated garden.
+- Places written as `tile: [x, y]` are measured on the first, small plan; the game moves
+  them to the new plan by itself.
+
+## Interiors (`src/data/interiors.ts`)
+
+A room is a small text map: `#` wall, `.` floor, `D` way out, `<` `>` stairs, letters for
+counters, tables, shelves and machines, digits for named spots a mission can use. The
+legend is at the top of the file. A line in `DOORS` joins a street door to a room. The
+missions' own rooms are in `interiors_act1.ts`, `interiors_act2.ts`, `interiors_act3.ts`
+and `interiors_side.ts`. Rooms are kept out of sight south of the bay and Jun is moved
+between street and room when he uses a door (E).
 
 ## Where to change things
 
@@ -89,11 +117,10 @@ fun or fair; that needs a person playing.
 
 ## What stands in for what
 
-The engine has streets, cars and people, but no building interiors, no boats and no
-aircraft. Until those exist:
+The engine has streets, rooms, cars and people, but no boats, no aircraft and no walking
+on rooftops. Until those exist:
 
-- Indoor scenes are staged in the nearest yard, alley or plaza. "Rooms" and "floors" are
-  marked spots or waves of enemies; "rooftops" are marked spots at a building's door.
+- Rooftop scenes are staged in rooms or yards (there is no walking on roofs).
 - Boat chases are car chases along the shore. The ship in the finale is a drawing beside
   the north quay and its deck is the quay. Boats in the side stories are cars and trucks.
 - The helicopter is a drawing over an invisible truck, which is what bullets hit.
