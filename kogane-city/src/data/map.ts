@@ -215,7 +215,7 @@ export const MAP = {
   /** Kogane Castle: a moated garden in the middle of the west side, as the Imperial Palace sits in Tokyo. It takes the south-east corner of this big block. */
   castle: { block: 'w3-1' },
   /**
-   * The Kanjō Line: an elevated railway loop over four side streets (Tokyo's Yamanote Line).
+   * The Wa-sen Loop Line: an elevated railway loop over four side streets (Tokyo's Yamanote Line).
    * `v` and `h` name the side streets it runs above, as [gap between avenues, which side street in it].
    * Those streets always exist, so there is a road under the viaduct, as in Tokyo.
    */

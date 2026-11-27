@@ -8,7 +8,7 @@ What is in the game now:
 - The whole city: eight districts on both banks of the Kurokawa River, the bay, the port
   island and the K-Route ring road. The street plan follows Tokyo: wide avenues with narrow
   side streets between them, superblocks, shopping lanes for people on foot, parks with
-  ponds, a moated castle garden, and the Kanjō Line, an elevated loop railway with six
+  ponds, a moated castle garden, and the Wa-sen Loop Line, an elevated loop railway with six
   stations and running trains.
 - Interiors: walk into the ramen shop (Jun's room is upstairs: sleep to heal and save),
   a konbini in every big block, Hachiman Hardware, the pachinko hall, arcades, bars, capsule

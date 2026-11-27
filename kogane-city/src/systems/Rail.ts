@@ -3,7 +3,7 @@ import { MAP } from '../data/map';
 import type { CityMap } from './CityMap';
 
 /**
- * The Kanjō Line: trains running round the elevated loop (the city's Yamanote Line).
+ * The Wa-sen Loop Line: trains running round the elevated loop (the city's Yamanote Line).
  * They are scenery: they stop at each station, then move on. Nothing collides with them.
  */
 export class Rail {
